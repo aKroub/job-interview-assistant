@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useInterviewTracker } from './hooks/useInterviewTracker';
 import { STAGES, STAGE_LABELS } from './constants/stages';
+import { APP_TITLE } from './constants/app';
 import { TabNav } from './components/shared/TabNav';
 import { KanbanBoard } from './components/KanbanBoard/KanbanBoard';
 import { TimelineView } from './components/TimelineView/TimelineView';
@@ -54,7 +55,7 @@ const InterviewPrepTracker = () => {
 
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Interview Prep Tracker</h1>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">{APP_TITLE}</h1>
           <p className="text-gray-600">
             Track your job applications, schedule interviews, and prep for success
           </p>

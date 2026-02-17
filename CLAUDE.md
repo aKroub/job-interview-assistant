@@ -59,6 +59,20 @@ Zero tolerance for warnings in the build output. Fix them, don't suppress them.
 
 ---
 
+## Pre-Merge Checklist
+
+Before opening any PR, confirm every item:
+
+- [ ] `npm run build` → 0 errors, 0 warnings
+- [ ] `npm test -- --watchAll=false --verbose` → all pass
+- [ ] No inner component functions defined inside a component's render scope
+- [ ] All state mutations flow through hooks — nothing imports storage directly in components
+- [ ] New logic is covered by tests; immutability is asserted where applicable
+- [ ] Branch is named `feature/<short-description>`
+- [ ] No `TODO`, placeholder, or incomplete code left in
+
+---
+
 ## Architecture — Layered (bottom-up dependency order)
 
 ```
@@ -97,6 +111,32 @@ src/
 - Hooks never import components
 - Utils never import hooks or components
 - Constants never import anything from `src/`
+
+### Where does new code go?
+
+```
+Is it pure logic with no React?
+├─ Yes → utils/  (pure function, testable without React)
+└─ No → Does it manage persisted state?
+    ├─ Yes → hooks/  (useCompanies, useSeenQuestions, etc.)
+    └─ No → Is it ephemeral UI state? (form open/close, hover)
+        ├─ Yes → component local state is fine
+        └─ No → it's display or a callback → props only, no local state
+```
+
+---
+
+## What NOT To Do
+
+These are the most common mistakes — treat each as a hard rule:
+
+- **Never import hooks in a component** — all data and callbacks come via props
+- **Never mock `localStorage` in tests** — use `createMemoryStorage()` injected into the hook
+- **Never define a component inside another component's render function** — breaks React reconciliation and makes the component untestable in isolation
+- **Never hardcode stage names or question data** — use `STAGES`, `STAGE_LABELS`, `SYSTEM_DESIGN_QUESTIONS` from `constants/`
+- **Never commit directly to `main`** — always create a `feature/` branch first
+- **Never leave `TODO`, placeholder, or half-finished code** — all committed code must be working
+- **Never suppress a build warning** — fix the root cause
 
 ---
 
@@ -142,13 +182,13 @@ src/
 - **Never block the event loop** — if a task is CPU-heavy and could run in a worker, note it
 - Run independent async operations **concurrently** with `Promise.all`, not sequentially:
   ```js
-  // Good — both fetches start immediately
+  // Good — both fetches start immediately, CPU is free while I/O is in flight
   const [companies, questions] = await Promise.all([
     storage.getItem('companies'),
     storage.getItem('seenQuestions'),
   ]);
 
-  // Bad — second fetch waits for first to finish
+  // Bad — second fetch waits for first to finish for no reason
   const companies = await storage.getItem('companies');
   const questions = await storage.getItem('seenQuestions');
   ```
@@ -210,7 +250,7 @@ src/
 - Immutability is mandatory — never mutate state directly; always produce new arrays/objects
 
 ### Components
-- **No inner components** — never define a component function inside another component's render scope (breaks reconciliation, kills testability)
+- **No inner components** — never define a component function inside another component's render scope
 - **Props only** — components receive all data and callbacks as props; they never import hooks or call storage directly
 - **Local UI state is OK** — ephemeral form state (e.g. `AddInterviewForm`'s open/close) may live in the component; persisted state belongs in hooks
 - **Callbacks bubble up** — mutations always flow: component calls prop callback → hook updates state → hook persists to storage
@@ -259,6 +299,19 @@ Every util function that transforms state should have a test asserting the origi
 
 ---
 
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---|---|---|
+| Tailwind classes not applying | Tailwind v4 installed instead of v3 | `npm ls tailwindcss` must show v3; reinstall if not |
+| `localStorage is not defined` in tests | Hook or component calls `localStorage` directly | Use injected `storage` param + `createMemoryStorage()` in tests |
+| `&&=` syntax error in tests | Node version < 18 | Run `nvm use 20` before any npm command |
+| `Module not found` after branch switch | `npm install` not re-run | `nvm use 20 && npm install` |
+| Component renders stale data | State mutation instead of new object | Return `{ ...obj, field: value }` — never mutate in place |
+| Test passes but app crashes | Inner component defined in render | Move component to its own file at module level |
+
+---
+
 ## Code Style
 
 - Named exports for all components and utilities (e.g. `export function KanbanBoard`)
@@ -272,22 +325,14 @@ Every util function that transforms state should have a test asserting the origi
 ## Common Commands
 
 ```bash
-# Run from the repo root
+# Always run from the app directory
 cd interview-prep-tracker
 
-# Start dev server
-nvm use 20 && npm start
+nvm use 20 && npm start                              # dev server
+nvm use 20 && npm run build                          # production build (must be clean)
+nvm use 20 && npm test -- --watchAll=false --verbose # all tests (must pass before PR)
 
-# Production build (must be clean before any PR)
-nvm use 20 && npm run build
-
-# Run tests (must all pass before any PR)
-nvm use 20 && npm test -- --watchAll=false --verbose
-
-# Create a new feature branch
-git checkout -b feature/<name>
-
-# Push and open PR
-git push -u origin feature/<name>
-gh pr create --title "..." --body "..."
+git checkout -b feature/<name>                       # new branch
+git push -u origin feature/<name>                    # push branch
+gh pr create --title "..." --body "..."              # open PR
 ```

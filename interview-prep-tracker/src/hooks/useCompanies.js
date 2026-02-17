@@ -11,6 +11,25 @@ import {
 const STORAGE_KEY = 'companies';
 
 /**
+ * Returns true only if `value` looks like a valid persisted company object.
+ * Prevents corrupted or tampered localStorage data from poisoning app state.
+ *
+ * @param {unknown} value
+ * @returns {boolean}
+ */
+function isValidCompany(value) {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    typeof value.id       === 'string' &&
+    typeof value.name     === 'string' &&
+    typeof value.position === 'string' &&
+    typeof value.stage    === 'string' &&
+    Array.isArray(value.interviews)
+  );
+}
+
+/**
  * Custom hook that owns all company and interview state.
  *
  * Accepts an injectable `storage` implementation so that tests can pass
@@ -26,9 +45,15 @@ export function useCompanies(storage = localStorageService) {
   useEffect(() => {
     try {
       const raw = storage.getItem(STORAGE_KEY);
-      if (raw) setCompanies(JSON.parse(raw));
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed) && parsed.every(isValidCompany)) {
+          setCompanies(parsed);
+        }
+        // If shape is invalid, silently discard and start fresh
+      }
     } catch {
-      // No saved data — start fresh (expected on first run)
+      // Malformed JSON — start fresh (expected on first run)
     }
   }, [storage]);
 

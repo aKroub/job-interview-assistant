@@ -29,6 +29,7 @@ export function AddCompanyModal({ draft, onDraftChange, onAdd, onClose, stages, 
               onChange={(e) => onDraftChange({ ...draft, name: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="e.g., Google"
+              maxLength={100}
             />
           </div>
 
@@ -40,6 +41,7 @@ export function AddCompanyModal({ draft, onDraftChange, onAdd, onClose, stages, 
               onChange={(e) => onDraftChange({ ...draft, position: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               placeholder="e.g., Senior Software Engineer"
+              maxLength={100}
             />
           </div>
 

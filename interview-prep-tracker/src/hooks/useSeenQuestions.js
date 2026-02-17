@@ -26,9 +26,16 @@ export function useSeenQuestions(storage = localStorageService) {
   useEffect(() => {
     try {
       const raw = storage.getItem(STORAGE_KEY);
-      if (raw) setSeenQuestions(new Set(JSON.parse(raw)));
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        // Only accept an array of strings — rejects injected non-string values
+        if (Array.isArray(parsed) && parsed.every((id) => typeof id === 'string')) {
+          setSeenQuestions(new Set(parsed));
+        }
+        // If shape is invalid, silently discard and start fresh
+      }
     } catch {
-      // No saved data — start fresh
+      // Malformed JSON — start fresh
     }
   }, [storage]);
 

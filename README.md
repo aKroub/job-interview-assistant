@@ -28,216 +28,232 @@ A full-featured interview preparation and job application tracking tool built wi
 - Reset options when you've completed all questions
 
 ### 💾 Persistent Storage
-- All data persists between sessions using browser storage
+- All data persists between sessions using `localStorage`
 - Tracks companies, interviews, and seen questions
-- No account required - works entirely in your browser
+- No account required — works entirely in your browser
+
+---
 
 ## Tech Stack
 
-- **React** - UI framework with hooks
-- **Lucide React** - Beautiful icon library
-- **Tailwind CSS** - Utility-first styling
-- **Browser Storage API** - Persistent data storage
+| Tool | Version | Notes |
+|---|---|---|
+| React | 19 | Hooks-based, functional components only |
+| Tailwind CSS | v3 | Utility-first styling |
+| lucide-react | latest | Icon library |
+| react-scripts | 5.0.1 | Create React App — not ejected |
+| Node.js | 20 | Required (v14 is incompatible with @testing-library/dom v10) |
+
+---
 
 ## Getting Started
 
 ### Prerequisites
-- Node.js 14+ and npm/yarn installed
-- Modern web browser
+- Node.js **20+** (install via [nvm](https://github.com/nvm-sh/nvm))
+- npm (bundled with Node)
 
 ### Installation
 
-1. **Clone/Download the repository**
-   ```bash
-   mkdir interview-prep-tracker
-   cd interview-prep-tracker
-   ```
+```bash
+# 1. Clone the repository
+git clone https://github.com/aKroub/job-interview-assistant.git
+cd job-interview-assistant
 
-2. **Create a new React app**
-   ```bash
-   npx create-react-app .
-   ```
+# 2. Use the correct Node version
+nvm use 20
 
-3. **Install dependencies**
-   ```bash
-   npm install lucide-react
-   ```
+# 3. Install dependencies
+cd interview-prep-tracker
+npm install
 
-4. **Replace `src/App.js` with the tracker code**
-   - Copy the contents of `interview-prep-tracker.jsx` into `src/App.js`
+# 4. Start the dev server
+npm start
+```
 
-5. **Update `src/index.css` to include Tailwind**
-   ```css
-   @tailwind base;
-   @tailwind components;
-   @tailwind utilities;
-   ```
+The app opens at `http://localhost:3000`.
 
-6. **Install Tailwind CSS**
-   ```bash
-   npm install -D tailwindcss postcss autoprefixer
-   npx tailwindcss init -p
-   ```
+---
 
-7. **Configure Tailwind** - Update `tailwind.config.js`:
-   ```javascript
-   module.exports = {
-     content: [
-       "./src/**/*.{js,jsx,ts,tsx}",
-     ],
-     theme: {
-       extend: {},
-     },
-     plugins: [],
-   }
-   ```
+## Development
 
-8. **Run the app**
-   ```bash
-   npm start
-   ```
+```bash
+cd interview-prep-tracker
 
-The app will open at `http://localhost:3000`
+# Start dev server with hot reload
+nvm use 20 && npm start
 
-## Usage Guide
+# Production build (must be clean — 0 errors, 0 warnings)
+nvm use 20 && npm run build
 
-### Adding Companies
-1. Navigate to the "Pipeline" tab
-2. Click "Add Company" button
-3. Enter company name, position, and initial stage
-4. Click "Add Company" to save
+# Run all tests (must all pass before any commit)
+nvm use 20 && npm test -- --watchAll=false --verbose
+```
 
-### Managing Pipeline
-- Drag and drop companies between stages using the dropdown
-- Click the X icon to remove a company
-- View interview count badge on each company card
-
-### Scheduling Interviews
-1. Go to the "Timeline" tab
-2. Find the company you want to schedule an interview for
-3. Click "Add Interview"
-4. Enter interview type (e.g., "Technical Round"), date, and time
-5. Click "Add" to save
-6. Update status as interviews progress
-
-### Practicing System Design
-1. Navigate to the "Prep Content" tab
-2. Browse questions from Google, Microsoft, and Facebook
-3. Click "Watch" to view the YouTube solution video
-4. Click "Mark Seen" once you've completed a question
-5. New questions automatically appear as you mark others seen
-6. Reset all questions for a company if needed
+---
 
 ## Project Structure
 
 ```
-interview-prep-tracker/
-├── src/
-│   ├── App.js                 # Main application component
-│   ├── index.css              # Tailwind styles
-│   └── index.js               # React entry point
-├── public/
-│   └── index.html
-├── package.json
-├── tailwind.config.js
-└── README.md
+interview-prep-tracker/src/
+│
+├── constants/                     # Static data — no logic, no React
+│   ├── questions.js               # SYSTEM_DESIGN_QUESTIONS bank (Google / Microsoft / Facebook)
+│   └── stages.js                  # STAGES array + STAGE_LABELS map
+│
+├── services/                      # I/O abstractions — injectable in tests
+│   └── storageService.js          # localStorageService + createMemoryStorage()
+│
+├── utils/                         # Pure functions — no React, no globals
+│   ├── companyUtils.js            # createCompany, applyStageUpdate, applyDelete, …
+│   └── questionUtils.js           # getAvailableQuestions, addSeenQuestion, …
+│
+├── hooks/                         # React state + persistence
+│   ├── useCompanies.js            # Companies + interviews state and mutations
+│   ├── useSeenQuestions.js        # Seen questions Set + selectors
+│   └── useInterviewTracker.js     # Thin composition of the two hooks above
+│
+├── components/
+│   ├── shared/
+│   │   ├── DifficultyBadge.jsx    # Reusable difficulty colour badge
+│   │   └── TabNav.jsx             # Three-tab navigation bar
+│   ├── AddCompanyModal/
+│   │   └── AddCompanyModal.jsx
+│   ├── KanbanBoard/
+│   │   ├── KanbanBoard.jsx
+│   │   ├── KanbanColumn.jsx
+│   │   └── CompanyCard.jsx
+│   ├── TimelineView/
+│   │   ├── TimelineView.jsx
+│   │   ├── InterviewRow.jsx
+│   │   └── AddInterviewForm.jsx
+│   └── PrepContentView/
+│       ├── PrepContentView.jsx
+│       ├── CompanyQuestionSection.jsx
+│       └── QuestionCard.jsx
+│
+├── InterviewPrepTracker.jsx       # Thin orchestrating shell (~110 lines)
+├── App.js                         # Renders <InterviewPrepTracker />
+└── App.test.js                    # Integration smoke tests
 ```
 
-## Data Storage
+### Architecture rules
+- Each layer imports **only from layers below it** — components never import hooks or services
+- All components are **fully presentational** — they receive data and callbacks via props and own no global state
+- All **business logic lives in `utils/`** as pure functions (no React, no globals)
+- All **state and persistence lives in `hooks/`**, which accept an injectable `storage` parameter
 
-The app uses browser's persistent storage API to save:
-- **companies**: Array of company objects with stages and interviews
-- **seenQuestions**: Set of question IDs you've completed
+---
 
-Data persists between browser sessions but is tied to your browser. Clear your browser data to reset.
+## Testing
 
-## Customization
+The test suite is split into layers, matching the architecture:
+
+| File | What it tests |
+|---|---|
+| `src/App.test.js` | Integration smoke test — app renders and default view loads |
+| `src/utils/companyUtils.test.js` | Pure function unit tests (no React) |
+| `src/utils/questionUtils.test.js` | Pure function unit tests (no React) |
+| `src/hooks/useCompanies.test.js` | Hook tests with injected in-memory storage |
+| `src/hooks/useSeenQuestions.test.js` | Hook tests with injected in-memory storage |
+
+```bash
+# Run all tests with verbose output
+npm test -- --watchAll=false --verbose
+
+# Expected output:
+# Test Suites: 5 passed, 5 total
+# Tests:       64 passed, 64 total
+```
+
+Tests never mock `localStorage` globally — they inject a `createMemoryStorage()` instance instead, keeping each test fully isolated.
+
+---
+
+## Usage Guide
+
+### Adding Companies
+1. Navigate to the **Pipeline** tab
+2. Click **Add Company**
+3. Enter company name, position, and initial stage
+4. Click **Add Company** to save
+
+### Managing the Pipeline
+- Use the dropdown on each card to move a company to a different stage
+- Click the **✕** icon to remove a company
+
+### Scheduling Interviews
+1. Go to the **Timeline** tab
+2. Click **Add Interview** next to a company
+3. Enter type (e.g. "Technical Round"), date, and time
+4. Update status as the interview progresses (Scheduled → Completed / Cancelled)
+
+### Practising System Design
+1. Navigate to the **Prep Content** tab
+2. Browse questions from Google, Microsoft, and Facebook (3 at a time per company)
+3. Click **Watch** to open the YouTube solution video
+4. Click **Mark Seen** once you've completed a question — fresh questions appear automatically
+5. Click **Reset** when you've seen all of a company's questions
+
+---
+
+## Customisation
 
 ### Adding More Questions
-Edit the `SYSTEM_DESIGN_QUESTIONS` object in the code to add more companies or questions:
+Edit `src/constants/questions.js`:
 
-```javascript
-const SYSTEM_DESIGN_QUESTIONS = {
-  YourCompany: [
-    { 
-      id: 'unique-id', 
-      title: 'Design Something', 
-      url: 'https://youtube.com/...', 
-      difficulty: 'Medium' 
-    },
+```js
+export const SYSTEM_DESIGN_QUESTIONS = {
+  // Add a new company
+  Amazon: [
+    { id: 'a1', title: 'Design Amazon S3', url: 'https://youtube.com/...', difficulty: 'Hard' },
+  ],
+  // Or add questions to an existing company
+  Google: [
+    // ... existing questions ...
+    { id: 'g10', title: 'Design Spanner', url: 'https://youtube.com/...', difficulty: 'Hard' },
   ],
 };
 ```
 
 ### Changing Pipeline Stages
-Modify the `stages` and `stageLabels` arrays to customize your pipeline stages.
+Edit `src/constants/stages.js`:
 
-## Git Setup
-
-To initialize this as a Git repository:
-
-```bash
-# Initialize git
-git init
-
-# Create .gitignore
-cat > .gitignore << EOL
-# dependencies
-/node_modules
-/.pnp
-.pnp.js
-
-# testing
-/coverage
-
-# production
-/build
-
-# misc
-.DS_Store
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-EOL
-
-# Create initial commit
-git add .
-git commit -m "Initial commit: Interview Prep Tracker"
-
-# Create GitHub repo and push
-git branch -M main
-git remote add origin YOUR_GITHUB_REPO_URL
-git push -u origin main
+```js
+export const STAGES = ['interested', 'applied', 'phone', 'technical', 'final', 'offer'];
+export const STAGE_LABELS = { interested: 'Interested', /* ... */ };
 ```
 
-## Contributing
-
-This is a personal project, but feel free to fork and customize for your own needs!
+---
 
 ## Future Enhancements
 
-Ideas for future development:
-- [ ] Add notes section per company
-- [ ] Export data as JSON/CSV
+- [ ] Notes section per company
+- [ ] Export data as JSON / CSV
 - [ ] Email reminders for upcoming interviews
-- [ ] More interview question categories (behavioral, coding, etc.)
+- [ ] More question categories (behavioural, coding, etc.)
 - [ ] Dark mode
 - [ ] Mobile responsive improvements
-- [ ] Integration with calendar apps
+- [ ] Calendar app integration
 - [ ] Salary negotiation tracker
+
+---
+
+## Contributing
+
+This project follows a **feature-branch → PR → review → merge** workflow:
+
+1. Create a branch: `git checkout -b feature/<name>`
+2. Make changes — build and tests must be clean before committing
+3. Open a PR and wait for approval
+4. Merge only after approval and CI passes
+
+See `CLAUDE.md` in the repo root for the full development conventions (also used by Claude Code).
+
+---
 
 ## License
 
-MIT License - feel free to use this for your job search!
-
-## Support
-
-For issues or questions, open an issue on GitHub or reach out directly.
+MIT — feel free to use this for your job search!
 
 ---
 

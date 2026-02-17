@@ -38,6 +38,7 @@ A React app for tracking job applications (Kanban pipeline), scheduling intervie
 4. Open a PR for the user's approval
 5. **Do not merge** until the user explicitly approves and CI passes
 6. PRs are opened against the previous feature branch (chained), or `main` when that branch is already merged
+7. **Max ~8 files changed per PR** — keeps diffs reviewable and isolates changes for future debugging
 
 ---
 
@@ -99,6 +100,123 @@ src/
 
 ---
 
+## General Engineering Principles
+
+### Single Responsibility
+- Every function does **one thing** — if you need "and" to describe it, split it
+- Every file owns one concept: one component, one hook, one util group
+- Side effects are **explicit and minimal** — a function that transforms data must not also save to storage; let the caller decide what to do with the result
+
+### DRY (Don't Repeat Yourself)
+- Before writing logic, check if a util or constant already covers it
+- Shared UI patterns (e.g. difficulty colours) live in a single shared component (`DifficultyBadge`), never inlined in multiple places
+- Constants (`STAGES`, `STAGE_LABELS`, `SYSTEM_DESIGN_QUESTIONS`) are the single source of truth — never hardcode their values elsewhere
+
+### Interfaces / Contracts
+- Services expose a plain **interface** (an object with a fixed set of methods) rather than a concrete implementation so that the implementation can be swapped in tests or extended later
+- The storage interface contract:
+  ```js
+  { getItem(key: string): string | null, setItem(key: string, value: string): void }
+  ```
+- Hook return values are the public API of a hook — keep them stable and document every property with JSDoc
+- Inject dependencies as **function parameters with defaults**, not as module-level globals:
+  ```js
+  // Good — caller can override in tests
+  export function createCompany(draft, idFn = Date.now) { ... }
+
+  // Bad — untestable, always calls the real Date.now
+  export function createCompany(draft) { const id = Date.now(); ... }
+  ```
+
+### File & Module Size
+- A file that needs to scroll more than one screen to read is a signal to split it
+- One React component per file; one logical group of pure functions per util file
+- Prefer many small files over few large ones — the architecture already enforces this via the layered folder structure
+
+---
+
+## Performance Best Practices
+
+### Async & Concurrency
+- Use `async/await` for all I/O-bound work (network requests, file reads, any future API calls)
+- **Never block the event loop** — if a task is CPU-heavy and could run in a worker, note it
+- Run independent async operations **concurrently** with `Promise.all`, not sequentially:
+  ```js
+  // Good — both fetches start immediately
+  const [companies, questions] = await Promise.all([
+    storage.getItem('companies'),
+    storage.getItem('seenQuestions'),
+  ]);
+
+  // Bad — second fetch waits for first to finish
+  const companies = await storage.getItem('companies');
+  const questions = await storage.getItem('seenQuestions');
+  ```
+- Prefer `Promise.allSettled` when individual failures should not abort the whole batch
+
+### React Performance
+- Derive values inside `useMemo` or `useCallback` only when the computation is actually expensive or the reference stability matters for child re-renders — do not add them by default
+- Keep state as close to where it is used as possible — global state causes unnecessary re-renders across the tree
+- Avoid creating new object/array literals in JSX props (they cause new references on every render); define them outside the component or memoize them
+
+### Data Structures
+- Choose the right data structure for the access pattern:
+  - `Set` for membership checks (O(1)) — e.g. `seenQuestions`
+  - `Map` / object keyed by ID for O(1) lookup by ID — prefer over `.find()` on large arrays
+  - Plain arrays only when order matters and lookup is by index
+
+---
+
+## Node.js Best Practices
+
+> These apply whenever writing scripts, CLI tools, or any future backend/server code in this repo.
+
+### Error Handling
+- Always handle promise rejections — unhandled rejections crash the process in Node 20
+- Use `try/catch` around every `await` that can fail; never swallow errors silently
+- Distinguish between operational errors (bad input, network timeout) and programmer errors (null dereference) — operational errors are recoverable, programmer errors are bugs
+
+### Environment & Config
+- Never hardcode environment-specific values (URLs, keys, feature flags) — read from environment variables or a config file
+- Never commit secrets to the repo — use `.env.local` (already gitignored by CRA)
+
+### Module System
+- Use ES Modules (`import`/`export`) throughout — this project is already fully ESM; do not introduce `require()`
+- Keep `package.json` dependency list intentional — no unused packages, no mixing of dev and prod dependencies
+
+### Process & Resource Management
+- Close connections and clean up listeners in `useEffect` cleanup functions (React) or process `exit` handlers (Node scripts) to avoid resource leaks
+- Avoid synchronous file I/O (`fs.readFileSync`) in anything that runs on the hot path — use the async equivalents
+
+---
+
+## React Best Practices
+
+### Hooks
+- Custom hooks encapsulate **one concern** each (`useCompanies`, `useSeenQuestions`) — the composing hook (`useInterviewTracker`) contains no logic of its own
+- The `useEffect` dependency array must be complete and accurate — do not silence ESLint exhaustive-deps warnings
+- For effects that load data on mount, guard against running twice in StrictMode by returning a cleanup function or using a ref flag
+
+### State
+- Prefer derived state over duplicated state — if a value can be computed from existing state, compute it rather than storing it separately
+- State updates that depend on previous state must use the functional updater form:
+  ```js
+  // Good
+  setCount(prev => prev + 1);
+
+  // Bad — may read a stale value in concurrent mode
+  setCount(count + 1);
+  ```
+- Immutability is mandatory — never mutate state directly; always produce new arrays/objects
+
+### Components
+- **No inner components** — never define a component function inside another component's render scope (breaks reconciliation, kills testability)
+- **Props only** — components receive all data and callbacks as props; they never import hooks or call storage directly
+- **Local UI state is OK** — ephemeral form state (e.g. `AddInterviewForm`'s open/close) may live in the component; persisted state belongs in hooks
+- **Callbacks bubble up** — mutations always flow: component calls prop callback → hook updates state → hook persists to storage
+
+---
+
 ## Testing Conventions
 
 ### What to test at each layer
@@ -138,15 +256,6 @@ it('updates the stage', () => {
 ### Immutability — always test it
 
 Every util function that transforms state should have a test asserting the original input was not mutated.
-
----
-
-## Component Rules
-
-- **No inner components** — never define a component function inside another component's render scope (breaks reconciliation, kills testability)
-- **Props only** — components receive all data and callbacks as props; they never import hooks or call storage directly
-- **Local UI state is OK** — ephemeral form state (e.g. `AddInterviewForm`'s open/close) may live in the component; persisted state belongs in hooks
-- **Callbacks bubble up** — mutations always flow: component calls prop callback → hook updates state → hook persists to storage
 
 ---
 

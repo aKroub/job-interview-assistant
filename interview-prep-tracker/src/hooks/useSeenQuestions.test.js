@@ -132,3 +132,38 @@ describe('useSeenQuestions — getTotalSeenFor', () => {
     expect(result.current.getTotalSeenFor('Google')).toBe(0);
   });
 });
+
+// ---------------------------------------------------------------------------
+// useSeenQuestions — storage resilience (invalid / corrupted data)
+// ---------------------------------------------------------------------------
+
+describe('useSeenQuestions — storage resilience', () => {
+  it('starts with empty set when storage contains malformed JSON', () => {
+    const storage = createMemoryStorage();
+    storage.setItem('seenQuestions', '{ bad json');
+    const { result } = renderHook(() => useSeenQuestions(storage));
+    expect(result.current.seenQuestions.size).toBe(0);
+  });
+
+  it('starts with empty set when storage contains a non-array', () => {
+    const storage = createMemoryStorage();
+    storage.setItem('seenQuestions', JSON.stringify({ id: 'g1' }));
+    const { result } = renderHook(() => useSeenQuestions(storage));
+    expect(result.current.seenQuestions.size).toBe(0);
+  });
+
+  it('starts with empty set when array contains non-string values', () => {
+    const storage = createMemoryStorage();
+    storage.setItem('seenQuestions', JSON.stringify([1, 2, 3]));
+    const { result } = renderHook(() => useSeenQuestions(storage));
+    expect(result.current.seenQuestions.size).toBe(0);
+  });
+
+  it('loads valid string-only arrays from storage', () => {
+    const storage = createMemoryStorage();
+    storage.setItem('seenQuestions', JSON.stringify(['g1', 'g2']));
+    const { result } = renderHook(() => useSeenQuestions(storage));
+    expect(result.current.seenQuestions.has('g1')).toBe(true);
+    expect(result.current.seenQuestions.has('g2')).toBe(true);
+  });
+});

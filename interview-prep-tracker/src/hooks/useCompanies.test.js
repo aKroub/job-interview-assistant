@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
-import { useCompanies } from './useCompanies';
+import { useCompanies, isValidCompany } from './useCompanies';
 import { createMemoryStorage } from '../services/storageService';
 
 // ---------------------------------------------------------------------------
@@ -129,5 +129,84 @@ describe('useCompanies — updateInterviewStatus', () => {
 
     act(() => { result.current.updateInterviewStatus(companyId, interviewId, 'completed'); });
     expect(result.current.companies[0].interviews[0].status).toBe('completed');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isValidCompany — pure validator
+// ---------------------------------------------------------------------------
+
+describe('isValidCompany', () => {
+  const valid = { id: '1', name: 'Acme', position: 'Eng', stage: 'applied', interviews: [] };
+
+  it('returns true for a valid company object', () => {
+    expect(isValidCompany(valid)).toBe(true);
+  });
+
+  it('returns false for null', () => {
+    expect(isValidCompany(null)).toBe(false);
+  });
+
+  it('returns false for a primitive', () => {
+    expect(isValidCompany('string')).toBe(false);
+    expect(isValidCompany(42)).toBe(false);
+  });
+
+  it('returns false when id is missing or not a string', () => {
+    expect(isValidCompany({ ...valid, id: 1 })).toBe(false);
+    expect(isValidCompany({ ...valid, id: undefined })).toBe(false);
+  });
+
+  it('returns false when name is missing or not a string', () => {
+    expect(isValidCompany({ ...valid, name: null })).toBe(false);
+  });
+
+  it('returns false when position is missing or not a string', () => {
+    expect(isValidCompany({ ...valid, position: 123 })).toBe(false);
+  });
+
+  it('returns false when stage is missing or not a string', () => {
+    expect(isValidCompany({ ...valid, stage: false })).toBe(false);
+  });
+
+  it('returns false when interviews is not an array', () => {
+    expect(isValidCompany({ ...valid, interviews: null })).toBe(false);
+    expect(isValidCompany({ ...valid, interviews: 'oops' })).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// useCompanies — storage resilience (invalid / corrupted data)
+// ---------------------------------------------------------------------------
+
+describe('useCompanies — storage resilience', () => {
+  it('starts fresh when storage contains malformed JSON', () => {
+    const storage = createMemoryStorage();
+    storage.setItem('companies', '{ not valid json');
+    const { result } = renderHook(() => useCompanies(storage));
+    expect(result.current.companies).toEqual([]);
+  });
+
+  it('starts fresh when storage contains a non-array value', () => {
+    const storage = createMemoryStorage();
+    storage.setItem('companies', JSON.stringify({ foo: 'bar' }));
+    const { result } = renderHook(() => useCompanies(storage));
+    expect(result.current.companies).toEqual([]);
+  });
+
+  it('starts fresh when any company in the array has an invalid shape', () => {
+    const storage = createMemoryStorage();
+    const badData = [{ id: 1, name: 'Bad', position: 'Eng', stage: 'applied', interviews: [] }];
+    storage.setItem('companies', JSON.stringify(badData));
+    const { result } = renderHook(() => useCompanies(storage));
+    expect(result.current.companies).toEqual([]);
+  });
+
+  it('loads valid data that passes shape checks', () => {
+    const storage = createMemoryStorage();
+    const goodData = [{ id: '1', name: 'Good Co', position: 'SWE', stage: 'applied', interviews: [] }];
+    storage.setItem('companies', JSON.stringify(goodData));
+    const { result } = renderHook(() => useCompanies(storage));
+    expect(result.current.companies).toHaveLength(1);
   });
 });

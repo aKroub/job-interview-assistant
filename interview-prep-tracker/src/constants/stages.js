@@ -10,7 +10,7 @@ export const STAGES = ['interested', 'applied', 'phone', 'technical', 'final', '
 export const STAGE_LABELS = {
   interested: 'Interested',
   applied:    'Applied',
-  phone:      'Phone Screen',
+  phone:      'CV Screening',
   technical:  'Technical',
   final:      'Final Round',
   offer:      'Offer',

@@ -4,20 +4,24 @@ import { Calendar, X } from 'lucide-react';
 /**
  * A single company card within a Kanban column.
  *
- * Displays the company name, position, interview count, and a stage selector.
- * All mutations are delegated upward via callbacks.
+ * Draggable — the user drags this card to a different column to change stage.
+ * The stage dropdown has been removed; stage changes happen exclusively via DnD.
  *
  * @param {{
- *   company:         Object,
- *   stages:          string[],
- *   stageLabels:     Object,
- *   onDelete:        (companyId: string) => void,
- *   onUpdateStage:   (companyId: string, newStage: string) => void,
+ *   company:       Object,
+ *   onDelete:      (companyId: string) => void,
+ *   onDragStart:   (e: DragEvent, companyId: string) => void,
+ *   onDragEnd:     (e: DragEvent) => void,
  * }} props
  */
-export function CompanyCard({ company, stages, stageLabels, onDelete, onUpdateStage }) {
+export function CompanyCard({ company, onDelete, onDragStart, onDragEnd }) {
   return (
-    <div className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition">
+    <div
+      draggable
+      onDragStart={(e) => onDragStart(e, company.id)}
+      onDragEnd={onDragEnd}
+      className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition cursor-grab active:cursor-grabbing active:opacity-60"
+    >
       <div className="flex justify-between items-start mb-2">
         <div className="flex-1">
           <h4 className="font-semibold text-gray-800 text-sm">{company.name}</h4>
@@ -38,17 +42,6 @@ export function CompanyCard({ company, stages, stageLabels, onDelete, onUpdateSt
           {company.interviews.length} interview{company.interviews.length > 1 ? 's' : ''}
         </div>
       )}
-
-      <select
-        value={company.stage}
-        onChange={(e) => onUpdateStage(company.id, e.target.value)}
-        className="mt-2 w-full text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
-        aria-label={`Stage for ${company.name}`}
-      >
-        {stages.map((s) => (
-          <option key={s} value={s}>{stageLabels[s]}</option>
-        ))}
-      </select>
     </div>
   );
 }

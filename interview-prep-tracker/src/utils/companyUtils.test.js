@@ -242,3 +242,41 @@ describe('flattenAndSortInterviews', () => {
     expect(flattenAndSortInterviews(companies)).toHaveLength(2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// deriveInterviewStatus
+// ---------------------------------------------------------------------------
+
+import { deriveInterviewStatus } from './companyUtils';
+
+describe('deriveInterviewStatus', () => {
+  const PAST   = new Date('2030-01-01T00:00:00.000Z'); // "now" is in the future → interview is in the past
+  const FUTURE = new Date('2000-01-01T00:00:00.000Z'); // "now" is in the past  → interview is in the future
+
+  it('returns "scheduled" when the interview datetime is in the future', () => {
+    const interview = { date: '2025-01-01', time: '10:00', status: 'scheduled' };
+    expect(deriveInterviewStatus(interview, FUTURE)).toBe('scheduled');
+  });
+
+  it('returns "passed" when the interview datetime is in the past and status is scheduled', () => {
+    const interview = { date: '2025-01-01', time: '10:00', status: 'scheduled' };
+    expect(deriveInterviewStatus(interview, PAST)).toBe('passed');
+  });
+
+  it('uses end-of-day (23:59) when no time is provided', () => {
+    const interview = { date: '2025-01-01', time: '', status: 'scheduled' };
+    expect(deriveInterviewStatus(interview, PAST)).toBe('passed');
+  });
+
+  it('returns "cancelled" regardless of datetime when status is cancelled', () => {
+    const interview = { date: '2025-01-01', time: '10:00', status: 'cancelled' };
+    expect(deriveInterviewStatus(interview, FUTURE)).toBe('cancelled');
+    expect(deriveInterviewStatus(interview, PAST)).toBe('cancelled');
+  });
+
+  it('returns "completed" regardless of datetime when status is completed', () => {
+    const interview = { date: '2025-01-01', time: '10:00', status: 'completed' };
+    expect(deriveInterviewStatus(interview, FUTURE)).toBe('completed');
+    expect(deriveInterviewStatus(interview, PAST)).toBe('completed');
+  });
+});

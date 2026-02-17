@@ -14,10 +14,12 @@ const STORAGE_KEY = 'companies';
  * Returns true only if `value` looks like a valid persisted company object.
  * Prevents corrupted or tampered localStorage data from poisoning app state.
  *
+ * Exported for unit-testing; not part of the hook's public API.
+ *
  * @param {unknown} value
  * @returns {boolean}
  */
-function isValidCompany(value) {
+export function isValidCompany(value) {
   return (
     value !== null &&
     typeof value === 'object' &&

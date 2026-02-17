@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useInterviewTracker } from './hooks/useInterviewTracker';
 import { STAGES, STAGE_LABELS } from './constants/stages';
+import { POSITIONS } from './constants/positions';
 import { APP_TITLE } from './constants/app';
 import { TabNav } from './components/shared/TabNav';
 import { KanbanBoard } from './components/KanbanBoard/KanbanBoard';
@@ -38,7 +39,6 @@ const InterviewPrepTracker = () => {
   } = useInterviewTracker();
 
   function handleAddCompany() {
-    if (!companyDraft.name || !companyDraft.position) return;
     addCompany(companyDraft);
     setCompanyDraft(EMPTY_DRAFT);
     setShowModal(false);
@@ -102,6 +102,7 @@ const InterviewPrepTracker = () => {
             onClose={() => setShowModal(false)}
             stages={STAGES}
             stageLabels={STAGE_LABELS}
+            positions={POSITIONS}
           />
         )}
       </div>

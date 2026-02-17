@@ -1,13 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { KanbanColumn } from './KanbanColumn';
 
 /**
- * Pipeline view rendered as a Kanban board.
+ * Pipeline view rendered as a Kanban board with drag-and-drop stage movement.
  *
- * Renders one KanbanColumn per pipeline stage and an "Add Company" button.
- * All data mutations are delegated upward via callbacks — this component
- * is fully presentational.
+ * Owns the ephemeral drag state (which company is being dragged).
+ * Dropping a card on a column calls onUpdateStage to persist the new stage.
  *
  * @param {{
  *   companies:       Object[],
@@ -19,6 +18,18 @@ import { KanbanColumn } from './KanbanColumn';
  * }} props
  */
 export function KanbanBoard({ companies, stages, stageLabels, onAddCompany, onDeleteCompany, onUpdateStage }) {
+  const [draggingId, setDraggingId] = useState(null);
+
+  function handleDragStart(e, companyId) {
+    setDraggingId(companyId);
+    e.dataTransfer.setData('companyId', companyId);
+    e.dataTransfer.effectAllowed = 'move';
+  }
+
+  function handleDragEnd() {
+    setDraggingId(null);
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center mb-6">
@@ -32,6 +43,12 @@ export function KanbanBoard({ companies, stages, stageLabels, onAddCompany, onDe
         </button>
       </div>
 
+      {draggingId && (
+        <p className="text-xs text-blue-600 text-center animate-pulse">
+          Drop the card on any column to move it
+        </p>
+      )}
+
       <div className="grid grid-cols-6 gap-4">
         {stages.map((stage) => (
           <KanbanColumn
@@ -39,10 +56,10 @@ export function KanbanBoard({ companies, stages, stageLabels, onAddCompany, onDe
             stage={stage}
             label={stageLabels[stage]}
             companies={companies}
-            stages={stages}
-            stageLabels={stageLabels}
             onDelete={onDeleteCompany}
             onUpdateStage={onUpdateStage}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
           />
         ))}
       </div>

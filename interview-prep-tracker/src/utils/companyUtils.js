@@ -107,3 +107,25 @@ export function flattenAndSortInterviews(companies) {
     )
     .sort((a, b) => new Date(a.date) - new Date(b.date));
 }
+
+/**
+ * Derives the display status for an interview without mutating persisted data.
+ *
+ * Rules (in priority order):
+ *  1. 'cancelled' — always stays cancelled regardless of datetime
+ *  2. 'completed' — always stays completed regardless of datetime
+ *  3. If status is 'scheduled' and the interview datetime is in the past → 'passed'
+ *  4. Otherwise → 'scheduled'
+ *
+ * @param {{ date: string, time: string, status: string }} interview
+ * @param {Date} [now=new Date()] - injectable for deterministic testing
+ * @returns {'scheduled' | 'passed' | 'completed' | 'cancelled'}
+ */
+export function deriveInterviewStatus(interview, now = new Date()) {
+  if (interview.status === 'cancelled') return 'cancelled';
+  if (interview.status === 'completed') return 'completed';
+  const dateTimeStr = interview.time
+    ? `${interview.date}T${interview.time}`
+    : `${interview.date}T23:59`;
+  return new Date(dateTimeStr) < now ? 'passed' : 'scheduled';
+}

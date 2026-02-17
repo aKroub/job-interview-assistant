@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useInterviewTracker } from './hooks/useInterviewTracker';
 import { STAGES, STAGE_LABELS } from './constants/stages';
 import { POSITIONS } from './constants/positions';
+import { INTERVIEW_TYPES } from './constants/interviewTypes';
 import { APP_TITLE } from './constants/app';
 import { TabNav } from './components/shared/TabNav';
 import { KanbanBoard } from './components/KanbanBoard/KanbanBoard';
@@ -79,6 +80,7 @@ const InterviewPrepTracker = () => {
           {activeTab === 'timeline' && (
             <TimelineView
               companies={companies}
+              interviewTypes={INTERVIEW_TYPES}
               onAddInterview={addInterview}
               onUpdateInterviewStatus={updateInterviewStatus}
             />

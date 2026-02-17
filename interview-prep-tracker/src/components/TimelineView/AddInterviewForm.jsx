@@ -11,24 +11,30 @@ const EMPTY_INTERVIEW = { type: '', date: '', time: '', status: 'scheduled' };
  * Owns only its own ephemeral form state (shown/hidden, field values,
  * submitted flag for validation). Once submitted it calls `onAdd` and resets.
  *
- * - Date is required; an error message is shown after the first submit attempt.
- * - Interview type is optional — no asterisk, no error.
+ * - Type, Date, and Time are all required.
+ * - Type is a dropdown driven by the `interviewTypes` prop.
  *
  * @param {{
- *   companyId: string,
- *   onAdd:     (companyId: string, interview: Object) => void,
+ *   companyId:      string,
+ *   onAdd:          (companyId: string, interview: Object) => void,
+ *   interviewTypes: string[],
  * }} props
  */
-export function AddInterviewForm({ companyId, onAdd }) {
-  const [isOpen,     setIsOpen]     = useState(false);
-  const [interview,  setInterview]  = useState(EMPTY_INTERVIEW);
-  const [submitted,  setSubmitted]  = useState(false);
+export function AddInterviewForm({ companyId, onAdd, interviewTypes }) {
+  const [isOpen,    setIsOpen]    = useState(false);
+  const [interview, setInterview] = useState(EMPTY_INTERVIEW);
+  const [submitted, setSubmitted] = useState(false);
 
-  const dateError = !interview.date ? 'Date is required' : null;
+  const errors = {
+    type: !interview.type ? 'Interview type is required' : null,
+    date: !interview.date ? 'Date is required'           : null,
+    time: !interview.time ? 'Time is required'           : null,
+  };
+  const isValid = !errors.type && !errors.date && !errors.time;
 
   function handleSubmit() {
     setSubmitted(true);
-    if (dateError) return;
+    if (!isValid) return;
     onAdd(companyId, interview);
     setInterview(EMPTY_INTERVIEW);
     setSubmitted(false);
@@ -54,20 +60,23 @@ export function AddInterviewForm({ companyId, onAdd }) {
   }
 
   return (
-    <div className="flex flex-wrap gap-2 items-start">
+    <div className="flex flex-wrap gap-2 items-start mt-2">
 
-      {/* Interview type — optional */}
+      {/* Interview type — required dropdown */}
       <div>
-        <FieldLabel htmlFor="interview-type">Type</FieldLabel>
-        <input
+        <FieldLabel htmlFor="interview-type" required>Type</FieldLabel>
+        <select
           id="interview-type"
-          type="text"
-          placeholder="e.g., Technical"
           value={interview.type}
           onChange={(e) => setInterview({ ...interview, type: e.target.value })}
           className="px-3 py-1 text-sm border border-gray-300 rounded"
-          maxLength={60}
-        />
+        >
+          <option value="">Select type…</option>
+          {interviewTypes.map((t) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
+        <FormError message={submitted ? errors.type : null} />
       </div>
 
       {/* Date — required */}
@@ -80,12 +89,12 @@ export function AddInterviewForm({ companyId, onAdd }) {
           onChange={(e) => setInterview({ ...interview, date: e.target.value })}
           className="px-3 py-1 text-sm border border-gray-300 rounded"
         />
-        <FormError message={submitted ? dateError : null} />
+        <FormError message={submitted ? errors.date : null} />
       </div>
 
-      {/* Time — optional */}
+      {/* Time — required */}
       <div>
-        <FieldLabel htmlFor="interview-time">Time</FieldLabel>
+        <FieldLabel htmlFor="interview-time" required>Time</FieldLabel>
         <input
           id="interview-time"
           type="time"
@@ -93,6 +102,7 @@ export function AddInterviewForm({ companyId, onAdd }) {
           onChange={(e) => setInterview({ ...interview, time: e.target.value })}
           className="px-3 py-1 text-sm border border-gray-300 rounded"
         />
+        <FormError message={submitted ? errors.time : null} />
       </div>
 
       <div className="flex items-end gap-2 pb-0.5">

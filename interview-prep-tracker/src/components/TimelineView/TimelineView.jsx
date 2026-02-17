@@ -8,12 +8,13 @@ import { InterviewRow } from './InterviewRow';
  * Timeline view — shows a schedule-interview panel and the chronological interview list.
  *
  * @param {{
- *   companies:             Object[],
- *   onAddInterview:        (companyId: string, interview: Object) => void,
+ *   companies:               Object[],
+ *   interviewTypes:          string[],
+ *   onAddInterview:          (companyId: string, interview: Object) => void,
  *   onUpdateInterviewStatus: (companyId: string, interviewId: string, status: string) => void,
  * }} props
  */
-export function TimelineView({ companies, onAddInterview, onUpdateInterviewStatus }) {
+export function TimelineView({ companies, interviewTypes, onAddInterview, onUpdateInterviewStatus }) {
   const allInterviews = flattenAndSortInterviews(companies);
 
   return (
@@ -25,12 +26,16 @@ export function TimelineView({ companies, onAddInterview, onUpdateInterviewStatu
         <h3 className="font-semibold text-gray-700 mb-3">Schedule Interview</h3>
         <div className="space-y-2">
           {companies.map((company) => (
-            <div key={company.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+            <div key={company.id} className="flex items-start justify-between p-3 bg-gray-50 rounded-lg">
               <div>
                 <h4 className="font-medium text-gray-800">{company.name}</h4>
                 <p className="text-sm text-gray-600">{company.position}</p>
               </div>
-              <AddInterviewForm companyId={company.id} onAdd={onAddInterview} />
+              <AddInterviewForm
+                companyId={company.id}
+                onAdd={onAddInterview}
+                interviewTypes={interviewTypes}
+              />
             </div>
           ))}
         </div>

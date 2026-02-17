@@ -7,7 +7,7 @@ import { TimelineView } from './components/TimelineView/TimelineView';
 import { PrepContentView } from './components/PrepContentView/PrepContentView';
 import { AddCompanyModal } from './components/AddCompanyModal/AddCompanyModal';
 
-const EMPTY_DRAFT = { name: '', position: '', stage: 'interested' };
+const EMPTY_DRAFT = { name: '', position: '', stage: STAGES[0] };
 
 /**
  * Root application component — the thin orchestrating shell.

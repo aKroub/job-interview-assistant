@@ -51,6 +51,7 @@ export function AddInterviewForm({ companyId, onAdd }) {
         value={interview.type}
         onChange={(e) => setInterview({ ...interview, type: e.target.value })}
         className="px-3 py-1 text-sm border border-gray-300 rounded"
+        maxLength={60}
       />
       <input
         type="date"

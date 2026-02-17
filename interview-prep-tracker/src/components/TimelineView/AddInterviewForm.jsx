@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
 import { Plus } from 'lucide-react';
+import { FieldLabel } from '../shared/FieldLabel';
+import { FormError } from '../shared/FormError';
 
 const EMPTY_INTERVIEW = { type: '', date: '', time: '', status: 'scheduled' };
 
 /**
  * Inline "Add Interview" form for a single company row.
  *
- * Owns only its own ephemeral form state (shown/hidden, field values) —
- * this is local UI state that doesn't need to live in the global store.
- * Once submitted it calls `onAdd` and resets itself.
+ * Owns only its own ephemeral form state (shown/hidden, field values,
+ * submitted flag for validation). Once submitted it calls `onAdd` and resets.
+ *
+ * - Date is required; an error message is shown after the first submit attempt.
+ * - Interview type is optional — no asterisk, no error.
  *
  * @param {{
  *   companyId: string,
@@ -16,18 +20,24 @@ const EMPTY_INTERVIEW = { type: '', date: '', time: '', status: 'scheduled' };
  * }} props
  */
 export function AddInterviewForm({ companyId, onAdd }) {
-  const [isOpen, setIsOpen]       = useState(false);
-  const [interview, setInterview] = useState(EMPTY_INTERVIEW);
+  const [isOpen,     setIsOpen]     = useState(false);
+  const [interview,  setInterview]  = useState(EMPTY_INTERVIEW);
+  const [submitted,  setSubmitted]  = useState(false);
+
+  const dateError = !interview.date ? 'Date is required' : null;
 
   function handleSubmit() {
-    if (!interview.type || !interview.date) return;
+    setSubmitted(true);
+    if (dateError) return;
     onAdd(companyId, interview);
     setInterview(EMPTY_INTERVIEW);
+    setSubmitted(false);
     setIsOpen(false);
   }
 
   function handleCancel() {
     setInterview(EMPTY_INTERVIEW);
+    setSubmitted(false);
     setIsOpen(false);
   }
 
@@ -44,39 +54,62 @@ export function AddInterviewForm({ companyId, onAdd }) {
   }
 
   return (
-    <div className="flex gap-2 items-center">
-      <input
-        type="text"
-        placeholder="Interview type"
-        value={interview.type}
-        onChange={(e) => setInterview({ ...interview, type: e.target.value })}
-        className="px-3 py-1 text-sm border border-gray-300 rounded"
-        maxLength={60}
-      />
-      <input
-        type="date"
-        value={interview.date}
-        onChange={(e) => setInterview({ ...interview, date: e.target.value })}
-        className="px-3 py-1 text-sm border border-gray-300 rounded"
-      />
-      <input
-        type="time"
-        value={interview.time}
-        onChange={(e) => setInterview({ ...interview, time: e.target.value })}
-        className="px-3 py-1 text-sm border border-gray-300 rounded"
-      />
-      <button
-        onClick={handleSubmit}
-        className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
-      >
-        Add
-      </button>
-      <button
-        onClick={handleCancel}
-        className="px-3 py-1 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400"
-      >
-        Cancel
-      </button>
+    <div className="flex flex-wrap gap-2 items-start">
+
+      {/* Interview type — optional */}
+      <div>
+        <FieldLabel htmlFor="interview-type">Type</FieldLabel>
+        <input
+          id="interview-type"
+          type="text"
+          placeholder="e.g., Technical"
+          value={interview.type}
+          onChange={(e) => setInterview({ ...interview, type: e.target.value })}
+          className="px-3 py-1 text-sm border border-gray-300 rounded"
+          maxLength={60}
+        />
+      </div>
+
+      {/* Date — required */}
+      <div>
+        <FieldLabel htmlFor="interview-date" required>Date</FieldLabel>
+        <input
+          id="interview-date"
+          type="date"
+          value={interview.date}
+          onChange={(e) => setInterview({ ...interview, date: e.target.value })}
+          className="px-3 py-1 text-sm border border-gray-300 rounded"
+        />
+        <FormError message={submitted ? dateError : null} />
+      </div>
+
+      {/* Time — optional */}
+      <div>
+        <FieldLabel htmlFor="interview-time">Time</FieldLabel>
+        <input
+          id="interview-time"
+          type="time"
+          value={interview.time}
+          onChange={(e) => setInterview({ ...interview, time: e.target.value })}
+          className="px-3 py-1 text-sm border border-gray-300 rounded"
+        />
+      </div>
+
+      <div className="flex items-end gap-2 pb-0.5">
+        <button
+          onClick={handleSubmit}
+          className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+        >
+          Add
+        </button>
+        <button
+          onClick={handleCancel}
+          className="px-3 py-1 bg-gray-300 text-gray-700 rounded text-sm hover:bg-gray-400"
+        >
+          Cancel
+        </button>
+      </div>
+
     </div>
   );
 }

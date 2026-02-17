@@ -1,9 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { FieldLabel } from '../shared/FieldLabel';
+import { FormError } from '../shared/FormError';
 
 /**
  * Modal dialog for adding a new company to the pipeline.
  *
- * Receives all data and callbacks via props — owns no persistent state.
+ * Owns only ephemeral UI state (submitted flag for showing validation errors).
+ * All persisted data and callbacks arrive via props.
  *
  * @param {{
  *   draft:        { name: string, position: string, stage: string },
@@ -12,18 +15,50 @@ import React from 'react';
  *   onClose:      () => void,
  *   stages:       string[],
  *   stageLabels:  Object,
+ *   positions:    string[],
  * }} props
  */
-export function AddCompanyModal({ draft, onDraftChange, onAdd, onClose, stages, stageLabels }) {
+export function AddCompanyModal({
+  draft,
+  onDraftChange,
+  onAdd,
+  onClose,
+  stages,
+  stageLabels,
+  positions,
+}) {
+  const [submitted, setSubmitted] = useState(false);
+
+  const errors = {
+    name:     !draft.name.trim()     ? 'Company name is required'  : null,
+    position: !draft.position        ? 'Please select a position'  : null,
+  };
+
+  const isValid = !errors.name && !errors.position;
+
+  function handleAdd() {
+    setSubmitted(true);
+    if (!isValid) return;
+    onAdd();
+  }
+
+  function handleClose() {
+    setSubmitted(false);
+    onClose();
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
         <h3 className="text-xl font-bold text-gray-800 mb-4">Add Company</h3>
 
         <div className="space-y-4">
+
+          {/* Company Name */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
+            <FieldLabel htmlFor="company-name" required>Company Name</FieldLabel>
             <input
+              id="company-name"
               type="text"
               value={draft.name}
               onChange={(e) => onDraftChange({ ...draft, name: e.target.value })}
@@ -31,23 +66,31 @@ export function AddCompanyModal({ draft, onDraftChange, onAdd, onClose, stages, 
               placeholder="e.g., Google"
               maxLength={100}
             />
+            <FormError message={submitted ? errors.name : null} />
           </div>
 
+          {/* Position */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Position</label>
-            <input
-              type="text"
+            <FieldLabel htmlFor="company-position" required>Position</FieldLabel>
+            <select
+              id="company-position"
               value={draft.position}
               onChange={(e) => onDraftChange({ ...draft, position: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="e.g., Senior Software Engineer"
-              maxLength={100}
-            />
+            >
+              <option value="">Select a position…</option>
+              {positions.map((p) => (
+                <option key={p} value={p}>{p}</option>
+              ))}
+            </select>
+            <FormError message={submitted ? errors.position : null} />
           </div>
 
+          {/* Initial Stage */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Initial Stage</label>
+            <FieldLabel htmlFor="company-stage">Initial Stage</FieldLabel>
             <select
+              id="company-stage"
               value={draft.stage}
               onChange={(e) => onDraftChange({ ...draft, stage: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -57,17 +100,18 @@ export function AddCompanyModal({ draft, onDraftChange, onAdd, onClose, stages, 
               ))}
             </select>
           </div>
+
         </div>
 
         <div className="flex gap-3 mt-6">
           <button
-            onClick={onAdd}
+            onClick={handleAdd}
             className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
           >
             Add Company
           </button>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="flex-1 px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition"
           >
             Cancel

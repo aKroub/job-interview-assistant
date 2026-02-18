@@ -9,6 +9,8 @@ import { KanbanBoard } from './components/KanbanBoard/KanbanBoard';
 import { TimelineView } from './components/TimelineView/TimelineView';
 import { PrepContentView } from './components/PrepContentView/PrepContentView';
 import { AddCompanyModal } from './components/AddCompanyModal/AddCompanyModal';
+import { SuggestionPanel } from './components/Suggestions/SuggestionPanel';
+import { ConnectionStatus } from './components/Suggestions/ConnectionStatus';
 
 const EMPTY_DRAFT = { name: '', position: '', stage: STAGES[0] };
 
@@ -17,14 +19,15 @@ const EMPTY_DRAFT = { name: '', position: '', stage: STAGES[0] };
  *
  * Responsibilities:
  *  - Calls useInterviewTracker() to get all state and mutations
- *  - Owns only pure UI state: active tab and modal visibility
+ *  - Owns only pure UI state: active tab, modal visibility, suggestion panel toggle
  *  - Routes to the correct view based on activeTab
  *  - Passes data and callbacks down as props (no prop drilling through multiple levels)
  */
 const InterviewPrepTracker = () => {
-  const [activeTab,    setActiveTab]    = useState('kanban');
-  const [showModal,    setShowModal]    = useState(false);
-  const [companyDraft, setCompanyDraft] = useState(EMPTY_DRAFT);
+  const [activeTab,       setActiveTab]       = useState('kanban');
+  const [showModal,       setShowModal]       = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(true);
+  const [companyDraft,    setCompanyDraft]    = useState(EMPTY_DRAFT);
 
   const {
     companies,
@@ -37,6 +40,13 @@ const InterviewPrepTracker = () => {
     resetCompanyQuestionsFor,
     getAvailableQuestionsFor,
     getTotalSeenFor,
+    suggestions,
+    authStatus,
+    connectionStatus,
+    dismissSuggestion,
+    triggerScan,
+    connectGoogle,
+    disconnectGoogle,
   } = useInterviewTracker();
 
   function handleAddCompany() {
@@ -55,12 +65,38 @@ const InterviewPrepTracker = () => {
       <div className="max-w-7xl mx-auto">
 
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">{APP_TITLE}</h1>
-          <p className="text-gray-600">
-            Track your job applications, schedule interviews, and prep for success
-          </p>
+        <div className="mb-8 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">{APP_TITLE}</h1>
+            <p className="text-gray-600">
+              Track your job applications, schedule interviews, and prep for success
+            </p>
+          </div>
+          <div className="flex items-center gap-3 pt-2 shrink-0">
+            <ConnectionStatus authStatus={authStatus} connectionStatus={connectionStatus} />
+            <button
+              onClick={() => setShowSuggestions((v) => !v)}
+              className="text-xs text-gray-500 hover:text-blue-600 transition underline"
+            >
+              {showSuggestions ? 'Hide suggestions' : 'Show suggestions'}
+            </button>
+          </div>
         </div>
+
+        {/* Suggestion panel */}
+        {showSuggestions && (
+          <div className="mb-6">
+            <SuggestionPanel
+              suggestions={suggestions}
+              authStatus={authStatus}
+              connectionStatus={connectionStatus}
+              onDismiss={dismissSuggestion}
+              onScan={triggerScan}
+              onConnect={connectGoogle}
+              onDisconnect={disconnectGoogle}
+            />
+          </div>
+        )}
 
         {/* Tab navigation */}
         <TabNav activeTab={activeTab} onTabChange={setActiveTab} />

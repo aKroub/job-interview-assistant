@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "node --experimental-vm-modules node_modules/.bin/jest --verbose"
+    "test": "node --experimental-vm-modules node_modules/.bin/jest --verbose --forceExit"
   },
   "dependencies": {
     "dotenv": "^16.4.7",

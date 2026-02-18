@@ -6,4 +6,4 @@
  * public/index.html (via %REACT_APP_TITLE%) and the React bundle both
  * stay in sync from a single definition in .env.
  */
-export const APP_TITLE = process.env.REACT_APP_TITLE;
+export const APP_TITLE = process.env.REACT_APP_TITLE || 'Interview Prep Tracker';

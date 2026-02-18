@@ -1,28 +1,36 @@
 import express from 'express';
 import { loadConfig } from './config.js';
+import { createTokenStore } from './services/tokenStore.js';
+import { createGoogleAuth } from './services/googleAuth.js';
+import { createAuthRouter } from './routes/auth.js';
 
 /**
  * Creates and configures the Express application.
  * Accepts injectable dependencies for testing.
  *
- * Future PRs will add tokenStore, googleAuth, and route middleware here.
- *
  * @param {Object} [deps] - optional dependency overrides
  * @param {Object} [deps.config] - config object (defaults to loadConfig())
- * @returns {{ app: import('express').Express, config: Object }}
+ * @param {Object} [deps.tokenStore] - token store instance
+ * @param {Object} [deps.googleAuth] - google auth instance
+ * @returns {{ app: import('express').Express, config: Object, tokenStore: Object, googleAuth: Object }}
  */
 export function createApp(deps = {}) {
-  const config = deps.config || loadConfig();
+  const config     = deps.config     || loadConfig();
+  const tokenStore = deps.tokenStore || createTokenStore();
+  const googleAuth = deps.googleAuth || createGoogleAuth(config, tokenStore);
 
   const app = express();
   app.use(express.json());
+
+  // Auth routes
+  app.use('/api/auth', createAuthRouter(googleAuth));
 
   // Health check
   app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok' });
   });
 
-  return { app, config };
+  return { app, config, tokenStore, googleAuth };
 }
 
 /**

@@ -7,15 +7,20 @@ It captures the project conventions, architecture, and workflow rules establishe
 
 ## Project Overview
 
-A React app for tracking job applications (Kanban pipeline), scheduling interviews (timeline), and practising system design questions (prep content view).
+A React app for tracking job applications (Kanban pipeline), scheduling interviews (timeline), and practising system design questions (prep content view). A companion Express backend auto-detects interview invitations by cross-referencing Gmail and Google Calendar.
 
 - **Root:** `/Users/ayal.kroub/privateRepositories/job-interview-assistant/`
-- **App:** `interview-prep-tracker/` (Create React App)
-- **Entry point:** `src/InterviewPrepTracker.jsx` → `src/App.js` → `src/index.js`
+- **Frontend:** `interview-prep-tracker/` (Create React App) — runs on port 3000
+- **Backend:** `server/` (Express + Google APIs) — runs on port 3001
+- **Frontend entry point:** `src/InterviewPrepTracker.jsx` → `src/App.js` → `src/index.js`
+- **Backend entry point:** `server/src/index.js` (createApp factory)
+- **Setup guide:** `SETUP.md` — Google Cloud project setup and first-run instructions
 
 ---
 
 ## Tech Stack
+
+### Frontend (`interview-prep-tracker/`)
 
 | Tool | Version | Notes |
 |---|---|---|
@@ -25,6 +30,18 @@ A React app for tracking job applications (Kanban pipeline), scheduling intervie
 | react-scripts | 5.0.1 | CRA — do not eject |
 | lucide-react | latest | Icon library |
 | Testing Library | @testing-library/react + dom + user-event | Node 20 required for dom v10 |
+
+### Backend (`server/`)
+
+| Tool | Version | Notes |
+|---|---|---|
+| Node.js | 20 (via nvm) | Same version as frontend |
+| Express | 4.21 | HTTP server + REST + SSE |
+| googleapis | 144 | Gmail + Calendar API client |
+| dotenv | 16 | Env var loading |
+| Jest | 29 | `--experimental-vm-modules` for ESM |
+| supertest | 7 | HTTP route testing |
+| nodemon | 3 | Dev auto-restart (`npm run dev`) |
 
 ---
 
@@ -45,14 +62,14 @@ A React app for tracking job applications (Kanban pipeline), scheduling intervie
 ## Quality Gates (enforced before every commit)
 
 ```bash
-# Always run from the app directory:
+# Frontend — always run from interview-prep-tracker/
 cd interview-prep-tracker
+npm run build                          # must be clean (0 errors, 0 warnings)
+npm test -- --watchAll=false --verbose # all tests must pass
 
-# 1. Build — must be clean
-npm run build
-
-# 2. Tests — all must pass, results must be shown
-npm test -- --watchAll=false --verbose
+# Backend — always run from server/
+cd server
+npm test                               # all tests must pass
 ```
 
 Zero tolerance for warnings in the build output. Fix them, don't suppress them.
@@ -63,46 +80,58 @@ Zero tolerance for warnings in the build output. Fix them, don't suppress them.
 
 Before opening any PR, confirm every item:
 
-- [ ] `npm run build` → 0 errors, 0 warnings
-- [ ] `npm test -- --watchAll=false --verbose` → all pass
+- [ ] `npm run build` (frontend) → 0 errors, 0 warnings
+- [ ] `npm test -- --watchAll=false --verbose` (frontend) → all pass
+- [ ] `npm test` (backend, if backend files changed) → all pass
 - [ ] No inner component functions defined inside a component's render scope
 - [ ] All state mutations flow through hooks — nothing imports storage directly in components
 - [ ] New logic is covered by tests; immutability is asserted where applicable
 - [ ] Branch is named `feature/<short-description>`
 - [ ] No `TODO`, placeholder, or incomplete code left in
+- [ ] All PRs target `main` directly (never chain base branches)
 
 ---
 
 ## Architecture — Layered (bottom-up dependency order)
 
+### Frontend (`interview-prep-tracker/src/`)
+
 ```
 src/
 ├── constants/          Static data — no logic, no React
 │   ├── questions.js    SYSTEM_DESIGN_QUESTIONS (the full question bank)
-│   └── stages.js       STAGES array + STAGE_LABELS map
+│   ├── stages.js       STAGES array + STAGE_LABELS map
+│   ├── positions.js    POSITIONS array
+│   ├── interviewTypes.js  INTERVIEW_TYPES array
+│   └── app.js          APP_TITLE env var with fallback
 │
 ├── services/           I/O abstractions — no React, injectable in tests
-│   └── storageService.js   localStorageService + createMemoryStorage()
+│   ├── storageService.js   localStorageService + createMemoryStorage()
+│   └── apiService.js       REST calls + SSE stream (injectable fetch/EventSource)
 │
 ├── utils/              Pure functions — no React, no globals, no side effects
 │   ├── companyUtils.js
 │   └── questionUtils.js
 │
-├── hooks/              React state + persistence (inject storage via param)
+├── hooks/              React state + persistence (inject storage/api via param)
 │   ├── useCompanies.js
 │   ├── useSeenQuestions.js
-│   └── useInterviewTracker.js   ← thin composition of the two above
+│   ├── useInterviewSuggestions.js   ← SSE + auth + suggestion state
+│   └── useInterviewTracker.js       ← thin composition of all three above
 │
 ├── components/         Presentational — receive props, call callbacks, own no global state
 │   ├── shared/
 │   │   ├── DifficultyBadge.jsx
-│   │   └── TabNav.jsx
+│   │   ├── TabNav.jsx
+│   │   ├── FieldLabel.jsx
+│   │   └── FormError.jsx
 │   ├── AddCompanyModal/
 │   ├── KanbanBoard/    (KanbanBoard, KanbanColumn, CompanyCard)
 │   ├── TimelineView/   (TimelineView, InterviewRow, AddInterviewForm)
-│   └── PrepContentView/(PrepContentView, CompanyQuestionSection, QuestionCard)
+│   ├── PrepContentView/(PrepContentView, CompanyQuestionSection, QuestionCard)
+│   └── Suggestions/    (SuggestionPanel, SuggestionCard, ConnectionStatus)
 │
-├── InterviewPrepTracker.jsx   Thin orchestrating shell (~110 lines)
+├── InterviewPrepTracker.jsx   Thin orchestrating shell (~130 lines)
 └── App.js                     Renders <InterviewPrepTracker />
 ```
 
@@ -111,6 +140,37 @@ src/
 - Hooks never import components
 - Utils never import hooks or components
 - Constants never import anything from `src/`
+
+### Backend (`server/src/`)
+
+```
+server/src/
+├── config.js           Loads + validates env vars, throws on missing required keys
+│
+├── services/           Injectable business logic — no Express, no globals
+│   ├── tokenStore.js       File-based OAuth token + dismissed-IDs storage (~/.interview-tracker/)
+│   ├── googleAuth.js       Google OAuth2 flow (getAuthUrl, handleCallback, isAuthenticated)
+│   ├── gmailService.js     Scans Gmail for interview-related emails
+│   ├── calendarService.js  Scans Google Calendar for interview events
+│   └── interviewDetector.js  Cross-references Gmail+Calendar; only surfaces matches from BOTH
+│
+├── utils/              Pure functions — no Express, no globals
+│   ├── emailParser.js      Scores + parses Gmail messages
+│   └── matchingUtils.js    Scores + cross-references calendar events with emails
+│
+├── routes/             Express routers — thin HTTP adapters
+│   ├── auth.js             GET /api/auth/status|url|callback, POST /api/auth/disconnect
+│   └── interviews.js       GET /api/interviews/suggestions (SSE), POST /dismiss|scan
+│
+└── index.js            createApp(deps) factory + server bootstrap
+```
+
+**Backend injection pattern** — every service accepts injectable dependencies:
+```js
+// Good — swap in test doubles without touching globals
+createGmailService(authClient, { gmailApi: mockGmailApi })
+createInterviewDetector({ gmailService, calendarService, tokenStore, idFn })
+```
 
 ### Where does new code go?
 
@@ -261,12 +321,23 @@ These are the most common mistakes — treat each as a hard rule:
 
 ### What to test at each layer
 
+**Frontend:**
+
 | Layer | How to test | Import |
 |---|---|---|
 | `utils/` | Plain Jest — no React needed | `import { fn } from './utils/...'` |
-| `hooks/` | `renderHook` + injected `createMemoryStorage()` | `@testing-library/react` |
+| `services/apiService` | Jest with injectable `fetch` / `EventSource` mock | Plain Jest |
+| `hooks/` | `renderHook` + injected `createMemoryStorage()` or mock API | `@testing-library/react` |
 | `components/` | `render(...)` with explicit props | `@testing-library/react` |
 | Integration | `render(<App />)` smoke tests | `App.test.js` |
+
+**Backend:**
+
+| Layer | How to test | Import |
+|---|---|---|
+| `utils/` | Plain Jest — no Express needed | `import { fn } from '../src/utils/...'` |
+| `services/` | Jest with injectable mock APIs/clocks/stores | `@jest/globals` |
+| `routes/` | `supertest` with mock service dependencies | `supertest` |
 
 ### Storage injection pattern (never mock localStorage globals)
 
@@ -279,6 +350,21 @@ function setup() {
   const { result } = renderHook(() => useCompanies(storage));
   return { result, storage };
 }
+```
+
+### API injection pattern (frontend hooks)
+
+```js
+// In tests — inject a mock api object, never touch window.fetch or EventSource
+function createMockApi(overrides = {}) {
+  return {
+    fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: false }),
+    createSuggestionStream: jest.fn().mockReturnValue({ onConnected: jest.fn().mockReturnThis(), ... }),
+    ...overrides,
+  };
+}
+
+const { result } = renderHook(() => useInterviewSuggestions(createMockApi()));
 ```
 
 ### Pure function test pattern
@@ -309,6 +395,10 @@ Every util function that transforms state should have a test asserting the origi
 | `Module not found` after branch switch | `npm install` not re-run | `nvm use 20 && npm install` |
 | Component renders stale data | State mutation instead of new object | Return `{ ...obj, field: value }` — never mutate in place |
 | Test passes but app crashes | Inner component defined in render | Move component to its own file at module level |
+| `ECONNREFUSED` in browser console | Express server not running | `cd server && nvm use 20 && npm run dev` |
+| Jest does not exit after server tests | Open SSE handles | `--forceExit` is already set in `server/package.json` |
+| Server starts but crashes instantly | Missing env var | Check `server/.env` — copy from `server/.env.example` |
+| OAuth `redirect_uri_mismatch` | Redirect URI not registered | Add `http://localhost:3001/api/auth/callback` in Google Cloud Console |
 
 ---
 
@@ -325,14 +415,18 @@ Every util function that transforms state should have a test asserting the origi
 ## Common Commands
 
 ```bash
-# Always run from the app directory
-cd interview-prep-tracker
-
-nvm use 20 && npm start                              # dev server
-nvm use 20 && npm run build                          # production build (must be clean)
+# --- Frontend (run from interview-prep-tracker/) ---
+nvm use 20 && npm start                              # dev server (port 3000)
+nvm use 20 && npm run build                          # production build (must be 0 warnings)
 nvm use 20 && npm test -- --watchAll=false --verbose # all tests (must pass before PR)
 
-git checkout -b feature/<name>                       # new branch
+# --- Backend (run from server/) ---
+nvm use 20 && npm run dev                            # dev server with auto-restart (port 3001)
+nvm use 20 && npm start                              # production start
+nvm use 20 && npm test                               # all server tests (must pass before PR)
+
+# --- Git ---
+git checkout -b feature/<name>                       # new branch (always from main)
 git push -u origin feature/<name>                    # push branch
-gh pr create --title "..." --body "..."              # open PR
+gh pr create --base main --title "..." --body "..."  # open PR targeting main
 ```

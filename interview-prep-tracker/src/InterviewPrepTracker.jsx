@@ -76,7 +76,7 @@ const InterviewPrepTracker = () => {
             <ConnectionStatus authStatus={authStatus} connectionStatus={connectionStatus} />
             <button
               onClick={() => setShowSuggestions((v) => !v)}
-              className="text-xs text-gray-500 hover:text-blue-600 transition underline"
+              className="text-xs text-gray-500 hover:text-purple-600 transition underline"
             >
               {showSuggestions ? 'Hide suggestions' : 'Show suggestions'}
             </button>

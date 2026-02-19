@@ -6,7 +6,7 @@ import { Calendar, Mail, Building2, X, Phone, Video, MapPin } from 'lucide-react
  * Centralised here so it is never duplicated.
  */
 const TYPE_CONFIG = {
-  'Phone Interview': { Icon: Phone,  colour: 'text-blue-600'  },
+  'Phone Interview': { Icon: Phone,  colour: 'text-purple-600'  },
   'Video Interview': { Icon: Video,  colour: 'text-purple-600' },
   'Office Interview':{ Icon: MapPin, colour: 'text-green-600' },
 };
@@ -26,7 +26,7 @@ export function SuggestionCard({ suggestion, onDismiss }) {
   const { Icon, colour } = TYPE_CONFIG[suggestion.type] ?? { Icon: Calendar, colour: 'text-gray-600' };
 
   return (
-    <div className="bg-white border border-blue-200 rounded-lg p-4 shadow-sm flex flex-col gap-2">
+    <div className="bg-white border border-purple-200 rounded-lg p-4 shadow-sm flex flex-col gap-2">
 
       {/* Header: company + type + dismiss */}
       <div className="flex items-start justify-between gap-2">
@@ -70,7 +70,7 @@ export function SuggestionCard({ suggestion, onDismiss }) {
 
       {/* Email snippet */}
       {suggestion.emailSnippet && (
-        <p className="text-xs text-gray-500 line-clamp-2 border-l-2 border-blue-200 pl-2">
+        <p className="text-xs text-gray-500 line-clamp-2 border-l-2 border-purple-200 pl-2">
           {suggestion.emailSnippet}
         </p>
       )}

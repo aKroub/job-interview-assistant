@@ -19,8 +19,8 @@ export function PrepContentView({ getAvailableQuestionsFor, getTotalSeenFor, onM
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Interview Prep Resources</h2>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-        <p className="text-sm text-blue-800">
+      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
+        <p className="text-sm text-purple-800">
           <strong>System Design Practice:</strong> Work through these curated questions from top tech companies.
           Mark questions as "seen" to get fresh recommendations.
         </p>

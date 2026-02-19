@@ -7,7 +7,7 @@ import { InterviewCard } from './InterviewCard';
  *
  * Renders a day header, interview cards for the day, and a placeholder
  * when no interviews are scheduled. Highlights today's column with a
- * blue accent.
+ * purple accent.
  *
  * @param {{
  *   date:           Date,
@@ -20,7 +20,7 @@ export function DayColumn({ date, interviews, isToday, onUpdateStatus }) {
   const headerLabel = formatDayHeader(date);
 
   const columnClasses = isToday
-    ? 'border-blue-400 bg-blue-50/50'
+    ? 'border-purple-400 bg-purple-50/50'
     : 'border-gray-200 bg-gray-50/30';
 
   return (
@@ -32,7 +32,7 @@ export function DayColumn({ date, interviews, isToday, onUpdateStatus }) {
       <div
         className={`text-center text-sm font-semibold py-2 border-b ${
           isToday
-            ? 'text-blue-700 bg-blue-100 border-blue-300'
+            ? 'text-purple-700 bg-purple-100 border-purple-300'
             : 'text-gray-600 bg-gray-100 border-gray-200'
         } rounded-t-lg`}
       >

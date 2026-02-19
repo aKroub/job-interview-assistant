@@ -162,7 +162,7 @@ const InterviewPrepTracker = () => {
         <h2 className="text-2xl font-bold text-gray-800">Pipeline</h2>
         <button
           onClick={() => setShowAddModal(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+          className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
         >
           <Plus size={20} />
           Add Company
@@ -199,7 +199,7 @@ const InterviewPrepTracker = () => {
                   <select
                     value={company.stage}
                     onChange={(e) => updateCompanyStage(company.id, e.target.value)}
-                    className="mt-2 w-full text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="mt-2 w-full text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-purple-500"
                   >
                     {stages.map(s => (
                       <option key={s} value={s}>{stageLabels[s]}</option>
@@ -272,7 +272,7 @@ const InterviewPrepTracker = () => {
                     />
                     <button
                       onClick={() => handleAddInterview(company.id)}
-                      className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                      className="px-3 py-1 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
                     >
                       Add
                     </button>
@@ -286,7 +286,7 @@ const InterviewPrepTracker = () => {
                 ) : (
                   <button
                     onClick={() => setShowAddInterview(company.id)}
-                    className="flex items-center gap-2 px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+                    className="flex items-center gap-2 px-3 py-1 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
                   >
                     <Plus size={16} />
                     Add Interview
@@ -310,7 +310,7 @@ const InterviewPrepTracker = () => {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <Building2 size={20} className="text-blue-600" />
+                      <Building2 size={20} className="text-purple-600" />
                       <div>
                         <h4 className="font-semibold text-gray-800">{interview.companyName}</h4>
                         <p className="text-sm text-gray-600">{interview.position}</p>
@@ -337,7 +337,7 @@ const InterviewPrepTracker = () => {
                     onChange={(e) => updateInterviewStatus(interview.companyId, interview.id, e.target.value)}
                     className={`px-3 py-1 text-sm rounded border ${
                       interview.status === 'completed' ? 'bg-green-50 border-green-300 text-green-700' :
-                      interview.status === 'scheduled' ? 'bg-blue-50 border-blue-300 text-blue-700' :
+                      interview.status === 'scheduled' ? 'bg-purple-50 border-purple-300 text-purple-700' :
                       'bg-red-50 border-red-300 text-red-700'
                     }`}
                   >
@@ -359,8 +359,8 @@ const InterviewPrepTracker = () => {
     <div className="space-y-6">
       <h2 className="text-2xl font-bold text-gray-800 mb-6">Interview Prep Resources</h2>
       
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-        <p className="text-sm text-blue-800">
+      <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
+        <p className="text-sm text-purple-800">
           <strong>System Design Practice:</strong> Work through these curated questions from top tech companies. 
           Mark questions as "seen" to get fresh recommendations.
         </p>
@@ -390,7 +390,7 @@ const InterviewPrepTracker = () => {
                     setSeenQuestions(updated);
                     saveData(companies, updated);
                   }}
-                  className="mt-3 text-sm text-blue-600 hover:underline"
+                  className="mt-3 text-sm text-purple-600 hover:underline"
                 >
                   Reset {company} questions
                 </button>
@@ -453,7 +453,7 @@ const InterviewPrepTracker = () => {
               onClick={() => setActiveTab('kanban')}
               className={`flex-1 px-6 py-3 font-medium transition ${
                 activeTab === 'kanban'
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-purple-600 text-white'
                   : 'text-gray-600 hover:bg-gray-50'
               } rounded-tl-lg`}
             >
@@ -464,7 +464,7 @@ const InterviewPrepTracker = () => {
               onClick={() => setActiveTab('timeline')}
               className={`flex-1 px-6 py-3 font-medium transition ${
                 activeTab === 'timeline'
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-purple-600 text-white'
                   : 'text-gray-600 hover:bg-gray-50'
               }`}
             >
@@ -475,7 +475,7 @@ const InterviewPrepTracker = () => {
               onClick={() => setActiveTab('prep')}
               className={`flex-1 px-6 py-3 font-medium transition ${
                 activeTab === 'prep'
-                  ? 'bg-blue-600 text-white'
+                  ? 'bg-purple-600 text-white'
                   : 'text-gray-600 hover:bg-gray-50'
               } rounded-tr-lg`}
             >
@@ -504,7 +504,7 @@ const InterviewPrepTracker = () => {
                     type="text"
                     value={newCompany.name}
                     onChange={(e) => setNewCompany({...newCompany, name: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                     placeholder="e.g., Google"
                   />
                 </div>
@@ -514,7 +514,7 @@ const InterviewPrepTracker = () => {
                     type="text"
                     value={newCompany.position}
                     onChange={(e) => setNewCompany({...newCompany, position: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                     placeholder="e.g., Senior Software Engineer"
                   />
                 </div>
@@ -523,7 +523,7 @@ const InterviewPrepTracker = () => {
                   <select
                     value={newCompany.stage}
                     onChange={(e) => setNewCompany({...newCompany, stage: e.target.value})}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
                   >
                     {stages.map(s => (
                       <option key={s} value={s}>{stageLabels[s]}</option>
@@ -534,7 +534,7 @@ const InterviewPrepTracker = () => {
               <div className="flex gap-3 mt-6">
                 <button
                   onClick={addCompany}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                  className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
                 >
                   Add Company
                 </button>

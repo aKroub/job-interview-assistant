@@ -26,7 +26,7 @@ export function TabNav({ activeTab, onTabChange }) {
             onClick={() => onTabChange(id)}
             className={`flex-1 px-6 py-3 font-medium transition ${
               activeTab === id
-                ? 'bg-blue-600 text-white'
+                ? 'bg-purple-600 text-white'
                 : 'text-gray-600 hover:bg-gray-50'
             } ${rounded}`}
           >

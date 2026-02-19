@@ -53,7 +53,7 @@ export function AddInterviewForm({ companyId, onAdd, interviewTypes }) {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="flex items-center gap-2 px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+        className="flex items-center gap-2 px-3 py-1 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
       >
         <Plus size={16} />
         Add Interview
@@ -125,7 +125,7 @@ export function AddInterviewForm({ companyId, onAdd, interviewTypes }) {
       <div className="flex items-end gap-2 pb-0.5">
         <button
           onClick={handleSubmit}
-          className="px-3 py-1 bg-blue-600 text-white rounded text-sm hover:bg-blue-700"
+          className="px-3 py-1 bg-purple-600 text-white rounded text-sm hover:bg-purple-700"
         >
           Add
         </button>

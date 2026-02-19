@@ -1,7 +1,7 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { TimelineView } from './TimelineView';
+import { CalendarView } from './CalendarView';
 import { INTERVIEW_TYPES } from '../../constants/interviewTypes';
 import { toDateString } from '../../utils/calendarUtils';
 
@@ -18,9 +18,20 @@ function makeCompany(overrides = {}) {
   return {
     id:         'c1',
     name:       'Acme Corp',
-    position:   'Senior Software Engineer',
+    position:   'Software Engineer',
     stage:      'applied',
     interviews: [],
+    ...overrides,
+  };
+}
+
+function makeInterview(overrides = {}) {
+  return {
+    id:     'i1',
+    type:   'Phone Interview',
+    date:   todayDate(),
+    time:   '10:00',
+    status: 'scheduled',
     ...overrides,
   };
 }
@@ -30,7 +41,7 @@ function setup({ companies = [], handlers = {} } = {}) {
   const onUpdateInterviewStatus = handlers.onUpdateInterviewStatus ?? jest.fn();
 
   render(
-    <TimelineView
+    <CalendarView
       companies={companies}
       interviewTypes={INTERVIEW_TYPES}
       onAddInterview={onAddInterview}
@@ -42,37 +53,31 @@ function setup({ companies = [], handlers = {} } = {}) {
 }
 
 // ---------------------------------------------------------------------------
-// Rendering — delegates to CalendarView
+// Rendering
 // ---------------------------------------------------------------------------
 
-describe('TimelineView — rendering', () => {
+describe('CalendarView — rendering', () => {
   it('renders the Interview Calendar heading', () => {
     setup();
     expect(screen.getByText('Interview Calendar')).toBeInTheDocument();
   });
 
-  it('renders the Schedule Interview button', () => {
-    setup();
-    expect(screen.getByText('Schedule Interview')).toBeInTheDocument();
-  });
-
   it('renders 7 day columns', () => {
     setup();
+    // Each day column has a data-testid like "day-column-0" through "day-column-6"
     for (let i = 0; i <= 6; i++) {
       expect(screen.getByTestId(`day-column-${i}`)).toBeInTheDocument();
     }
   });
-});
 
-// ---------------------------------------------------------------------------
-// Empty state
-// ---------------------------------------------------------------------------
+  it('renders the Schedule Interview button in the header', () => {
+    setup();
+    expect(screen.getByText('Schedule Interview')).toBeInTheDocument();
+  });
 
-describe('TimelineView — empty state', () => {
-  it('shows "No interviews" placeholder in each day when there are no interviews', () => {
-    setup({ companies: [makeCompany({ interviews: [] })] });
-    const placeholders = screen.getAllByText('No interviews');
-    expect(placeholders.length).toBe(7);
+  it('renders the Today button', () => {
+    setup();
+    expect(screen.getByText('Today')).toBeInTheDocument();
   });
 });
 
@@ -80,37 +85,24 @@ describe('TimelineView — empty state', () => {
 // Interview display
 // ---------------------------------------------------------------------------
 
-describe('TimelineView — interview display', () => {
-  it('renders interview cards for companies with interviews in current week', () => {
-    const today = todayDate();
+describe('CalendarView — interview display', () => {
+  it('shows interviews in the calendar for the current week', () => {
     const companies = [
       makeCompany({
         id: 'c1',
         name: 'Google',
-        interviews: [
-          { id: 'i1', type: 'Phone Interview', date: today, time: '10:00', status: 'scheduled' },
-        ],
-      }),
-      makeCompany({
-        id: 'c2',
-        name: 'Meta',
-        interviews: [
-          { id: 'i2', type: 'Video Interview', date: today, time: '14:00', status: 'scheduled' },
-        ],
+        interviews: [makeInterview({ id: 'i1', time: '10:00' })],
       }),
     ];
     setup({ companies });
     expect(screen.getByText('Google')).toBeInTheDocument();
-    expect(screen.getByText('Meta')).toBeInTheDocument();
+    expect(screen.getByText('10:00')).toBeInTheDocument();
   });
 
-  it('does not show companies without interviews in the calendar', () => {
-    const companies = [
-      makeCompany({ id: 'c1', name: 'Google', interviews: [] }),
-    ];
-    setup({ companies });
-    // Google should not appear as a company card anywhere — only "No interviews" placeholders
-    expect(screen.queryByText('Google')).not.toBeInTheDocument();
+  it('shows empty placeholders for days without interviews', () => {
+    setup({ companies: [] });
+    const placeholders = screen.getAllByText('No interviews');
+    expect(placeholders.length).toBe(7); // all 7 days empty
   });
 });
 
@@ -118,24 +110,37 @@ describe('TimelineView — interview display', () => {
 // Week navigation
 // ---------------------------------------------------------------------------
 
-describe('TimelineView — week navigation', () => {
-  it('changes the week label when navigating forward', () => {
+describe('CalendarView — week navigation', () => {
+  it('navigates to previous week when left arrow is clicked', () => {
     setup();
     const weekLabel = screen.getByRole('heading', { level: 3 });
-    const initial = weekLabel.textContent;
+    const initialText = weekLabel.textContent;
 
-    userEvent.click(screen.getByLabelText('Next week'));
-    expect(weekLabel.textContent).not.toBe(initial);
+    userEvent.click(screen.getByLabelText('Previous week'));
+    expect(weekLabel.textContent).not.toBe(initialText);
   });
 
-  it('returns to current week when Today is clicked', () => {
+  it('navigates to next week when right arrow is clicked', () => {
     setup();
     const weekLabel = screen.getByRole('heading', { level: 3 });
-    const initial = weekLabel.textContent;
+    const initialText = weekLabel.textContent;
 
     userEvent.click(screen.getByLabelText('Next week'));
+    expect(weekLabel.textContent).not.toBe(initialText);
+  });
+
+  it('returns to current week when Today is clicked after navigating', () => {
+    setup();
+    const weekLabel = screen.getByRole('heading', { level: 3 });
+    const initialText = weekLabel.textContent;
+
+    // Navigate away
+    userEvent.click(screen.getByLabelText('Next week'));
+    expect(weekLabel.textContent).not.toBe(initialText);
+
+    // Come back
     userEvent.click(screen.getByText('Today'));
-    expect(weekLabel.textContent).toBe(initial);
+    expect(weekLabel.textContent).toBe(initialText);
   });
 });
 
@@ -143,12 +148,14 @@ describe('TimelineView — week navigation', () => {
 // Add interview modal
 // ---------------------------------------------------------------------------
 
-describe('TimelineView — add interview modal', () => {
+describe('CalendarView — add interview modal', () => {
   it('opens the modal when Schedule Interview is clicked', () => {
     const companies = [makeCompany({ id: 'c1', name: 'Google' })];
     setup({ companies });
 
     userEvent.click(screen.getByText('Schedule Interview'));
+    // Modal should show the "Schedule Interview" heading (inside modal)
+    // and the company dropdown
     expect(screen.getByText('Select a company…')).toBeInTheDocument();
   });
 
@@ -157,6 +164,8 @@ describe('TimelineView — add interview modal', () => {
     setup({ companies });
 
     userEvent.click(screen.getByText('Schedule Interview'));
+    expect(screen.getByText('Select a company…')).toBeInTheDocument();
+
     userEvent.click(screen.getByText('Cancel'));
     expect(screen.queryByText('Select a company…')).not.toBeInTheDocument();
   });

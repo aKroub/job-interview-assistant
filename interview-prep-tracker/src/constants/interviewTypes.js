@@ -7,3 +7,9 @@ export const INTERVIEW_TYPES = [
   'Video Interview',
   'Office Interview',
 ];
+
+/**
+ * Available duration options (in minutes) for scheduling interviews.
+ * Also accepted from backend API when auto-detected from Gmail/Calendar.
+ */
+export const DURATION_OPTIONS = [30, 45, 60, 90, 120];

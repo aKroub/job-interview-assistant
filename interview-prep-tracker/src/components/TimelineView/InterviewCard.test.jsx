@@ -48,9 +48,35 @@ describe('InterviewCard — rendering', () => {
     expect(screen.getByText('Phone Interview')).toBeInTheDocument();
   });
 
-  it('renders the status dropdown', () => {
+  it('renders the pencil edit button by default', () => {
     setup();
-    expect(screen.getByRole('combobox')).toBeInTheDocument();
+    expect(screen.getByLabelText(/edit status/i)).toBeInTheDocument();
+  });
+
+  it('does not show the status dropdown by default', () => {
+    setup();
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Duration display
+// ---------------------------------------------------------------------------
+
+describe('InterviewCard — duration', () => {
+  it('renders duration when present', () => {
+    setup({ duration: 60 });
+    expect(screen.getByText('(60 min)')).toBeInTheDocument();
+  });
+
+  it('renders different duration values', () => {
+    setup({ duration: 90 });
+    expect(screen.getByText('(90 min)')).toBeInTheDocument();
+  });
+
+  it('does not render duration when absent', () => {
+    setup();
+    expect(screen.queryByText(/min\)/)).not.toBeInTheDocument();
   });
 });
 
@@ -81,26 +107,37 @@ describe('InterviewCard — derived status badge', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Status dropdown
+// Pencil edit — status dropdown
 // ---------------------------------------------------------------------------
 
-describe('InterviewCard — status dropdown', () => {
+describe('InterviewCard — pencil edit', () => {
+  it('clicking pencil reveals the status dropdown', () => {
+    setup();
+    userEvent.click(screen.getByLabelText(/edit status/i));
+    expect(screen.getByRole('combobox')).toBeInTheDocument();
+  });
+
   it('dropdown value reflects the persisted status', () => {
     setup({ status: 'completed' });
+    userEvent.click(screen.getByLabelText(/edit status/i));
     expect(screen.getByRole('combobox').value).toBe('completed');
   });
 
   it('shows scheduled, completed, and cancelled options', () => {
     setup();
+    userEvent.click(screen.getByLabelText(/edit status/i));
     const options = screen.getAllByRole('option').map((o) => o.value);
     expect(options).toContain('scheduled');
     expect(options).toContain('completed');
     expect(options).toContain('cancelled');
   });
 
-  it('calls onUpdateStatus with correct args on change', () => {
+  it('calls onUpdateStatus and hides dropdown on change', () => {
     const { onUpdateStatus } = setup({ status: 'scheduled' });
+    userEvent.click(screen.getByLabelText(/edit status/i));
     userEvent.selectOptions(screen.getByRole('combobox'), 'completed');
     expect(onUpdateStatus).toHaveBeenCalledWith('c1', 'i1', 'completed');
+    // Dropdown should be hidden again after selection
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
   });
 });

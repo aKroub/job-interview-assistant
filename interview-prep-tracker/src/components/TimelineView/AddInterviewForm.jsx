@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { FieldLabel } from '../shared/FieldLabel';
 import { FormError } from '../shared/FormError';
+import { DURATION_OPTIONS } from '../../constants/interviewTypes';
 
-const EMPTY_INTERVIEW = { type: '', date: '', time: '', status: 'scheduled' };
+const EMPTY_INTERVIEW = { type: '', date: '', time: '', duration: 60, status: 'scheduled' };
 
 /**
  * Inline "Add Interview" form for a single company row.
@@ -12,6 +13,7 @@ const EMPTY_INTERVIEW = { type: '', date: '', time: '', status: 'scheduled' };
  * submitted flag for validation). Once submitted it calls `onAdd` and resets.
  *
  * - Type, Date, and Time are all required.
+ * - Duration is optional with a default of 60 minutes.
  * - Type is a dropdown driven by the `interviewTypes` prop.
  *
  * @param {{
@@ -103,6 +105,21 @@ export function AddInterviewForm({ companyId, onAdd, interviewTypes }) {
           className="px-3 py-1 text-sm border border-gray-300 rounded"
         />
         <FormError message={submitted ? errors.time : null} />
+      </div>
+
+      {/* Duration — optional, defaults to 60 min */}
+      <div>
+        <FieldLabel htmlFor="interview-duration">Duration</FieldLabel>
+        <select
+          id="interview-duration"
+          value={interview.duration}
+          onChange={(e) => setInterview({ ...interview, duration: Number(e.target.value) })}
+          className="px-3 py-1 text-sm border border-gray-300 rounded"
+        >
+          {DURATION_OPTIONS.map((d) => (
+            <option key={d} value={d}>{d} min</option>
+          ))}
+        </select>
       </div>
 
       <div className="flex items-end gap-2 pb-0.5">

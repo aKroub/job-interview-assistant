@@ -14,4 +14,5 @@ export const STAGE_LABELS = {
   technical:  'Technical',
   final:      'Final Round',
   offer:      'Offer',
+  rejected:   'Rejected'
 };

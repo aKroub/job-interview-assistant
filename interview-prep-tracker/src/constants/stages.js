@@ -2,7 +2,7 @@
  * Ordered pipeline stages for a job application.
  * STAGES drives both the Kanban board column order and the stage selector options.
  */
-export const STAGES = ['interested', 'applied', 'phone', 'technical', 'final', 'offer'];
+export const STAGES = ['interested', 'applied', 'phone', 'technical', 'final', 'offer', 'rejected'];
 
 /**
  * Human-readable labels for each stage key.

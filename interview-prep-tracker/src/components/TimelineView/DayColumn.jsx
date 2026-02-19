@@ -1,0 +1,58 @@
+import React from 'react';
+import { formatDayHeader } from '../../utils/calendarUtils';
+import { InterviewCard } from './InterviewCard';
+
+/**
+ * A single day column in the weekly calendar grid.
+ *
+ * Renders a day header, interview cards for the day, and a placeholder
+ * when no interviews are scheduled. Highlights today's column with a
+ * blue accent.
+ *
+ * @param {{
+ *   date:           Date,
+ *   interviews:     Object[],
+ *   isToday:        boolean,
+ *   onUpdateStatus: (companyId: string, interviewId: string, status: string) => void,
+ * }} props
+ */
+export function DayColumn({ date, interviews, isToday, onUpdateStatus }) {
+  const headerLabel = formatDayHeader(date);
+
+  const columnClasses = isToday
+    ? 'border-blue-400 bg-blue-50/50'
+    : 'border-gray-200 bg-gray-50/30';
+
+  return (
+    <div
+      className={`rounded-lg border min-h-[140px] flex flex-col ${columnClasses}`}
+      data-testid={`day-column-${date.getDay()}`}
+    >
+      {/* Day header */}
+      <div
+        className={`text-center text-sm font-semibold py-2 border-b ${
+          isToday
+            ? 'text-blue-700 bg-blue-100 border-blue-300'
+            : 'text-gray-600 bg-gray-100 border-gray-200'
+        } rounded-t-lg`}
+      >
+        {headerLabel}
+      </div>
+
+      {/* Interview cards or empty placeholder */}
+      <div className="flex-1 p-1.5 space-y-1.5">
+        {interviews.length === 0 ? (
+          <p className="text-xs text-gray-300 text-center mt-4">No interviews</p>
+        ) : (
+          interviews.map((interview) => (
+            <InterviewCard
+              key={interview.id}
+              interview={interview}
+              onUpdateStatus={onUpdateStatus}
+            />
+          ))
+        )}
+      </div>
+    </div>
+  );
+}

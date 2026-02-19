@@ -35,7 +35,7 @@ export function SuggestionPanel({
       {/* Panel header */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-          <Bell size={18} className="text-blue-600" />
+          <Bell size={18} className="text-purple-600" />
           Interview Suggestions
         </h2>
 
@@ -43,7 +43,7 @@ export function SuggestionPanel({
           <div className="flex items-center gap-2">
             <button
               onClick={onScan}
-              className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 transition"
+              className="flex items-center gap-1 text-xs text-purple-600 hover:text-purple-800 transition"
               aria-label="Scan now"
             >
               <RefreshCw size={13} />
@@ -74,7 +74,7 @@ export function SuggestionPanel({
           </p>
           <button
             onClick={onConnect}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition"
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition"
           >
             <LogIn size={15} />
             Connect Google

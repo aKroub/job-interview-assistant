@@ -47,7 +47,7 @@ export function KanbanColumn({ stage, label, companies, onDelete, onUpdateStage,
       onDrop={handleDrop}
       className={`rounded-lg p-4 min-h-32 transition-colors ${
         isDragOver
-          ? 'bg-blue-50 border-2 border-blue-400 border-dashed'
+          ? 'bg-purple-50 border-2 border-purple-400 border-dashed'
           : 'bg-gray-50 border-2 border-transparent'
       }`}
     >

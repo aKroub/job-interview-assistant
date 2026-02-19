@@ -57,18 +57,18 @@ describe('DayColumn — header', () => {
 // ---------------------------------------------------------------------------
 
 describe('DayColumn — today highlight', () => {
-  it('applies blue highlight classes when isToday is true', () => {
+  it('applies purple highlight classes when isToday is true', () => {
     setup({ isToday: true });
     const column = screen.getByTestId('day-column-3'); // Wednesday = 3
-    expect(column.className).toContain('border-blue-400');
-    expect(column.className).toContain('bg-blue-50');
+    expect(column.className).toContain('border-purple-400');
+    expect(column.className).toContain('bg-purple-50');
   });
 
   it('applies default classes when isToday is false', () => {
     setup({ isToday: false });
     const column = screen.getByTestId('day-column-3');
     expect(column.className).toContain('border-gray-200');
-    expect(column.className).not.toContain('border-blue-400');
+    expect(column.className).not.toContain('border-purple-400');
   });
 });
 

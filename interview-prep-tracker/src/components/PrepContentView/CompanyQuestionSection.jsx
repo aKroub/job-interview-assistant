@@ -40,7 +40,7 @@ export function CompanyQuestionSection({
           <p>You've seen all available questions! 🎉</p>
           <button
             onClick={() => onReset(companyName)}
-            className="mt-3 text-sm text-blue-600 hover:underline"
+            className="mt-3 text-sm text-purple-600 hover:underline"
           >
             Reset {companyName} questions
           </button>

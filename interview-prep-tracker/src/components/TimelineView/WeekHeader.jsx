@@ -55,7 +55,7 @@ export function WeekHeader({ weekStart, onPrevWeek, onNextWeek, onToday, onAddCl
       {/* Add interview */}
       <button
         onClick={onAddClick}
-        className="flex items-center gap-2 px-3 py-1.5 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition"
+        className="flex items-center gap-2 px-3 py-1.5 bg-purple-600 text-white rounded text-sm hover:bg-purple-700 transition"
       >
         <Plus size={16} />
         Schedule Interview

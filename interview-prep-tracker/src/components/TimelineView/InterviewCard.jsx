@@ -4,7 +4,7 @@ import { deriveInterviewStatus } from '../../utils/companyUtils';
 
 /** Tailwind class sets for each display status (matches InterviewRow pattern). */
 const STATUS_STYLES = {
-  scheduled: 'bg-blue-50   border-blue-300   text-blue-700',
+  scheduled: 'bg-purple-50   border-purple-300   text-purple-700',
   passed:    'bg-orange-50 border-orange-300 text-orange-700',
   completed: 'bg-green-50  border-green-300  text-green-700',
   cancelled: 'bg-red-50    border-red-300    text-red-700',
@@ -56,7 +56,7 @@ export function InterviewCard({ interview, onUpdateStatus }) {
 
       {/* Company name */}
       <div className="flex items-center gap-1 mb-1">
-        <Building2 size={12} className="text-blue-500 shrink-0" />
+        <Building2 size={12} className="text-purple-500 shrink-0" />
         <span className="text-xs font-medium text-gray-800 truncate">
           {interview.companyName}
         </span>

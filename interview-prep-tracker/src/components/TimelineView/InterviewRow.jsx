@@ -4,7 +4,7 @@ import { deriveInterviewStatus } from '../../utils/companyUtils';
 
 /** Tailwind class sets for each display status (includes derived 'passed'). */
 const STATUS_STYLES = {
-  scheduled: 'bg-blue-50   border-blue-300   text-blue-700',
+  scheduled: 'bg-purple-50   border-purple-300   text-purple-700',
   passed:    'bg-orange-50 border-orange-300 text-orange-700',
   completed: 'bg-green-50  border-green-300  text-green-700',
   cancelled: 'bg-red-50    border-red-300    text-red-700',
@@ -38,7 +38,7 @@ export function InterviewRow({ interview, onUpdateStatus }) {
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
-            <Building2 size={20} className="text-blue-600" />
+            <Building2 size={20} className="text-purple-600" />
             <div>
               <h4 className="font-semibold text-gray-800">{interview.companyName}</h4>
               <p className="text-sm text-gray-600">{interview.position}</p>

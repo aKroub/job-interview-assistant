@@ -33,12 +33,15 @@ export function InterviewRow({ interview, onUpdateStatus }) {
   const displayStatus = deriveInterviewStatus(interview);
   const statusStyle   = STATUS_STYLES[displayStatus] ?? STATUS_STYLES.scheduled;
 
+  const config = TYPE_CONFIG[interview.type] || { Icon: Building2 };
+  const Icon = config;
+
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
-            <Building2 size={20} className="text-purple-600" />
+            <Icon size={20} className="text-purple-600" />
             <div>
               <h4 className="font-semibold text-gray-800">{interview.companyName}</h4>
               <p className="text-sm text-gray-600">{interview.position}</p>

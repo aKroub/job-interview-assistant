@@ -1,15 +1,7 @@
 import React from 'react';
-import { Calendar, Mail, Building2, X, Phone, Video, MapPin } from 'lucide-react';
+import { Calendar, Mail, Building2, X} from 'lucide-react';
+import { TYPE_CONFIG } from '../../constants/interviewTypes';
 
-/**
- * Maps interview type strings to icons and colours.
- * Centralised here so it is never duplicated.
- */
-const TYPE_CONFIG = {
-  'Phone Interview': { Icon: Phone,  colour: 'text-purple-600'  },
-  'Video Interview': { Icon: Video,  colour: 'text-purple-600' },
-  'In-Person Interview':{ Icon: MapPin, colour: 'text-green-600' },
-};
 
 /**
  * A single interview suggestion card.

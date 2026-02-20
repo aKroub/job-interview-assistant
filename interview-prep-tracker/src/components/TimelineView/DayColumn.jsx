@@ -47,7 +47,7 @@ export function DayColumn({ date, interviews, isToday, onUpdateStatus }) {
           interviews
             // Sort copies the array and compares the time values
             .slice() 
-            .sort((a, b) => new Date(a.time) - new Date(b.time))
+            .sort((a, b) => (a.time > b.time ? 1 : -1))
             .map((interview) => (
               <InterviewCard
                 key={interview.id}

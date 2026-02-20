@@ -5,7 +5,7 @@
 export const INTERVIEW_TYPES = [
   'Phone Interview',
   'Video Interview',
-  'Office Interview',
+  'In-Person Interview',
 ];
 
 /**

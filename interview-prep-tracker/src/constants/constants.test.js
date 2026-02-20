@@ -83,7 +83,7 @@ describe('INTERVIEW_TYPES', () => {
   it('includes the three core types', () => {
     expect(INTERVIEW_TYPES).toContain('Phone Interview');
     expect(INTERVIEW_TYPES).toContain('Video Interview');
-    expect(INTERVIEW_TYPES).toContain('Office Interview');
+    expect(INTERVIEW_TYPES).toContain('In-Person Interview');
   });
 
   it('has no duplicate values', () => {

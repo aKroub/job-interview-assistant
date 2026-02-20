@@ -1,6 +1,6 @@
 import React from 'react';
 import { Building2, Calendar, Clock } from 'lucide-react';
-import { deriveInterviewStatus } from '../../utils/companyUtils';
+import { TYPE_CONFIG } from '../../constants/interviewTypes';
 
 /** Tailwind class sets for each display status (includes derived 'passed'). */
 const STATUS_STYLES = {
@@ -33,8 +33,7 @@ export function InterviewRow({ interview, onUpdateStatus }) {
   const displayStatus = deriveInterviewStatus(interview);
   const statusStyle   = STATUS_STYLES[displayStatus] ?? STATUS_STYLES.scheduled;
 
-  const config = TYPE_CONFIG[interview.type] || { Icon: Building2 };
-  const Icon = config;
+  const Icon = TYPE_CONFIG[interview.type] || { Icon: Building2 };
 
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">

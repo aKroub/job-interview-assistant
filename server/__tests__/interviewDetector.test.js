@@ -239,7 +239,7 @@ describe('createInterviewDetector', () => {
       expect(s.type).toBe('Video Interview');
     });
 
-    it('guesses "Office Interview" when email mentions onsite', async () => {
+    it('guesses "In-Person Interview" when email mentions onsite', async () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ subject: 'Onsite Interview at HQ' })]),
         calendarService: mockCalendar([makeCalendarResult()]),
@@ -248,7 +248,7 @@ describe('createInterviewDetector', () => {
       });
 
       const [s] = await detector.detect();
-      expect(s.type).toBe('Office Interview');
+      expect(s.type).toBe('In-Person Interview');
     });
   });
 

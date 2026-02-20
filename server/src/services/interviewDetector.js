@@ -114,7 +114,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
  *
  * @param {Object} email - gmail scan result
  * @param {Object} event - calendar scan result
- * @returns {string} one of 'Phone Interview', 'Video Interview', 'Office Interview'
+ * @returns {string} one of 'Phone Interview', 'Video Interview', 'In-Person Interview'
  */
 function guessInterviewType(email, event) {
   const combined = `${email.subject || ''} ${email.snippet || ''} ${event.summary || ''} ${event.description || ''}`.toLowerCase();
@@ -128,7 +128,7 @@ function guessInterviewType(email, event) {
   }
   if (combined.includes('onsite') || combined.includes('on-site') || combined.includes('office') ||
       combined.includes('in-person') || combined.includes('in person')) {
-    return 'Office Interview';
+    return 'In-Person Interview';
   }
 
   // Default to video since most modern interviews are remote

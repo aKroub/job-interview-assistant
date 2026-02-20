@@ -8,7 +8,7 @@ import { Calendar, Mail, Building2, X, Phone, Video, MapPin } from 'lucide-react
 const TYPE_CONFIG = {
   'Phone Interview': { Icon: Phone,  colour: 'text-purple-600'  },
   'Video Interview': { Icon: Video,  colour: 'text-purple-600' },
-  'Office Interview':{ Icon: MapPin, colour: 'text-green-600' },
+  'In-Person Interview':{ Icon: MapPin, colour: 'text-green-600' },
 };
 
 /**

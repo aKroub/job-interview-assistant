@@ -44,13 +44,17 @@ export function DayColumn({ date, interviews, isToday, onUpdateStatus }) {
         {interviews.length === 0 ? (
           <p className="text-xs text-gray-300 text-center mt-4">No interviews</p>
         ) : (
-          interviews.map((interview) => (
-            <InterviewCard
-              key={interview.id}
-              interview={interview}
-              onUpdateStatus={onUpdateStatus}
-            />
-          ))
+          interviews
+            // Sort copies the array and compares the time values
+            .slice() 
+            .sort((a, b) => new Date(a.time) - new Date(b.time))
+            .map((interview) => (
+              <InterviewCard
+                key={interview.id}
+                interview={interview}
+                onUpdateStatus={onUpdateStatus}
+              />
+            ))
         )}
       </div>
     </div>

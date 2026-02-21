@@ -104,7 +104,8 @@ export function createSuggestionStream(EventSourceCtor = EventSource) {
    * readyState transitions to OPEN) which can be assigned synchronously
    * before the stream object is returned.  If `onConnected(handler)` is
    * called after `onopen` has already fired we invoke the handler
-   * immediately.
+   * immediately.  As a further safety net, `onConnected` also checks
+   * `source.readyState === 1` (OPEN) in case `onopen` was missed.
    */
   let opened = false;
   let connectedHandler = null;
@@ -115,6 +116,14 @@ export function createSuggestionStream(EventSourceCtor = EventSource) {
       connectedHandler({ status: 'connected' });
     }
   };
+
+  /**
+   * Returns true if the EventSource has already opened, checking both
+   * the local flag and the native readyState (OPEN = 1).
+   */
+  function isOpen() {
+    return opened || source.readyState === 1;
+  }
 
   const stream = {
     /**
@@ -130,7 +139,7 @@ export function createSuggestionStream(EventSourceCtor = EventSource) {
      */
     onConnected(handler) {
       connectedHandler = handler;
-      if (opened) {
+      if (isOpen()) {
         handler({ status: 'connected' });
       }
       return stream;

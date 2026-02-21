@@ -37,6 +37,13 @@ export function useInterviewSuggestions(api = defaultApi) {
   const retryTimerRef = useRef(null);
 
   /**
+   * Whether the hook is mounted.  Prevents state updates (and
+   * "Disconnected" flicker) when React StrictMode unmounts and
+   * re-mounts in dev.
+   */
+  const mountedRef = useRef(true);
+
+  /**
    * Checks Google OAuth status against the backend.
    */
   const checkAuth = useCallback(async () => {
@@ -53,6 +60,8 @@ export function useInterviewSuggestions(api = defaultApi) {
 
   /**
    * Closes the SSE stream if one is open and clears retry timer.
+   * Only updates connectionStatus when the hook is still mounted,
+   * preventing a "Disconnected" flash during StrictMode cleanup.
    */
   const closeStream = useCallback(() => {
     if (retryTimerRef.current) {
@@ -63,7 +72,9 @@ export function useInterviewSuggestions(api = defaultApi) {
       streamRef.current.close();
       streamRef.current = null;
     }
-    setConnectionStatus('disconnected');
+    if (mountedRef.current) {
+      setConnectionStatus('disconnected');
+    }
   }, []);
 
   /**
@@ -71,9 +82,10 @@ export function useInterviewSuggestions(api = defaultApi) {
    * Closes any existing stream first.
    */
   const openStream = useCallback(() => {
-    // Close any existing connection
+    // Close any existing connection without a status flash
     if (streamRef.current) {
       streamRef.current.close();
+      streamRef.current = null;
     }
 
     setConnectionStatus('connecting');
@@ -104,6 +116,7 @@ export function useInterviewSuggestions(api = defaultApi) {
 
   // On mount: check auth, if authenticated open SSE stream
   useEffect(() => {
+    mountedRef.current = true;
     let cancelled = false;
 
     async function init() {
@@ -131,6 +144,7 @@ export function useInterviewSuggestions(api = defaultApi) {
     // Cleanup: close SSE on unmount
     return () => {
       cancelled = true;
+      mountedRef.current = false;
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       closeStream();
     };

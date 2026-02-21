@@ -81,6 +81,7 @@ export function createApp(deps = {}) {
     detector,
     tokenStore,
     pollIntervalMs: config.pollIntervalMs,
+    googleAuth,
   }));
 
   // Health check

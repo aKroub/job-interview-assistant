@@ -209,6 +209,34 @@ describe('extractDateTimeFromText', () => {
     expect(result.date).toBe('2025-01-20');
     expect(result.time).toBe('15:00');
   });
+
+  it('uses the last date when multiple dates appear in text', () => {
+    const result = extractDateTimeFromText(
+      'Originally scheduled for January 15, 2025, but rescheduled to January 22, 2025'
+    );
+    expect(result.date).toBe('2025-01-22');
+  });
+
+  it('uses the last date with ISO format when multiple dates appear', () => {
+    const result = extractDateTimeFromText(
+      'Previous date was 2025-01-10, new date is 2025-01-18'
+    );
+    expect(result.date).toBe('2025-01-18');
+  });
+
+  it('uses the last date with slash format when multiple dates appear', () => {
+    const result = extractDateTimeFromText(
+      'Was 01/10/2025, now 01/18/2025'
+    );
+    expect(result.date).toBe('2025-01-18');
+  });
+
+  it('uses the last time when multiple times appear', () => {
+    const result = extractDateTimeFromText(
+      'Originally 2:00 PM, changed to 3:30 PM'
+    );
+    expect(result.time).toBe('15:30');
+  });
 });
 
 describe('parseGmailMessage', () => {

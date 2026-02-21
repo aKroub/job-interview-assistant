@@ -166,6 +166,7 @@ export function scoreEmailForInterview(subject, body, senderEmail) {
 /**
  * Attempts to extract a date and time from email text.
  * Looks for common date/time patterns in the subject and body.
+ * When multiple dates are found, returns the LAST one (for rescheduled emails).
  *
  * @param {string} text - combined subject + body text
  * @returns {{ date: string | null, time: string | null }} - ISO date (YYYY-MM-DD) and time (HH:mm) if found
@@ -184,45 +185,50 @@ export function extractDateTimeFromText(text) {
     october: '10', oct: '10', november: '11', nov: '11', december: '12', dec: '12',
   };
 
-  // Match patterns like "January 15, 2025" or "Jan 15 2025"
-  const monthNamePattern = /\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+(\d{1,2}),?\s*(\d{4})\b/i;
-  const monthMatch = text.match(monthNamePattern);
-  if (monthMatch) {
-    const mm = MONTH_MAP[monthMatch[1].toLowerCase()];
-    const dd = monthMatch[2].padStart(2, '0');
-    const yyyy = monthMatch[3];
+  // Match patterns like "January 15, 2025" or "Jan 15 2025" — use LAST match
+  const monthNamePattern = /\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+(\d{1,2}),?\s*(\d{4})\b/gi;
+  const monthMatches = Array.from(text.matchAll(monthNamePattern));
+  if (monthMatches.length > 0) {
+    const lastMatch = monthMatches[monthMatches.length - 1];
+    const mm = MONTH_MAP[lastMatch[1].toLowerCase()];
+    const dd = lastMatch[2].padStart(2, '0');
+    const yyyy = lastMatch[3];
     if (mm) {
       date = `${yyyy}-${mm}-${dd}`;
     }
   }
 
-  // Match patterns like "2025-01-15" or "01/15/2025"
+  // Match patterns like "2025-01-15" — use LAST match
   if (!date) {
-    const isoPattern = /\b(\d{4})-(\d{2})-(\d{2})\b/;
-    const isoMatch = text.match(isoPattern);
-    if (isoMatch) {
-      date = isoMatch[0];
+    const isoPattern = /\b(\d{4})-(\d{2})-(\d{2})\b/g;
+    const isoMatches = Array.from(text.matchAll(isoPattern));
+    if (isoMatches.length > 0) {
+      const lastMatch = isoMatches[isoMatches.length - 1];
+      date = lastMatch[0];
     }
   }
 
+  // Match patterns like "01/15/2025" — use LAST match
   if (!date) {
-    const slashPattern = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/;
-    const slashMatch = text.match(slashPattern);
-    if (slashMatch) {
-      const parsed = new Date(`${slashMatch[3]}-${slashMatch[1].padStart(2, '0')}-${slashMatch[2].padStart(2, '0')}`);
+    const slashPattern = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g;
+    const slashMatches = Array.from(text.matchAll(slashPattern));
+    if (slashMatches.length > 0) {
+      const lastMatch = slashMatches[slashMatches.length - 1];
+      const parsed = new Date(`${lastMatch[3]}-${lastMatch[1].padStart(2, '0')}-${lastMatch[2].padStart(2, '0')}`);
       if (!isNaN(parsed.getTime())) {
         date = parsed.toISOString().split('T')[0];
       }
     }
   }
 
-  // Match time patterns like "2:30 PM", "14:30", "2:30pm"
-  const timePattern = /\b(\d{1,2}):(\d{2})\s*(am|pm)?\b/i;
-  const timeMatch = text.match(timePattern);
-  if (timeMatch) {
-    let hours = parseInt(timeMatch[1], 10);
-    const minutes = timeMatch[2];
-    const ampm = (timeMatch[3] || '').toLowerCase();
+  // Match time patterns like "2:30 PM", "14:30", "2:30pm" — use LAST match
+  const timePattern = /\b(\d{1,2}):(\d{2})\s*(am|pm)?\b/gi;
+  const timeMatches = Array.from(text.matchAll(timePattern));
+  if (timeMatches.length > 0) {
+    const lastMatch = timeMatches[timeMatches.length - 1];
+    let hours = parseInt(lastMatch[1], 10);
+    const minutes = lastMatch[2];
+    const ampm = (lastMatch[3] || '').toLowerCase();
 
     if (ampm === 'pm' && hours < 12) hours += 12;
     if (ampm === 'am' && hours === 12) hours = 0;

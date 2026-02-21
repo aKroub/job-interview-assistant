@@ -19,7 +19,7 @@ function makeCompany(overrides = {}) {
   };
 }
 
-function setup({ companies, handlers = {} } = {}) {
+function setup({ companies, handlers = {}, initialValues = null } = {}) {
   const companiesList = companies ?? [
     makeCompany({ id: 'c1', name: 'Google', position: 'SWE' }),
     makeCompany({ id: 'c2', name: 'Meta', position: 'Staff Engineer' }),
@@ -33,6 +33,7 @@ function setup({ companies, handlers = {} } = {}) {
       interviewTypes={INTERVIEW_TYPES}
       onAdd={onAdd}
       onClose={onClose}
+      initialValues={initialValues}
     />
   );
 
@@ -212,5 +213,53 @@ describe('AddInterviewModal — close', () => {
     const { onClose } = setup();
     userEvent.click(screen.getByText('Schedule Interview'));
     expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Pre-fill via initialValues
+// ---------------------------------------------------------------------------
+
+describe('AddInterviewModal — initialValues', () => {
+  it('pre-fills company, type, date, and time from initialValues', () => {
+    setup({
+      initialValues: {
+        companyId: 'c1',
+        type: INTERVIEW_TYPES[0],
+        date: '2025-10-15',
+        time: '09:30',
+        duration: 60,
+      },
+    });
+    expect(screen.getByLabelText(/company/i).value).toBe('c1');
+    expect(screen.getByLabelText(/type/i).value).toBe(INTERVIEW_TYPES[0]);
+    expect(screen.getByLabelText(/date/i).value).toBe('2025-10-15');
+    expect(screen.getByLabelText(/time/i).value).toBe('09:30');
+  });
+
+  it('submits pre-filled values without additional input', () => {
+    const { onAdd } = setup({
+      initialValues: {
+        companyId: 'c1',
+        type: INTERVIEW_TYPES[0],
+        date: '2025-10-15',
+        time: '09:30',
+        duration: 60,
+      },
+    });
+    userEvent.click(screen.getByRole('button', { name: /schedule/i }));
+
+    expect(onAdd).toHaveBeenCalledTimes(1);
+    const [calledCompanyId, calledInterview] = onAdd.mock.calls[0];
+    expect(calledCompanyId).toBe('c1');
+    expect(calledInterview.type).toBe(INTERVIEW_TYPES[0]);
+    expect(calledInterview.date).toBe('2025-10-15');
+    expect(calledInterview.time).toBe('09:30');
+  });
+
+  it('falls back to EMPTY_INTERVIEW when initialValues is null', () => {
+    setup({ initialValues: null });
+    expect(screen.getByLabelText(/company/i).value).toBe('');
+    expect(screen.getByLabelText(/type/i).value).toBe('');
   });
 });

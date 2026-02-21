@@ -24,6 +24,7 @@ function setup({
   handlers = {},
 } = {}) {
   const onDismiss    = handlers.onDismiss    ?? jest.fn();
+  const onAccept     = handlers.onAccept     ?? jest.fn();
   const onScan       = handlers.onScan       ?? jest.fn();
   const onConnect    = handlers.onConnect    ?? jest.fn();
   const onDisconnect = handlers.onDisconnect ?? jest.fn();
@@ -34,13 +35,14 @@ function setup({
       authStatus={authStatus}
       connectionStatus={connectionStatus}
       onDismiss={onDismiss}
+      onAccept={onAccept}
       onScan={onScan}
       onConnect={onConnect}
       onDisconnect={onDisconnect}
     />
   );
 
-  return { onDismiss, onScan, onConnect, onDisconnect };
+  return { onDismiss, onAccept, onScan, onConnect, onDisconnect };
 }
 
 describe('SuggestionPanel — rendering', () => {
@@ -125,5 +127,15 @@ describe('SuggestionPanel — callbacks', () => {
     });
     await userEvent.click(screen.getByRole('button', { name: /dismiss google suggestion/i }));
     expect(onDismiss).toHaveBeenCalledWith('s1');
+  });
+
+  it('calls onAccept with the suggestion when a card is clicked', async () => {
+    const suggestion = makeSuggestion({ id: 's1', companyName: 'Google' });
+    const { onAccept } = setup({
+      authStatus: 'authenticated',
+      suggestions: [suggestion],
+    });
+    await userEvent.click(screen.getByRole('button', { name: /schedule google interview/i }));
+    expect(onAccept).toHaveBeenCalledWith(suggestion);
   });
 });

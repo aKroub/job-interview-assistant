@@ -15,6 +15,7 @@ import { SuggestionCard } from './SuggestionCard';
  *   authStatus:        'checking' | 'authenticated' | 'unauthenticated',
  *   connectionStatus:  'disconnected' | 'connecting' | 'connected' | 'error',
  *   onDismiss:         (suggestionId: string) => void,
+ *   onAccept:          (suggestion: Object) => void,
  *   onScan:            () => void,
  *   onConnect:         () => void,
  *   onDisconnect:      () => void,
@@ -25,6 +26,7 @@ export function SuggestionPanel({
   authStatus,
   connectionStatus,
   onDismiss,
+  onAccept,
   onScan,
   onConnect,
   onDisconnect,
@@ -95,7 +97,7 @@ export function SuggestionPanel({
       {authStatus === 'authenticated' && suggestions.length > 0 && (
         <div className="flex flex-col gap-3">
           {suggestions.map((s) => (
-            <SuggestionCard key={s.id} suggestion={s} onDismiss={onDismiss} />
+            <SuggestionCard key={s.id} suggestion={s} onDismiss={onDismiss} onAccept={onAccept} />
           ))}
         </div>
       )}

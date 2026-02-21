@@ -91,21 +91,48 @@ export async function triggerScan(fetchFn = fetch) {
 export function createSuggestionStream(EventSourceCtor = EventSource) {
   const source = new EventSourceCtor('/api/interviews/suggestions');
 
+  /**
+   * Track whether the connection has opened and any pending handler.
+   *
+   * Race-condition fix: the server sends `event: connected` immediately,
+   * but `.onConnected(handler)` is called later (after the chained API
+   * returns). If the browser fires the event before the listener is
+   * registered the handler never runs, leaving the UI stuck on
+   * "Connecting…".
+   *
+   * Solution: use EventSource's built-in `onopen` callback (fires when
+   * readyState transitions to OPEN) which can be assigned synchronously
+   * before the stream object is returned.  If `onConnected(handler)` is
+   * called after `onopen` has already fired we invoke the handler
+   * immediately.
+   */
+  let opened = false;
+  let connectedHandler = null;
+
+  source.onopen = () => {
+    opened = true;
+    if (connectedHandler) {
+      connectedHandler({ status: 'connected' });
+    }
+  };
+
   const stream = {
     /**
-     * Registers a handler for the `connected` SSE event.
+     * Registers a handler for the SSE connection being established.
+     *
+     * Uses EventSource's native `onopen` to avoid a race condition
+     * where the server's `connected` event arrives before the listener
+     * is attached.  If the connection is already open when this is
+     * called, the handler fires immediately.
      *
      * @param {(data: { status: string }) => void} handler
      * @returns {typeof stream} for chaining
      */
     onConnected(handler) {
-      source.addEventListener('connected', (e) => {
-        try {
-          handler(JSON.parse(e.data));
-        } catch {
-          // Malformed JSON from server — skip this event
-        }
-      });
+      connectedHandler = handler;
+      if (opened) {
+        handler({ status: 'connected' });
+      }
       return stream;
     },
 

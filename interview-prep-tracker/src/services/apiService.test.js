@@ -34,8 +34,9 @@ function mockFetchError() {
 /**
  * Creates a mock EventSource constructor.
  * The returned instance stores registered listeners so tests can fire events.
+ * Also captures the `onopen` property assignment for connected-event testing.
  *
- * @returns {{ Ctor: Function, instance: { listeners: Object, close: Function } }}
+ * @returns {{ Ctor: Function, instance: Object, listeners: Object }}
  */
 function mockEventSource() {
   const listeners = {};
@@ -44,6 +45,7 @@ function mockEventSource() {
       listeners[event] = handler;
     }),
     close: jest.fn(),
+    onopen: null,
   };
 
   function Ctor() {
@@ -143,7 +145,7 @@ describe('apiService — SSE stream', () => {
     // Note: our mock Ctor is a plain function, so it's always called
   });
 
-  it('registers connected, suggestions, scan-complete, and error listeners', () => {
+  it('registers suggestions, scan-complete, and error listeners', () => {
     const { Ctor, instance } = mockEventSource();
     const stream = createSuggestionStream(Ctor);
 
@@ -152,35 +154,46 @@ describe('apiService — SSE stream', () => {
     stream.onScanComplete(() => {});
     stream.onError(() => {});
 
-    expect(instance.addEventListener).toHaveBeenCalledWith('connected', expect.any(Function));
     expect(instance.addEventListener).toHaveBeenCalledWith('suggestions', expect.any(Function));
     expect(instance.addEventListener).toHaveBeenCalledWith('scan-complete', expect.any(Function));
     expect(instance.addEventListener).toHaveBeenCalledWith('error', expect.any(Function));
   });
 
-  it('calls the connected handler with parsed data', () => {
-    const { Ctor, listeners } = mockEventSource();
+  it('assigns onopen handler to EventSource instance', () => {
+    const { Ctor, instance } = mockEventSource();
+    createSuggestionStream(Ctor);
+
+    expect(typeof instance.onopen).toBe('function');
+  });
+
+  it('calls the connected handler when onopen fires before onConnected is called', () => {
+    const { Ctor, instance } = mockEventSource();
     const handler = jest.fn();
 
     const stream = createSuggestionStream(Ctor);
-    stream.onConnected(handler);
 
-    // Simulate the server sending a connected event
-    listeners.connected({ data: JSON.stringify({ status: 'connected' }) });
+    // Simulate: connection opens before handler is registered (the race condition)
+    instance.onopen();
+
+    // Now register the handler — it should fire immediately
+    stream.onConnected(handler);
 
     expect(handler).toHaveBeenCalledWith({ status: 'connected' });
   });
 
-  it('silently skips malformed JSON in connected event', () => {
-    const { Ctor, listeners } = mockEventSource();
+  it('calls the connected handler when onopen fires after onConnected is called', () => {
+    const { Ctor, instance } = mockEventSource();
     const handler = jest.fn();
 
     const stream = createSuggestionStream(Ctor);
+
+    // Register handler first, then connection opens
     stream.onConnected(handler);
-
-    listeners.connected({ data: 'not valid json' });
-
     expect(handler).not.toHaveBeenCalled();
+
+    instance.onopen();
+
+    expect(handler).toHaveBeenCalledWith({ status: 'connected' });
   });
 
   it('calls the suggestions handler with parsed data', () => {

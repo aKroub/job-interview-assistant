@@ -133,7 +133,7 @@ src/
 │   ├── AddCompanyModal/
 │   ├── KanbanBoard/    (KanbanBoard, KanbanColumn, CompanyCard)
 │   ├── TimelineView/   (TimelineView, CalendarView, WeekHeader, DayColumn,
-│   │                     InterviewCard, AddInterviewForm, AddInterviewModal)
+│   │                     InterviewCard, AddInterviewModal)
 │   ├── PrepContentView/(PrepContentView, CompanyQuestionSection, QuestionCard)
 │   └── Suggestions/    (SuggestionPanel, SuggestionCard, ConnectionStatus)
 │
@@ -318,7 +318,7 @@ These are the most common mistakes — treat each as a hard rule:
 ### Components
 - **No inner components** — never define a component function inside another component's render scope
 - **Props only** — components receive all data and callbacks as props; they never import hooks or call storage directly
-- **Local UI state is OK** — ephemeral form state (e.g. `AddInterviewForm`'s open/close) may live in the component; persisted state belongs in hooks
+- **Local UI state is OK** — ephemeral form state (e.g. `AddInterviewModal`'s submitted flag) may live in the component; persisted state belongs in hooks
 - **Callbacks bubble up** — mutations always flow: component calls prop callback → hook updates state → hook persists to storage
 
 ---

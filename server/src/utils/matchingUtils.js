@@ -3,6 +3,8 @@
  * from Gmail and Google Calendar. No side effects, no I/O.
  */
 
+import { normalizeCompanyName, SCHEDULING_PLATFORM_DOMAINS } from './emailParser.js';
+
 /**
  * Keywords that indicate a calendar event is likely an interview.
  * Checked against event summary (title) and description.
@@ -169,7 +171,11 @@ export function scoreCalendarEvent(event, userEmail) {
 
 /**
  * Checks if a Gmail result and a calendar scan result are about the same interview.
- * Matches by domain overlap and date proximity.
+ * Matches by domain overlap, company name, and date proximity.
+ *
+ * Scheduling platform organizer domains (e.g. group.calendar.google.com,
+ * comeet-notifications.com) are excluded from domain matching to prevent
+ * false positives.
  *
  * @param {Object} emailResult - result from gmailService.scanForInterviews()
  * @param {Object} calendarResult - result from calendarService.scanForInterviews() (flattened shape)
@@ -179,8 +185,15 @@ export function crossReferenceEmailAndEvent(emailResult, calendarResult) {
   const eventOrganizerDomain = (calendarResult.organizerEmail || '').split('@')[1]?.toLowerCase() || '';
   const emailDomain = (emailResult.senderDomain || '').toLowerCase();
 
+  // Skip domain matching when the calendar organizer is a scheduling platform —
+  // these domains (e.g. group.calendar.google.com) never match the company's domain.
+  const isSchedulingPlatform = SCHEDULING_PLATFORM_DOMAINS.some(
+    (pd) => eventOrganizerDomain === pd || eventOrganizerDomain.endsWith('.' + pd)
+  );
+
   // Domain match — exact or subdomain relationship only (not substring)
-  const domainMatch = eventOrganizerDomain && emailDomain &&
+  const domainMatch = !isSchedulingPlatform &&
+    eventOrganizerDomain && emailDomain &&
     (eventOrganizerDomain === emailDomain ||
      eventOrganizerDomain.endsWith('.' + emailDomain) ||
      emailDomain.endsWith('.' + eventOrganizerDomain));
@@ -190,11 +203,26 @@ export function crossReferenceEmailAndEvent(emailResult, calendarResult) {
   const emailDate = emailResult.extractedDate || '';
   const dateMatch = eventDate && emailDate && eventDate === emailDate;
 
+  // Company name match — compare email companyName vs calendar companyName
+  const emailCompany = normalizeCompanyName(emailResult.companyName || '');
+  const calendarCompany = normalizeCompanyName(calendarResult.companyName || '');
+  const companyNameMatch = emailCompany && calendarCompany &&
+    (emailCompany === calendarCompany ||
+     emailCompany.includes(calendarCompany) ||
+     calendarCompany.includes(emailCompany));
+
+  // Scoring tiers (descending confidence):
   if (domainMatch && dateMatch) {
     return { isMatch: true, confidence: 0.95 };
   }
+  if (companyNameMatch && dateMatch) {
+    return { isMatch: true, confidence: 0.9 };
+  }
   if (domainMatch) {
     return { isMatch: true, confidence: 0.7 };
+  }
+  if (companyNameMatch) {
+    return { isMatch: true, confidence: 0.65 };
   }
   if (dateMatch) {
     return { isMatch: true, confidence: 0.5 };

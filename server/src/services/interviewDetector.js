@@ -80,7 +80,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
           id: suggestionId,
           source: 'gmail+calendar',
           confidence,
-          companyName: capitalise(email.companyName || ''),
+          companyName: capitalise(email.companyName || event.companyName || ''),
           companyDomain: email.senderDomain || '',
           type,
           date,

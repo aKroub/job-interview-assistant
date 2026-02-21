@@ -51,6 +51,30 @@ const RECRUITING_DOMAINS = [
   'breezy.hr',
   'recruiterbox.com',
   'jazz.co',
+  'comeet-notifications.com',
+  'comeet.co',
+  'calendly.com',
+  'goodtime.io',
+  'modernloop.io',
+  'prelude.co',
+  'resource.io',
+];
+
+/**
+ * Domains used by scheduling platforms to organize calendar events
+ * on behalf of hiring companies. The organizer email domain will NOT
+ * match the company's actual domain, so domain matching should be skipped.
+ */
+export const SCHEDULING_PLATFORM_DOMAINS = [
+  'calendar.google.com',
+  'group.calendar.google.com',
+  'comeet-notifications.com',
+  'comeet.co',
+  'calendly.com',
+  'goodtime.io',
+  'modernloop.io',
+  'prelude.co',
+  'resource.io',
 ];
 
 /**
@@ -115,10 +139,18 @@ export function scoreEmailForInterview(subject, body, senderEmail) {
   const matchedKeywords = [];
   let score = 0;
 
+  // Check recruiting platforms BEFORE noise domains — a domain like
+  // comeet-notifications.com contains "notifications" which is in NOISE_DOMAINS,
+  // but it's a legitimate scheduling platform, not noise.
+  const isRecruiting = RECRUITING_DOMAINS.some((rd) => domain.includes(rd));
+
   // Check if sender is from a noise domain — heavily penalise
-  const isNoise = NOISE_DOMAINS.some((nd) => domain.includes(nd));
-  if (isNoise) {
-    return { score: 0.1, matchedKeywords: [] };
+  // (skip this check if the sender is a known recruiting platform)
+  if (!isRecruiting) {
+    const isNoise = NOISE_DOMAINS.some((nd) => domain.includes(nd));
+    if (isNoise) {
+      return { score: 0.1, matchedKeywords: [] };
+    }
   }
 
   // Strong keywords in subject are worth more
@@ -141,7 +173,6 @@ export function scoreEmailForInterview(subject, body, senderEmail) {
   }
 
   // Bonus: sender is from a known recruiting platform
-  const isRecruiting = RECRUITING_DOMAINS.some((rd) => domain.includes(rd));
   if (isRecruiting) {
     score += 0.2;
     matchedKeywords.push(`recruiting-platform:${domain}`);
@@ -266,4 +297,55 @@ export function extractEmailFromHeader(fromHeader) {
   if (!fromHeader || typeof fromHeader !== 'string') return '';
   const match = fromHeader.match(/<([^>]+)>/);
   return match ? match[1] : fromHeader.trim();
+}
+
+/**
+ * Extracts a company name from free-form text (calendar title, email subject, etc.)
+ * by matching common patterns like "Interview with {Company}" or "{Company} Interview Confirmation".
+ *
+ * @param {string} text - free-form text to search for company names
+ * @returns {string} lowercase company name, or empty string if none found
+ */
+export function extractCompanyNameFromText(text) {
+  if (!text || typeof text !== 'string') return '';
+
+  const patterns = [
+    // "interview with Torq", "meeting with Pango", "call with Google"
+    /(?:interview|meeting|call|chat|screen)\s+(?:with|at)\s+([a-z0-9][a-z0-9 ._-]*[a-z0-9])/i,
+    // "Torq Interview Confirmation", "SentinelOne Interview Scheduled"
+    /([a-z0-9][a-z0-9 ._-]*[a-z0-9])\s+interview\s+(?:confirmation|scheduled|invitation)/i,
+    // "Torq - Interview" or "Interview - Torq"
+    /([a-z0-9][a-z0-9 ._-]*[a-z0-9])\s+[-\u2013\u2014]\s+(?:interview|technical screen|phone screen)/i,
+    /(?:interview|technical screen|phone screen)\s+[-\u2013\u2014]\s+([a-z0-9][a-z0-9 ._-]*[a-z0-9])/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = text.match(pattern);
+    if (match && match[1]) {
+      const candidate = match[1].trim()
+        .replace(/\s+(team|group|ltd|inc|corp|llc|gmbh)$/i, '')
+        .trim();
+      if (candidate.length >= 2) {
+        return candidate.toLowerCase();
+      }
+    }
+  }
+
+  return '';
+}
+
+/**
+ * Normalizes a company name for comparison purposes.
+ * Collapses separators, strips common suffixes, and lowercases.
+ *
+ * @param {string} name - company name from any source
+ * @returns {string} normalized lowercase name for comparison
+ */
+export function normalizeCompanyName(name) {
+  if (!name || typeof name !== 'string') return '';
+  return name
+    .toLowerCase()
+    .replace(/[.\-_\s]+/g, '')
+    .replace(/(inc|ltd|corp|llc|gmbh|co)$/, '')
+    .trim();
 }

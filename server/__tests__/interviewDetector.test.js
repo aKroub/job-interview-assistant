@@ -56,6 +56,7 @@ function makeCalendarResult(overrides = {}) {
     matchedKeywords: ['interview'],
     reasons: ['keyword-match', 'external-organizer'],
     hasVideoLink: false,
+    companyName: '',
     ...overrides,
   };
 }
@@ -260,6 +261,54 @@ describe('createInterviewDetector', () => {
       const [s] = await detector.detect();
       expect(s.date).toBe('2025-01-20');
       expect(s.time).toBe('14:00');
+    });
+  });
+
+  describe('detect — company name matching across sources', () => {
+    it('matches email and calendar by company name when domains differ', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({
+          senderDomain: 'comeet-notifications.com',
+          companyName: 'torq',
+          extractedDate: '2025-01-20',
+        })]),
+        calendarService: mockCalendar([makeCalendarResult({
+          organizerEmail: 'noreply@group.calendar.google.com',
+          companyName: 'torq',
+          date: '2025-01-20',
+        })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const suggestions = await detector.detect();
+
+      expect(suggestions.length).toBe(1);
+      expect(suggestions[0].companyName).toBe('Torq');
+      expect(suggestions[0].confidence).toBeGreaterThanOrEqual(0.9);
+    });
+
+    it('uses calendar companyName when email companyName is a platform name', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({
+          senderDomain: 'comeet-notifications.com',
+          companyName: '',
+          extractedDate: '2025-01-20',
+        })]),
+        calendarService: mockCalendar([makeCalendarResult({
+          organizerEmail: 'noreply@group.calendar.google.com',
+          companyName: 'pango',
+          date: '2025-01-20',
+        })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const suggestions = await detector.detect();
+
+      expect(suggestions.length).toBe(1);
+      // Email companyName is empty, so it falls back to calendar's companyName
+      expect(suggestions[0].companyName).toBe('Pango');
     });
   });
 });

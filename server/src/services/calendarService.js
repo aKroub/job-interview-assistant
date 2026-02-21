@@ -1,5 +1,6 @@
 import { google } from 'googleapis';
 import { scoreCalendarEvent } from '../utils/matchingUtils.js';
+import { extractCompanyNameFromText } from '../utils/emailParser.js';
 
 /**
  * Creates a Google Calendar scanning service that searches for interview-related events.
@@ -65,6 +66,7 @@ export function createCalendarService(authClient, options = {}) {
    *   matchedKeywords: string[],
    *   reasons: string[],
    *   hasVideoLink: boolean,
+   *   companyName: string,
    * }>>}
    */
   async function scanForInterviews() {
@@ -87,6 +89,8 @@ export function createCalendarService(authClient, options = {}) {
         const startDateTime = event.start?.dateTime || '';
         const date = startDateTime ? startDateTime.slice(0, 10) : (event.start?.date || '');
         const time = startDateTime ? startDateTime.slice(11, 16) : '';
+        const companyName = extractCompanyNameFromText(event.summary || '') ||
+                            extractCompanyNameFromText(event.description || '');
 
         results.push({
           eventId: event.id || '',
@@ -101,6 +105,7 @@ export function createCalendarService(authClient, options = {}) {
           matchedKeywords,
           reasons,
           hasVideoLink: !!(event.hangoutLink || event.conferenceData),
+          companyName,
         });
       }
     }

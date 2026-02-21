@@ -199,6 +199,7 @@ describe('crossReferenceEmailAndEvent', () => {
     return {
       senderDomain: 'google.com',
       extractedDate: '2025-01-15',
+      companyName: '',
       ...overrides,
     };
   }
@@ -208,6 +209,7 @@ describe('crossReferenceEmailAndEvent', () => {
       organizerEmail: 'recruiter@google.com',
       startDateTime: '2025-01-15T14:00:00Z',
       date: '2025-01-15',
+      companyName: '',
       ...overrides,
     };
   }
@@ -280,5 +282,100 @@ describe('crossReferenceEmailAndEvent', () => {
     const event = makeCalendarResult({ organizerEmail: 'hr@google.com' });
     const result = crossReferenceEmailAndEvent(email, event);
     expect(result.isMatch).toBe(true);
+  });
+
+  it('returns 0.9 confidence when company name and date both match (scheduling platform organizer)', () => {
+    const email = makeEmailResult({
+      senderDomain: 'comeet-notifications.com',
+      companyName: 'torq',
+      extractedDate: '2025-01-15',
+    });
+    const event = makeCalendarResult({
+      organizerEmail: 'noreply@group.calendar.google.com',
+      companyName: 'torq',
+      date: '2025-01-15',
+    });
+    const result = crossReferenceEmailAndEvent(email, event);
+    expect(result.isMatch).toBe(true);
+    expect(result.confidence).toBe(0.9);
+  });
+
+  it('returns 0.65 confidence when only company name matches', () => {
+    const email = makeEmailResult({
+      senderDomain: 'comeet-notifications.com',
+      companyName: 'torq',
+      extractedDate: '2025-02-10',
+    });
+    const event = makeCalendarResult({
+      organizerEmail: 'noreply@group.calendar.google.com',
+      companyName: 'torq',
+      date: '2025-01-15',
+    });
+    const result = crossReferenceEmailAndEvent(email, event);
+    expect(result.isMatch).toBe(true);
+    expect(result.confidence).toBe(0.65);
+  });
+
+  it('does not domain-match against scheduling platform organizer domains', () => {
+    const email = makeEmailResult({
+      senderDomain: 'group.calendar.google.com',
+      extractedDate: '2025-02-10',
+      companyName: '',
+    });
+    const event = makeCalendarResult({
+      organizerEmail: 'noreply@group.calendar.google.com',
+      date: '2025-01-15',
+      companyName: '',
+    });
+    const result = crossReferenceEmailAndEvent(email, event);
+    // Neither domain (scheduling platform) nor date nor companyName match
+    expect(result.isMatch).toBe(false);
+  });
+
+  it('uses substring match for company names (sentinelone contains sentinel)', () => {
+    const email = makeEmailResult({
+      senderDomain: 'other.com',
+      companyName: 'sentinelone',
+      extractedDate: '2025-02-10',
+    });
+    const event = makeCalendarResult({
+      organizerEmail: 'hr@different.com',
+      companyName: 'sentinel',
+      date: '2025-02-10',
+    });
+    const result = crossReferenceEmailAndEvent(email, event);
+    expect(result.isMatch).toBe(true);
+    expect(result.confidence).toBe(0.9);
+  });
+
+  it('does not match different company names', () => {
+    const email = makeEmailResult({
+      senderDomain: 'comeet-notifications.com',
+      companyName: 'torq',
+      extractedDate: '2025-02-10',
+    });
+    const event = makeCalendarResult({
+      organizerEmail: 'noreply@group.calendar.google.com',
+      companyName: 'pango',
+      date: '2025-03-01',
+    });
+    const result = crossReferenceEmailAndEvent(email, event);
+    expect(result.isMatch).toBe(false);
+  });
+
+  it('prefers domain+date (0.95) over companyName+date (0.9) when both could match', () => {
+    const email = makeEmailResult({
+      senderDomain: 'torq.io',
+      companyName: 'torq',
+      extractedDate: '2025-01-15',
+    });
+    const event = makeCalendarResult({
+      organizerEmail: 'recruiter@torq.io',
+      companyName: 'torq',
+      date: '2025-01-15',
+    });
+    const result = crossReferenceEmailAndEvent(email, event);
+    expect(result.isMatch).toBe(true);
+    expect(result.confidence).toBe(0.95);
   });
 });

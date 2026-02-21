@@ -18,7 +18,7 @@ describe('STAGES', () => {
   });
 
   it('contains the expected stage keys in order', () => {
-    expect(STAGES).toEqual(['interested', 'applied', 'phone', 'technical', 'hr', 'offer']);
+    expect(STAGES).toEqual(['interested', 'applied', 'phone', 'technical', 'hr', 'offer', 'rejected']);
   });
 });
 

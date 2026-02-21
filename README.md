@@ -1,22 +1,24 @@
 # Interview Prep Tracker
 
-A full-featured interview preparation and job application tracking tool built with React. Track your application pipeline, schedule interviews, and access curated system design practice questions from top tech companies.
+A full-stack interview preparation and job application tracking tool. A React frontend provides a Kanban pipeline, weekly calendar, and system design prep view. A companion Express backend auto-detects interview invitations by cross-referencing Gmail and Google Calendar.
 
 ## Features
 
 ### 🎯 Pipeline Management (Kanban Board)
 - Visual kanban board to track companies through your interview pipeline
-- Six stages: Interested → Applied → Phone Screen → Technical → HR → Offer
+- Seven stages: Interested → Applied → CV Screening → Technical → HR → Offer → Rejected
 - Quick stage updates via dropdown
 - Track position titles and company names
 - Easy company deletion
 
-### 📅 Interview Timeline
-- Schedule and track all your interviews in one place
-- Add interviews with type, date, time, and status
-- Visual timeline sorted by date
-- Status tracking: Scheduled, Completed, Cancelled
-- See all interviews across all companies in chronological order
+### 📅 Interview Calendar
+- Weekly calendar view (Sun–Sat) with day columns and interview cards
+- Navigate between weeks with prev / next / today buttons
+- Schedule interviews with type (Phone, Video, In-Person), date, time, and duration
+- Dynamic icons per interview type
+- Status tracking: Scheduled, Completed, Cancelled — plus auto-derived "Passed" for past-scheduled interviews
+- Delete interviews directly from the calendar
+- See all interviews across all companies at a glance
 
 ### 📚 Interview Prep Content
 - Curated system design questions from Google, Microsoft, and Facebook
@@ -27,6 +29,13 @@ A full-featured interview preparation and job application tracking tool built wi
 - Difficulty levels for each question (Easy, Medium, Hard)
 - Reset options when you've completed all questions
 
+### 🤖 Smart Interview Suggestions (Backend)
+- Connects to Gmail and Google Calendar via OAuth
+- Auto-detects interview invitations by cross-referencing both sources
+- Real-time updates via Server-Sent Events (SSE)
+- Dismiss suggestions or trigger manual scans
+- Connection status indicator in the header
+
 ### 💾 Persistent Storage
 - All data persists between sessions using `localStorage`
 - Tracks companies, interviews, and seen questions
@@ -36,13 +45,26 @@ A full-featured interview preparation and job application tracking tool built wi
 
 ## Tech Stack
 
+### Frontend (`interview-prep-tracker/`)
+
 | Tool | Version | Notes |
 |---|---|---|
 | React | 19 | Hooks-based, functional components only |
-| Tailwind CSS | v3 | Utility-first styling |
-| lucide-react | latest | Icon library |
+| Tailwind CSS | v3 | Utility-first styling (v4 incompatible with react-scripts 5) |
+| lucide-react | latest | Icon library (Phone, Video, MapPin, etc.) |
 | react-scripts | 5.0.1 | Create React App — not ejected |
 | Node.js | 20 | Required (v14 is incompatible with @testing-library/dom v10) |
+
+### Backend (`server/`)
+
+| Tool | Version | Notes |
+|---|---|---|
+| Express | 4.21 | HTTP server + REST + SSE |
+| googleapis | 144 | Gmail + Calendar API client |
+| dotenv | 16 | Env var loading |
+| Jest | 29 | `--experimental-vm-modules` for ESM |
+| supertest | 7 | HTTP route testing |
+| nodemon | 3 | Dev auto-restart (`npm run dev`) |
 
 ---
 
@@ -51,6 +73,7 @@ A full-featured interview preparation and job application tracking tool built wi
 ### Prerequisites
 - Node.js **20+** (install via [nvm](https://github.com/nvm-sh/nvm))
 - npm (bundled with Node)
+- (Optional) A Google Cloud project for the Gmail + Calendar integration — see `SETUP.md`
 
 ### Installation
 
@@ -62,31 +85,53 @@ cd job-interview-assistant
 # 2. Use the correct Node version
 nvm use 20
 
-# 3. Install dependencies
+# 3. Install frontend dependencies
 cd interview-prep-tracker
 npm install
 
-# 4. Start the dev server
-npm start
+# 4. Install backend dependencies
+cd ../server
+npm install
+cd ..
 ```
 
+### Running the app
+
+**Frontend only** (no backend features):
+```bash
+cd interview-prep-tracker
+nvm use 20 && npm start
+```
 The app opens at `http://localhost:3000`.
+
+**Full stack** (frontend + Gmail/Calendar suggestions):
+```bash
+# Terminal 1 — Backend
+cd server
+nvm use 20 && npm run dev    # → http://localhost:3001
+
+# Terminal 2 — Frontend
+cd interview-prep-tracker
+nvm use 20 && npm start       # → http://localhost:3000
+```
+
+> For Google OAuth setup, follow the step-by-step guide in `SETUP.md`.
 
 ---
 
 ## Development
 
 ```bash
-cd interview-prep-tracker
+# --- Frontend (from interview-prep-tracker/) ---
+nvm use 20 && npm start                              # dev server with hot reload
+nvm use 20 && npm run lint                           # catch unused exports + variables
+nvm use 20 && npm run build                          # production build (must be 0 warnings)
+nvm use 20 && npm test -- --watchAll=false --verbose  # all tests (must pass before PR)
 
-# Start dev server with hot reload
-nvm use 20 && npm start
-
-# Production build (must be clean — 0 errors, 0 warnings)
-nvm use 20 && npm run build
-
-# Run all tests (must all pass before any commit)
-nvm use 20 && npm test -- --watchAll=false --verbose
+# --- Backend (from server/) ---
+nvm use 20 && npm run dev                            # dev server with auto-restart
+nvm use 20 && npm run lint                           # catch unused exports + variables
+nvm use 20 && npm test                               # all tests (must pass before PR)
 ```
 
 ---
@@ -97,24 +142,32 @@ nvm use 20 && npm test -- --watchAll=false --verbose
 interview-prep-tracker/src/
 │
 ├── constants/                     # Static data — no logic, no React
-│   ├── questions.js               # SYSTEM_DESIGN_QUESTIONS bank (Google / Microsoft / Facebook)
+│   ├── app.js                     # APP_TITLE env var with fallback
+│   ├── interviewTypes.js          # INTERVIEW_TYPES, TYPE_CONFIG, DURATION_OPTIONS
+│   ├── positions.js               # POSITIONS array
+│   ├── questions.js               # SYSTEM_DESIGN_QUESTIONS (Google / Microsoft / Facebook)
 │   └── stages.js                  # STAGES array + STAGE_LABELS map
 │
 ├── services/                      # I/O abstractions — injectable in tests
-│   └── storageService.js          # localStorageService + createMemoryStorage()
+│   ├── storageService.js          # localStorageService + createMemoryStorage()
+│   └── apiService.js              # REST calls + SSE stream to backend
 │
 ├── utils/                         # Pure functions — no React, no globals
+│   ├── calendarUtils.js           # getWeekStart, getWeekDays, groupInterviewsByDate, …
 │   ├── companyUtils.js            # createCompany, applyStageUpdate, applyDelete, …
 │   └── questionUtils.js           # getAvailableQuestions, addSeenQuestion, …
 │
 ├── hooks/                         # React state + persistence
 │   ├── useCompanies.js            # Companies + interviews state and mutations
 │   ├── useSeenQuestions.js        # Seen questions Set + selectors
-│   └── useInterviewTracker.js     # Thin composition of the two hooks above
+│   ├── useInterviewSuggestions.js # SSE connection + auth + suggestion state
+│   └── useInterviewTracker.js     # Thin composition of the three hooks above
 │
 ├── components/
 │   ├── shared/
 │   │   ├── DifficultyBadge.jsx    # Reusable difficulty colour badge
+│   │   ├── FieldLabel.jsx         # Form field label component
+│   │   ├── FormError.jsx          # Error message display component
 │   │   └── TabNav.jsx             # Three-tab navigation bar
 │   ├── AddCompanyModal/
 │   │   └── AddCompanyModal.jsx
@@ -123,17 +176,48 @@ interview-prep-tracker/src/
 │   │   ├── KanbanColumn.jsx
 │   │   └── CompanyCard.jsx
 │   ├── TimelineView/
-│   │   ├── TimelineView.jsx
-│   │   ├── InterviewRow.jsx
-│   │   └── AddInterviewForm.jsx
-│   └── PrepContentView/
-│       ├── PrepContentView.jsx
-│       ├── CompanyQuestionSection.jsx
-│       └── QuestionCard.jsx
+│   │   ├── TimelineView.jsx       # Wrapper switching between views
+│   │   ├── CalendarView.jsx       # Weekly calendar grid (Sun–Sat)
+│   │   ├── WeekHeader.jsx         # Week navigation (prev / next / today)
+│   │   ├── DayColumn.jsx          # Single day column with interview cards
+│   │   ├── InterviewCard.jsx      # Interview card in the calendar
+│   │   ├── AddInterviewForm.jsx   # Form for adding a new interview
+│   │   └── AddInterviewModal.jsx  # Modal wrapper for the add form
+│   ├── PrepContentView/
+│   │   ├── PrepContentView.jsx
+│   │   ├── CompanyQuestionSection.jsx
+│   │   └── QuestionCard.jsx
+│   └── Suggestions/
+│       ├── SuggestionPanel.jsx    # Panel showing detected interview suggestions
+│       ├── SuggestionCard.jsx     # Individual suggestion card
+│       └── ConnectionStatus.jsx   # OAuth connection status indicator
 │
-├── InterviewPrepTracker.jsx       # Thin orchestrating shell (~110 lines)
+├── InterviewPrepTracker.jsx       # Thin orchestrating shell (~150 lines)
 ├── App.js                         # Renders <InterviewPrepTracker />
 └── App.test.js                    # Integration smoke tests
+```
+
+```
+server/src/
+│
+├── config.js                      # Loads + validates env vars
+│
+├── services/
+│   ├── tokenStore.js              # File-based OAuth token + dismissed-IDs storage
+│   ├── googleAuth.js              # Google OAuth2 flow
+│   ├── gmailService.js            # Scans Gmail for interview-related emails
+│   ├── calendarService.js         # Scans Google Calendar for interview events
+│   └── interviewDetector.js       # Cross-references Gmail + Calendar
+│
+├── utils/
+│   ├── emailParser.js             # Scores + parses Gmail messages
+│   └── matchingUtils.js           # Scores + cross-references calendar with emails
+│
+├── routes/
+│   ├── auth.js                    # GET /api/auth/status|url|callback, POST disconnect
+│   └── interviews.js              # GET /api/interviews/suggestions (SSE), POST dismiss|scan
+│
+└── index.js                       # createApp(deps) factory + server bootstrap
 ```
 
 ### Architecture rules
@@ -141,28 +225,42 @@ interview-prep-tracker/src/
 - All components are **fully presentational** — they receive data and callbacks via props and own no global state
 - All **business logic lives in `utils/`** as pure functions (no React, no globals)
 - All **state and persistence lives in `hooks/`**, which accept an injectable `storage` parameter
+- Backend services accept **injectable dependencies** so tests can swap in test doubles
 
 ---
 
 ## Testing
 
-The test suite is split into layers, matching the architecture:
+The test suite covers every layer across both frontend and backend:
 
-| File | What it tests |
-|---|---|
-| `src/App.test.js` | Integration smoke test — app renders and default view loads |
-| `src/utils/companyUtils.test.js` | Pure function unit tests (no React) |
-| `src/utils/questionUtils.test.js` | Pure function unit tests (no React) |
-| `src/hooks/useCompanies.test.js` | Hook tests with injected in-memory storage |
-| `src/hooks/useSeenQuestions.test.js` | Hook tests with injected in-memory storage |
+### Frontend (32 test suites)
+
+| Layer | Test files | What they test |
+|---|---|---|
+| Constants | `constants.test.js` | Stage keys, positions, interview types, question bank integrity |
+| Services | `storageService.test.js`, `apiService.test.js` | Storage interface, REST calls, SSE stream |
+| Utils | `companyUtils.test.js`, `questionUtils.test.js`, `calendarUtils.test.js` | Pure function unit tests (no React) |
+| Hooks | `useCompanies.test.js`, `useSeenQuestions.test.js`, `useInterviewSuggestions.test.js`, `useInterviewTracker.test.js` | Hook tests with injected in-memory storage / mock API |
+| Components | 21 test files (one per component) | Rendering, user interactions, callback wiring |
+| Integration | `App.test.js` | Smoke test — app renders and default view loads |
+
+### Backend (10 test suites)
+
+| Layer | Test files | What they test |
+|---|---|---|
+| Config | `config.test.js` | Env var loading + validation |
+| Services | `tokenStore.test.js`, `googleAuth.test.js`, `gmailService.test.js`, `calendarService.test.js`, `interviewDetector.test.js` | Business logic with injectable mocks |
+| Utils | `emailParser.test.js`, `matchingUtils.test.js` | Scoring + parsing pure functions |
+| Routes | `auth.test.js`, `interviews.test.js` | HTTP route tests via supertest |
 
 ```bash
-# Run all tests with verbose output
+# Run all frontend tests
+cd interview-prep-tracker
 npm test -- --watchAll=false --verbose
 
-# Expected output:
-# Test Suites: 5 passed, 5 total
-# Tests:       64 passed, 64 total
+# Run all backend tests
+cd server
+npm test
 ```
 
 Tests never mock `localStorage` globally — they inject a `createMemoryStorage()` instance instead, keeping each test fully isolated.
@@ -183,9 +281,11 @@ Tests never mock `localStorage` globally — they inject a `createMemoryStorage(
 
 ### Scheduling Interviews
 1. Go to the **Timeline** tab
-2. Click **Add Interview** next to a company
-3. Enter type (e.g. "Technical Round"), date, and time
-4. Update status as the interview progresses (Scheduled → Completed / Cancelled)
+2. Click **Schedule Interview**
+3. Select a company, then fill in type (Phone, Video, or In-Person), date, and time
+4. The interview appears in the weekly calendar on the correct day
+5. Navigate between weeks with the **◀ ▶** arrows or jump to **Today**
+6. Update or delete interviews directly from their cards
 
 ### Practising System Design
 1. Navigate to the **Prep Content** tab
@@ -219,7 +319,7 @@ export const SYSTEM_DESIGN_QUESTIONS = {
 Edit `src/constants/stages.js`:
 
 ```js
-export const STAGES = ['interested', 'applied', 'phone', 'technical', 'hr', 'offer'];
+export const STAGES = ['interested', 'applied', 'phone', 'technical', 'hr', 'offer', 'rejected'];
 export const STAGE_LABELS = { interested: 'Interested', /* ... */ };
 ```
 
@@ -229,11 +329,9 @@ export const STAGE_LABELS = { interested: 'Interested', /* ... */ };
 
 - [ ] Notes section per company
 - [ ] Export data as JSON / CSV
-- [ ] Email reminders for upcoming interviews
 - [ ] More question categories (behavioural, coding, etc.)
 - [ ] Dark mode
 - [ ] Mobile responsive improvements
-- [ ] Calendar app integration
 - [ ] Salary negotiation tracker
 
 ---

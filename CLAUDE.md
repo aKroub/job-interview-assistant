@@ -64,15 +64,17 @@ A React app for tracking job applications (Kanban pipeline), scheduling intervie
 ```bash
 # Frontend — always run from interview-prep-tracker/
 cd interview-prep-tracker
+npm run lint                           # no unused exports or variables (0 warnings)
 npm run build                          # must be clean (0 errors, 0 warnings)
 npm test -- --watchAll=false --verbose # all tests must pass
 
 # Backend — always run from server/
 cd server
+npm run lint                           # no unused exports or variables (0 warnings)
 npm test                               # all tests must pass
 ```
 
-Zero tolerance for warnings in the build output. Fix them, don't suppress them.
+Zero tolerance for warnings in the build and lint output. Fix them, don't suppress them.
 
 ---
 
@@ -80,8 +82,10 @@ Zero tolerance for warnings in the build output. Fix them, don't suppress them.
 
 Before opening any PR, confirm every item:
 
+- [ ] `npm run lint` (frontend) → 0 warnings
 - [ ] `npm run build` (frontend) → 0 errors, 0 warnings
 - [ ] `npm test -- --watchAll=false --verbose` (frontend) → all pass
+- [ ] `npm run lint` (backend, if backend files changed) → 0 warnings
 - [ ] `npm test` (backend, if backend files changed) → all pass
 - [ ] No inner component functions defined inside a component's render scope
 - [ ] All state mutations flow through hooks — nothing imports storage directly in components
@@ -102,7 +106,7 @@ src/
 │   ├── questions.js    SYSTEM_DESIGN_QUESTIONS (the full question bank)
 │   ├── stages.js       STAGES array + STAGE_LABELS map
 │   ├── positions.js    POSITIONS array
-│   ├── interviewTypes.js  INTERVIEW_TYPES array
+│   ├── interviewTypes.js  INTERVIEW_TYPES array + TYPE_CONFIG map + DURATION_OPTIONS
 │   └── app.js          APP_TITLE env var with fallback
 │
 ├── services/           I/O abstractions — no React, injectable in tests
@@ -110,6 +114,7 @@ src/
 │   └── apiService.js       REST calls + SSE stream (injectable fetch/EventSource)
 │
 ├── utils/              Pure functions — no React, no globals, no side effects
+│   ├── calendarUtils.js
 │   ├── companyUtils.js
 │   └── questionUtils.js
 │
@@ -127,11 +132,12 @@ src/
 │   │   └── FormError.jsx
 │   ├── AddCompanyModal/
 │   ├── KanbanBoard/    (KanbanBoard, KanbanColumn, CompanyCard)
-│   ├── TimelineView/   (TimelineView, InterviewRow, AddInterviewForm)
+│   ├── TimelineView/   (TimelineView, CalendarView, WeekHeader, DayColumn,
+│   │                     InterviewCard, AddInterviewForm, AddInterviewModal)
 │   ├── PrepContentView/(PrepContentView, CompanyQuestionSection, QuestionCard)
 │   └── Suggestions/    (SuggestionPanel, SuggestionCard, ConnectionStatus)
 │
-├── InterviewPrepTracker.jsx   Thin orchestrating shell (~130 lines)
+├── InterviewPrepTracker.jsx   Thin orchestrating shell (~150 lines)
 └── App.js                     Renders <InterviewPrepTracker />
 ```
 
@@ -417,12 +423,14 @@ Every util function that transforms state should have a test asserting the origi
 ```bash
 # --- Frontend (run from interview-prep-tracker/) ---
 nvm use 20 && npm start                              # dev server (port 3000)
+nvm use 20 && npm run lint                           # unused exports + variables (must be 0 warnings)
 nvm use 20 && npm run build                          # production build (must be 0 warnings)
 nvm use 20 && npm test -- --watchAll=false --verbose # all tests (must pass before PR)
 
 # --- Backend (run from server/) ---
 nvm use 20 && npm run dev                            # dev server with auto-restart (port 3001)
 nvm use 20 && npm start                              # production start
+nvm use 20 && npm run lint                           # unused exports + variables (must be 0 warnings)
 nvm use 20 && npm test                               # all server tests (must pass before PR)
 
 # --- Git ---

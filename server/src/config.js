@@ -32,7 +32,7 @@ export function loadConfig(env = process.env, envPath) {
 
   const port                = parseInt(env.PORT, 10) || 3001;
   const pollIntervalMs      = parseInt(env.POLL_INTERVAL_MS, 10) || 300_000;
-  const emailLookbackDays   = parseInt(env.EMAIL_LOOKBACK_DAYS, 10) || 1;
+  const emailLookbackDays   = parseInt(env.EMAIL_LOOKBACK_DAYS, 10) || 7;
   const calendarLookaheadDays = parseInt(env.CALENDAR_LOOKAHEAD_DAYS, 10) || 30;
   const redirectUri         = `http://localhost:${port}/api/auth/callback`;
 

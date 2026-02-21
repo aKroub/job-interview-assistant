@@ -119,7 +119,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
 function guessInterviewType(email, event) {
   const combined = `${email.subject || ''} ${email.snippet || ''} ${event.summary || ''} ${event.description || ''}`.toLowerCase();
 
-  if (combined.includes('phone') || combined.includes('phone screen')) {
+  if (combined.includes('phone')) {
     return 'Phone Interview';
   }
   if (event.hasVideoLink || combined.includes('zoom') || combined.includes('meet') ||

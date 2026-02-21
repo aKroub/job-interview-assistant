@@ -168,25 +168,25 @@ export function scoreCalendarEvent(event, userEmail) {
 }
 
 /**
- * Checks if a Gmail result and a Calendar event are about the same interview.
+ * Checks if a Gmail result and a calendar scan result are about the same interview.
  * Matches by domain overlap and date proximity.
  *
  * @param {Object} emailResult - result from gmailService.scanForInterviews()
- * @param {Object} calendarEvent - Google Calendar event resource
+ * @param {Object} calendarResult - result from calendarService.scanForInterviews() (flattened shape)
  * @returns {{ isMatch: boolean, confidence: number }}
  */
-export function crossReferenceEmailAndEvent(emailResult, calendarEvent) {
-  const eventOrganizerDomain = (calendarEvent.organizer?.email || '').split('@')[1]?.toLowerCase() || '';
+export function crossReferenceEmailAndEvent(emailResult, calendarResult) {
+  const eventOrganizerDomain = (calendarResult.organizerEmail || '').split('@')[1]?.toLowerCase() || '';
   const emailDomain = (emailResult.senderDomain || '').toLowerCase();
 
-  // Domain match
+  // Domain match — exact or subdomain relationship only (not substring)
   const domainMatch = eventOrganizerDomain && emailDomain &&
     (eventOrganizerDomain === emailDomain ||
-     eventOrganizerDomain.includes(emailDomain) ||
-     emailDomain.includes(eventOrganizerDomain));
+     eventOrganizerDomain.endsWith('.' + emailDomain) ||
+     emailDomain.endsWith('.' + eventOrganizerDomain));
 
   // Date match — email mentions a date that matches the event date
-  const eventDate = (calendarEvent.start?.dateTime || calendarEvent.start?.date || '').slice(0, 10);
+  const eventDate = calendarResult.date || (calendarResult.startDateTime || '').slice(0, 10);
   const emailDate = emailResult.extractedDate || '';
   const dateMatch = eventDate && emailDate && eventDate === emailDate;
 

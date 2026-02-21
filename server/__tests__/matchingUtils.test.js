@@ -203,23 +203,24 @@ describe('crossReferenceEmailAndEvent', () => {
     };
   }
 
-  function makeCalendarEvent(overrides = {}) {
+  function makeCalendarResult(overrides = {}) {
     return {
-      organizer: { email: 'recruiter@google.com' },
-      start: { dateTime: '2025-01-15T14:00:00Z' },
+      organizerEmail: 'recruiter@google.com',
+      startDateTime: '2025-01-15T14:00:00Z',
+      date: '2025-01-15',
       ...overrides,
     };
   }
 
   it('returns high confidence when domain and date both match', () => {
-    const result = crossReferenceEmailAndEvent(makeEmailResult(), makeCalendarEvent());
+    const result = crossReferenceEmailAndEvent(makeEmailResult(), makeCalendarResult());
     expect(result.isMatch).toBe(true);
     expect(result.confidence).toBeGreaterThanOrEqual(0.9);
   });
 
   it('returns medium confidence when only domain matches', () => {
     const email = makeEmailResult({ extractedDate: '2025-02-20' });
-    const result = crossReferenceEmailAndEvent(email, makeCalendarEvent());
+    const result = crossReferenceEmailAndEvent(email, makeCalendarResult());
     expect(result.isMatch).toBe(true);
     expect(result.confidence).toBeGreaterThanOrEqual(0.6);
     expect(result.confidence).toBeLessThan(0.9);
@@ -227,7 +228,7 @@ describe('crossReferenceEmailAndEvent', () => {
 
   it('returns lower confidence when only date matches', () => {
     const email = makeEmailResult({ senderDomain: 'otherdomain.com' });
-    const event = makeCalendarEvent({ organizer: { email: 'hr@differentcompany.com' } });
+    const event = makeCalendarResult({ organizerEmail: 'hr@differentcompany.com' });
     const result = crossReferenceEmailAndEvent(email, event);
     expect(result.isMatch).toBe(true);
     expect(result.confidence).toBeGreaterThanOrEqual(0.4);
@@ -236,7 +237,7 @@ describe('crossReferenceEmailAndEvent', () => {
 
   it('returns no match when neither domain nor date match', () => {
     const email = makeEmailResult({ senderDomain: 'other.com', extractedDate: '2025-03-01' });
-    const event = makeCalendarEvent({ organizer: { email: 'hr@different.com' } });
+    const event = makeCalendarResult({ organizerEmail: 'hr@different.com', date: '2025-01-15' });
     const result = crossReferenceEmailAndEvent(email, event);
     expect(result.isMatch).toBe(false);
     expect(result.confidence).toBe(0);
@@ -244,17 +245,39 @@ describe('crossReferenceEmailAndEvent', () => {
 
   it('handles missing email date gracefully', () => {
     const email = makeEmailResult({ extractedDate: null });
-    const result = crossReferenceEmailAndEvent(email, makeCalendarEvent());
+    const result = crossReferenceEmailAndEvent(email, makeCalendarResult());
     // Domain still matches
     expect(result.isMatch).toBe(true);
   });
 
   it('handles event with date-only start (all-day event)', () => {
-    const event = makeCalendarEvent({
-      start: { date: '2025-01-15' },
-      organizer: { email: 'hr@other.com' },
+    const event = makeCalendarResult({
+      date: '2025-01-15',
+      startDateTime: '',
+      organizerEmail: 'hr@other.com',
     });
     const email = makeEmailResult({ senderDomain: 'other.com' });
+    const result = crossReferenceEmailAndEvent(email, event);
+    expect(result.isMatch).toBe(true);
+  });
+
+  it('rejects substring domain matches that are not proper subdomains', () => {
+    const email = makeEmailResult({ senderDomain: 'google.com', extractedDate: '2025-01-16' });
+    const event = makeCalendarResult({ organizerEmail: 'hr@notgoogle.com' });
+    const result = crossReferenceEmailAndEvent(email, event);
+    expect(result.isMatch).toBe(false);
+  });
+
+  it('accepts subdomain matches (jobs.google.com matches google.com)', () => {
+    const email = makeEmailResult({ senderDomain: 'google.com', extractedDate: '2025-01-16' });
+    const event = makeCalendarResult({ organizerEmail: 'hr@jobs.google.com' });
+    const result = crossReferenceEmailAndEvent(email, event);
+    expect(result.isMatch).toBe(true);
+  });
+
+  it('accepts subdomain matches (google.com matches jobs.google.com)', () => {
+    const email = makeEmailResult({ senderDomain: 'jobs.google.com' });
+    const event = makeCalendarResult({ organizerEmail: 'hr@google.com' });
     const result = crossReferenceEmailAndEvent(email, event);
     expect(result.isMatch).toBe(true);
   });

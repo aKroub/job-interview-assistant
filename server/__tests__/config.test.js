@@ -21,7 +21,7 @@ describe('loadConfig', () => {
     expect(config.clientSecret).toBe('test-client-secret');
     expect(config.port).toBe(3001);
     expect(config.pollIntervalMs).toBe(300_000);
-    expect(config.emailLookbackDays).toBe(1);
+    expect(config.emailLookbackDays).toBe(7);
     expect(config.calendarLookaheadDays).toBe(30);
     expect(config.redirectUri).toBe('http://localhost:3001/api/auth/callback');
   });

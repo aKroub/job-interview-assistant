@@ -143,16 +143,18 @@ describe('apiService — SSE stream', () => {
     // Note: our mock Ctor is a plain function, so it's always called
   });
 
-  it('registers connected, suggestions, and error listeners', () => {
+  it('registers connected, suggestions, scan-complete, and error listeners', () => {
     const { Ctor, instance } = mockEventSource();
     const stream = createSuggestionStream(Ctor);
 
     stream.onConnected(() => {});
     stream.onSuggestions(() => {});
+    stream.onScanComplete(() => {});
     stream.onError(() => {});
 
     expect(instance.addEventListener).toHaveBeenCalledWith('connected', expect.any(Function));
     expect(instance.addEventListener).toHaveBeenCalledWith('suggestions', expect.any(Function));
+    expect(instance.addEventListener).toHaveBeenCalledWith('scan-complete', expect.any(Function));
     expect(instance.addEventListener).toHaveBeenCalledWith('error', expect.any(Function));
   });
 
@@ -169,6 +171,18 @@ describe('apiService — SSE stream', () => {
     expect(handler).toHaveBeenCalledWith({ status: 'connected' });
   });
 
+  it('silently skips malformed JSON in connected event', () => {
+    const { Ctor, listeners } = mockEventSource();
+    const handler = jest.fn();
+
+    const stream = createSuggestionStream(Ctor);
+    stream.onConnected(handler);
+
+    listeners.connected({ data: 'not valid json' });
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+
   it('calls the suggestions handler with parsed data', () => {
     const { Ctor, listeners } = mockEventSource();
     const handler = jest.fn();
@@ -180,6 +194,42 @@ describe('apiService — SSE stream', () => {
     listeners.suggestions({ data: JSON.stringify(suggestions) });
 
     expect(handler).toHaveBeenCalledWith(suggestions);
+  });
+
+  it('silently skips malformed JSON in suggestions event', () => {
+    const { Ctor, listeners } = mockEventSource();
+    const handler = jest.fn();
+
+    const stream = createSuggestionStream(Ctor);
+    stream.onSuggestions(handler);
+
+    listeners.suggestions({ data: 'invalid json' });
+
+    expect(handler).not.toHaveBeenCalled();
+  });
+
+  it('calls the scan-complete handler with parsed data', () => {
+    const { Ctor, listeners } = mockEventSource();
+    const handler = jest.fn();
+
+    const stream = createSuggestionStream(Ctor);
+    stream.onScanComplete(handler);
+
+    listeners['scan-complete']({ data: JSON.stringify({ scanned: 5 }) });
+
+    expect(handler).toHaveBeenCalledWith({ scanned: 5 });
+  });
+
+  it('silently skips malformed JSON in scan-complete event', () => {
+    const { Ctor, listeners } = mockEventSource();
+    const handler = jest.fn();
+
+    const stream = createSuggestionStream(Ctor);
+    stream.onScanComplete(handler);
+
+    listeners['scan-complete']({ data: 'bad json' });
+
+    expect(handler).not.toHaveBeenCalled();
   });
 
   it('calls the error handler with parsed server error', () => {
@@ -208,6 +258,19 @@ describe('apiService — SSE stream', () => {
     expect(handler).toHaveBeenCalledWith({ message: 'SSE connection error' });
   });
 
+  it('calls the error handler with generic message when server error is malformed JSON', () => {
+    const { Ctor, listeners } = mockEventSource();
+    const handler = jest.fn();
+
+    const stream = createSuggestionStream(Ctor);
+    stream.onError(handler);
+
+    // Server error with malformed JSON
+    listeners.error({ data: 'not json' });
+
+    expect(handler).toHaveBeenCalledWith({ message: 'Received malformed error from server' });
+  });
+
   it('close() calls EventSource.close()', () => {
     const { Ctor, instance } = mockEventSource();
     const stream = createSuggestionStream(Ctor);
@@ -222,6 +285,7 @@ describe('apiService — SSE stream', () => {
     const result = stream
       .onConnected(() => {})
       .onSuggestions(() => {})
+      .onScanComplete(() => {})
       .onError(() => {});
 
     expect(result).toBe(stream);

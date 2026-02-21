@@ -80,12 +80,13 @@ export async function triggerScan(fetchFn = fetch) {
  * The caller is responsible for calling `close()` on unmount to clean up.
  *
  * SSE events from the server:
- *   - `connected`   → `{ status: 'connected' }`
- *   - `suggestions` → array of suggestion objects
- *   - `error`       → `{ message: string }`
+ *   - `connected`     → `{ status: 'connected' }`
+ *   - `suggestions`   → array of suggestion objects
+ *   - `scan-complete` → `{ scanned: number }`
+ *   - `error`         → `{ message: string }`
  *
  * @param {Function} [EventSourceCtor=EventSource] - injectable constructor for testing
- * @returns {{ onConnected: Function, onSuggestions: Function, onError: Function, close: Function }}
+ * @returns {{ onConnected: Function, onSuggestions: Function, onScanComplete: Function, onError: Function, close: Function }}
  */
 export function createSuggestionStream(EventSourceCtor = EventSource) {
   const source = new EventSourceCtor('/api/interviews/suggestions');
@@ -99,7 +100,11 @@ export function createSuggestionStream(EventSourceCtor = EventSource) {
      */
     onConnected(handler) {
       source.addEventListener('connected', (e) => {
-        handler(JSON.parse(e.data));
+        try {
+          handler(JSON.parse(e.data));
+        } catch {
+          // Malformed JSON from server — skip this event
+        }
       });
       return stream;
     },
@@ -112,7 +117,28 @@ export function createSuggestionStream(EventSourceCtor = EventSource) {
      */
     onSuggestions(handler) {
       source.addEventListener('suggestions', (e) => {
-        handler(JSON.parse(e.data));
+        try {
+          handler(JSON.parse(e.data));
+        } catch {
+          // Malformed JSON from server — skip this event
+        }
+      });
+      return stream;
+    },
+
+    /**
+     * Registers a handler for the `scan-complete` SSE event.
+     *
+     * @param {(data: { scanned: number }) => void} handler
+     * @returns {typeof stream} for chaining
+     */
+    onScanComplete(handler) {
+      source.addEventListener('scan-complete', (e) => {
+        try {
+          handler(JSON.parse(e.data));
+        } catch {
+          // Malformed JSON — skip
+        }
       });
       return stream;
     },
@@ -127,7 +153,11 @@ export function createSuggestionStream(EventSourceCtor = EventSource) {
       source.addEventListener('error', (e) => {
         // Server-sent error event has data; native EventSource errors don't
         if (e.data) {
-          handler(JSON.parse(e.data));
+          try {
+            handler(JSON.parse(e.data));
+          } catch {
+            handler({ message: 'Received malformed error from server' });
+          }
         } else {
           handler({ message: 'SSE connection error' });
         }

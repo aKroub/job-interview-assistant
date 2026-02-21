@@ -86,7 +86,9 @@ export function SuggestionPanel({
         <p className="text-sm text-gray-500 text-center py-4">
           {connectionStatus === 'connecting'
             ? 'Scanning Gmail and Calendar…'
-            : 'No interview suggestions detected yet.'}
+            : connectionStatus === 'error'
+              ? 'Unable to reach Gmail & Calendar. Retrying…'
+              : 'No interview suggestions detected yet.'}
         </p>
       )}
 

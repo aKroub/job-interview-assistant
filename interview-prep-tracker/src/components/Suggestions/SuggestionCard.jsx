@@ -69,7 +69,7 @@ export function SuggestionCard({ suggestion, onDismiss }) {
 
       {/* Confidence */}
       <div className="text-xs text-gray-400 text-right">
-        {Math.round(suggestion.confidence * 100)}% confidence
+        {Number.isFinite(suggestion.confidence) ? Math.round(suggestion.confidence * 100) : 0}% confidence
       </div>
     </div>
   );

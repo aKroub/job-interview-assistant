@@ -58,6 +58,21 @@ describe('SuggestionCard — rendering', () => {
     expect(screen.getByText('92% confidence')).toBeInTheDocument();
   });
 
+  it('renders 0% confidence when confidence is undefined', () => {
+    render(<SuggestionCard suggestion={makeSuggestion({ confidence: undefined })} onDismiss={() => {}} />);
+    expect(screen.getByText('0% confidence')).toBeInTheDocument();
+  });
+
+  it('renders 0% confidence when confidence is NaN', () => {
+    render(<SuggestionCard suggestion={makeSuggestion({ confidence: NaN })} onDismiss={() => {}} />);
+    expect(screen.getByText('0% confidence')).toBeInTheDocument();
+  });
+
+  it('renders 0% confidence when confidence is Infinity', () => {
+    render(<SuggestionCard suggestion={makeSuggestion({ confidence: Infinity })} onDismiss={() => {}} />);
+    expect(screen.getByText('0% confidence')).toBeInTheDocument();
+  });
+
   it('renders a dismiss button with accessible label', () => {
     render(<SuggestionCard suggestion={makeSuggestion()} onDismiss={() => {}} />);
     expect(

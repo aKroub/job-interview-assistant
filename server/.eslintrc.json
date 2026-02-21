@@ -1,0 +1,24 @@
+{
+  "env": { "node": true, "es2022": true },
+  "parserOptions": { "ecmaVersion": 2022, "sourceType": "module" },
+  "plugins": ["import"],
+  "rules": {
+    "no-unused-vars": ["warn", { "args": "none", "ignoreRestSiblings": true }],
+    "import/no-unused-modules": ["warn", {
+      "unusedExports": true,
+      "src": ["src/**/*.js"],
+      "ignoreExports": [
+        "src/index.js",
+        "src/utils/matchingUtils.js"
+      ]
+    }]
+  },
+  "overrides": [
+    {
+      "files": ["__tests__/**/*.js"],
+      "rules": {
+        "import/no-unused-modules": "off"
+      }
+    }
+  ]
+}

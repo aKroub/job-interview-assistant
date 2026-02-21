@@ -124,11 +124,13 @@ nvm use 20 && npm start       # → http://localhost:3000
 ```bash
 # --- Frontend (from interview-prep-tracker/) ---
 nvm use 20 && npm start                              # dev server with hot reload
+nvm use 20 && npm run lint                           # catch unused exports + variables
 nvm use 20 && npm run build                          # production build (must be 0 warnings)
 nvm use 20 && npm test -- --watchAll=false --verbose  # all tests (must pass before PR)
 
 # --- Backend (from server/) ---
 nvm use 20 && npm run dev                            # dev server with auto-restart
+nvm use 20 && npm run lint                           # catch unused exports + variables
 nvm use 20 && npm test                               # all tests (must pass before PR)
 ```
 
@@ -179,7 +181,6 @@ interview-prep-tracker/src/
 │   │   ├── WeekHeader.jsx         # Week navigation (prev / next / today)
 │   │   ├── DayColumn.jsx          # Single day column with interview cards
 │   │   ├── InterviewCard.jsx      # Interview card in the calendar
-│   │   ├── InterviewRow.jsx       # Interview row (list view)
 │   │   ├── AddInterviewForm.jsx   # Form for adding a new interview
 │   │   └── AddInterviewModal.jsx  # Modal wrapper for the add form
 │   ├── PrepContentView/
@@ -232,7 +233,7 @@ server/src/
 
 The test suite covers every layer across both frontend and backend:
 
-### Frontend (33 test suites)
+### Frontend (32 test suites)
 
 | Layer | Test files | What they test |
 |---|---|---|
@@ -240,7 +241,7 @@ The test suite covers every layer across both frontend and backend:
 | Services | `storageService.test.js`, `apiService.test.js` | Storage interface, REST calls, SSE stream |
 | Utils | `companyUtils.test.js`, `questionUtils.test.js`, `calendarUtils.test.js` | Pure function unit tests (no React) |
 | Hooks | `useCompanies.test.js`, `useSeenQuestions.test.js`, `useInterviewSuggestions.test.js`, `useInterviewTracker.test.js` | Hook tests with injected in-memory storage / mock API |
-| Components | 22 test files (one per component) | Rendering, user interactions, callback wiring |
+| Components | 21 test files (one per component) | Rendering, user interactions, callback wiring |
 | Integration | `App.test.js` | Smoke test — app renders and default view loads |
 
 ### Backend (10 test suites)

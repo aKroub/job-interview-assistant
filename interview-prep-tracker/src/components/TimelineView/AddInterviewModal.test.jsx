@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AddInterviewModal } from './AddInterviewModal';
-import { INTERVIEW_TYPES } from '../../constants/interviewTypes';
+import { INTERVIEW_TYPES, DURATION_OPTIONS } from '../../constants/interviewTypes';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -39,8 +39,16 @@ function setup({ companies, handlers = {} } = {}) {
   return { onAdd, onClose };
 }
 
+/** Fills all required fields so the form is valid. */
+function fillAllRequired() {
+  userEvent.selectOptions(screen.getByLabelText(/company/i), 'c1');
+  userEvent.selectOptions(screen.getByLabelText(/type/i), INTERVIEW_TYPES[0]);
+  userEvent.type(screen.getByLabelText(/date/i), '2025-09-01');
+  userEvent.type(screen.getByLabelText(/time/i), '10:00');
+}
+
 // ---------------------------------------------------------------------------
-// Rendering
+// Rendering — all fields visible immediately
 // ---------------------------------------------------------------------------
 
 describe('AddInterviewModal — rendering', () => {
@@ -55,40 +63,131 @@ describe('AddInterviewModal — rendering', () => {
     expect(screen.getByText('Meta — Staff Engineer')).toBeInTheDocument();
   });
 
-  it('renders the placeholder option', () => {
+  it('renders the company placeholder option', () => {
     setup();
     expect(screen.getByText('Select a company…')).toBeInTheDocument();
   });
 
-  it('renders the Cancel button', () => {
+  it('renders the type dropdown immediately', () => {
     setup();
-    expect(screen.getByText('Cancel')).toBeInTheDocument();
+    expect(screen.getByLabelText(/type/i)).toBeInTheDocument();
   });
 
-  it('shows the helper text when no company is selected', () => {
+  it('renders all interview type options', () => {
     setup();
-    expect(screen.getByText('Select a company above to schedule an interview')).toBeInTheDocument();
+    INTERVIEW_TYPES.forEach((t) => {
+      expect(screen.getByRole('option', { name: t })).toBeInTheDocument();
+    });
+  });
+
+  it('renders date and time inputs immediately', () => {
+    setup();
+    expect(screen.getByLabelText(/date/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/time/i)).toBeInTheDocument();
+  });
+
+  it('renders the duration dropdown', () => {
+    setup();
+    expect(screen.getByLabelText(/duration/i)).toBeInTheDocument();
+  });
+
+  it('renders all duration options', () => {
+    setup();
+    DURATION_OPTIONS.forEach((d) => {
+      expect(screen.getByRole('option', { name: `${d} min` })).toBeInTheDocument();
+    });
+  });
+
+  it('renders Schedule and Cancel buttons', () => {
+    setup();
+    expect(screen.getByRole('button', { name: /schedule/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
+  });
+
+  it('renders exactly one Cancel button', () => {
+    setup();
+    const cancelButtons = screen.getAllByRole('button', { name: /cancel/i });
+    expect(cancelButtons).toHaveLength(1);
   });
 });
 
 // ---------------------------------------------------------------------------
-// Company selection
+// Validation — errors shown only after submit attempt
 // ---------------------------------------------------------------------------
 
-describe('AddInterviewModal — company selection', () => {
-  it('shows the Add Interview form after selecting a company', () => {
+describe('AddInterviewModal — validation', () => {
+  function submitEmpty() {
+    const result = setup();
+    userEvent.click(screen.getByRole('button', { name: /schedule/i }));
+    return result;
+  }
+
+  it('does not show errors before the first submit attempt', () => {
     setup();
-    const companySelect = screen.getByLabelText(/company/i);
-    userEvent.selectOptions(companySelect, 'c1');
-    // AddInterviewForm renders an "Add Interview" button when collapsed
-    expect(screen.getByText('Add Interview')).toBeInTheDocument();
+    expect(screen.queryByText(/please select a company/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/interview type is required/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/date is required/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/time is required/i)).not.toBeInTheDocument();
   });
 
-  it('hides the helper text after selecting a company', () => {
-    setup();
-    const companySelect = screen.getByLabelText(/company/i);
-    userEvent.selectOptions(companySelect, 'c1');
-    expect(screen.queryByText('Select a company above to schedule an interview')).not.toBeInTheDocument();
+  it('shows company error after submitting with no company', () => {
+    submitEmpty();
+    expect(screen.getByText(/please select a company/i)).toBeInTheDocument();
+  });
+
+  it('shows type error after submitting with no type', () => {
+    submitEmpty();
+    expect(screen.getByText(/interview type is required/i)).toBeInTheDocument();
+  });
+
+  it('shows date error after submitting with no date', () => {
+    submitEmpty();
+    expect(screen.getByText(/date is required/i)).toBeInTheDocument();
+  });
+
+  it('shows time error after submitting with no time', () => {
+    submitEmpty();
+    expect(screen.getByText(/time is required/i)).toBeInTheDocument();
+  });
+
+  it('does not call onAdd when fields are empty', () => {
+    const { onAdd } = submitEmpty();
+    expect(onAdd).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Successful submission
+// ---------------------------------------------------------------------------
+
+describe('AddInterviewModal — submission', () => {
+  it('calls onAdd with companyId and interview data when all required fields are filled', () => {
+    const { onAdd } = setup();
+    fillAllRequired();
+    userEvent.click(screen.getByRole('button', { name: /schedule/i }));
+
+    expect(onAdd).toHaveBeenCalledTimes(1);
+    const [calledCompanyId, calledInterview] = onAdd.mock.calls[0];
+    expect(calledCompanyId).toBe('c1');
+    expect(calledInterview.type).toBe(INTERVIEW_TYPES[0]);
+    expect(calledInterview.date).toBe('2025-09-01');
+    expect(calledInterview.time).toBe('10:00');
+    expect(calledInterview.status).toBe('scheduled');
+  });
+
+  it('calls onClose after successful submission', () => {
+    const { onClose } = setup();
+    fillAllRequired();
+    userEvent.click(screen.getByRole('button', { name: /schedule/i }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not include companyId in the interview data object', () => {
+    const { onAdd } = setup();
+    fillAllRequired();
+    userEvent.click(screen.getByRole('button', { name: /schedule/i }));
+    const [, calledInterview] = onAdd.mock.calls[0];
+    expect(calledInterview).not.toHaveProperty('companyId');
   });
 });
 
@@ -99,7 +198,7 @@ describe('AddInterviewModal — company selection', () => {
 describe('AddInterviewModal — close', () => {
   it('calls onClose when Cancel button is clicked', () => {
     const { onClose } = setup();
-    userEvent.click(screen.getByText('Cancel'));
+    userEvent.click(screen.getByRole('button', { name: /cancel/i }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

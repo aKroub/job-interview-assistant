@@ -36,7 +36,8 @@
           "./src/App.js",
           "./src/reportWebVitals.js",
           "./src/setupTests.js",
-          "./src/**/*.test.{js,jsx}"
+          "./src/**/*.test.{js,jsx}",
+          "./src/constants/interviewTypes.js"
         ]
       }]
     },

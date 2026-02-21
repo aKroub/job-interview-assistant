@@ -181,8 +181,7 @@ interview-prep-tracker/src/
 │   │   ├── WeekHeader.jsx         # Week navigation (prev / next / today)
 │   │   ├── DayColumn.jsx          # Single day column with interview cards
 │   │   ├── InterviewCard.jsx      # Interview card in the calendar
-│   │   ├── AddInterviewForm.jsx   # Form for adding a new interview
-│   │   └── AddInterviewModal.jsx  # Modal wrapper for the add form
+│   │   └── AddInterviewModal.jsx  # Single-step schedule interview modal
 │   ├── PrepContentView/
 │   │   ├── PrepContentView.jsx
 │   │   ├── CompanyQuestionSection.jsx
@@ -233,7 +232,7 @@ server/src/
 
 The test suite covers every layer across both frontend and backend:
 
-### Frontend (32 test suites)
+### Frontend (31 test suites)
 
 | Layer | Test files | What they test |
 |---|---|---|
@@ -241,7 +240,7 @@ The test suite covers every layer across both frontend and backend:
 | Services | `storageService.test.js`, `apiService.test.js` | Storage interface, REST calls, SSE stream |
 | Utils | `companyUtils.test.js`, `questionUtils.test.js`, `calendarUtils.test.js` | Pure function unit tests (no React) |
 | Hooks | `useCompanies.test.js`, `useSeenQuestions.test.js`, `useInterviewSuggestions.test.js`, `useInterviewTracker.test.js` | Hook tests with injected in-memory storage / mock API |
-| Components | 21 test files (one per component) | Rendering, user interactions, callback wiring |
+| Components | 20 test files (one per component) | Rendering, user interactions, callback wiring |
 | Integration | `App.test.js` | Smoke test — app renders and default view loads |
 
 ### Backend (10 test suites)

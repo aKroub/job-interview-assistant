@@ -65,7 +65,7 @@ describe('createCalendarService', () => {
         calendarApi,
         nowFn: fixedNow,
         minScore: 0.1,
-        userEmail: 'me@gmail.com',
+        getUserEmail: async () => 'me@gmail.com',
       });
 
       const results = await service.scanForInterviews();
@@ -89,7 +89,7 @@ describe('createCalendarService', () => {
         calendarApi,
         nowFn: fixedNow,
         minScore: 0.3,
-        userEmail: 'me@gmail.com',
+        getUserEmail: async () => 'me@gmail.com',
       });
 
       const results = await service.scanForInterviews();
@@ -108,7 +108,7 @@ describe('createCalendarService', () => {
         calendarApi,
         nowFn: fixedNow,
         minScore: 0.1,
-        userEmail: 'me@gmail.com',
+        getUserEmail: async () => 'me@gmail.com',
       });
 
       const results = await service.scanForInterviews();
@@ -137,7 +137,7 @@ describe('createCalendarService', () => {
         calendarApi,
         nowFn: fixedNow,
         minScore: 0.05,
-        userEmail: 'me@gmail.com',
+        getUserEmail: async () => 'me@gmail.com',
       });
 
       const results = await service.scanForInterviews();
@@ -159,7 +159,7 @@ describe('createCalendarService', () => {
         calendarApi,
         nowFn: fixedNow,
         minScore: 0.1,
-        userEmail: 'me@gmail.com',
+        getUserEmail: async () => 'me@gmail.com',
       });
 
       const results = await service.scanForInterviews();
@@ -203,6 +203,29 @@ describe('createCalendarService', () => {
       const expectedMax = new Date('2025-01-22T10:00:00Z');
       const actualMax = new Date(capturedParams.timeMax);
       expect(Math.abs(actualMax - expectedMax)).toBeLessThan(1000);
+    });
+
+    it('uses getUserEmail for external organizer detection', async () => {
+      const events = [
+        makeEvent({
+          summary: 'Technical Interview',
+          organizerEmail: 'recruiter@company.com',
+        }),
+      ];
+      const calendarApi = createMockCalendarApi(events);
+      const getUserEmail = async () => 'me@otherdomain.com';
+      const service = createCalendarService({}, {
+        calendarApi,
+        nowFn: fixedNow,
+        minScore: 0.1,
+        getUserEmail,
+      });
+
+      const results = await service.scanForInterviews();
+
+      expect(results.length).toBe(1);
+      // Score should include external-organizer bonus
+      expect(results[0].reasons).toContain('external-organizer');
     });
   });
 });

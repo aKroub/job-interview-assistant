@@ -56,9 +56,6 @@ function makeCalendarResult(overrides = {}) {
     matchedKeywords: ['interview'],
     reasons: ['keyword-match', 'external-organizer'],
     hasVideoLink: false,
-    // Fields used by crossReferenceEmailAndEvent
-    organizer: { email: 'recruiter@google.com' },
-    start: { dateTime: '2025-01-20T14:00:00Z' },
     ...overrides,
   };
 }
@@ -112,9 +109,8 @@ describe('createInterviewDetector', () => {
           extractedDate: '2025-02-10',
         })]),
         calendarService: mockCalendar([makeCalendarResult({
-          organizer: { email: 'hr@microsoft.com' },
+          organizerEmail: 'hr@microsoft.com',
           date: '2025-01-20',
-          start: { dateTime: '2025-01-20T14:00:00Z' },
         })]),
         tokenStore: mockTokenStore(),
         idFn: fixedId,
@@ -179,15 +175,15 @@ describe('createInterviewDetector', () => {
         calendarService: mockCalendar([
           makeCalendarResult({
             eventId: 'evt1',
-            organizer: { email: 'hr@google.com' },
-            start: { dateTime: '2025-01-20T14:00:00Z' },
+            organizerEmail: 'hr@google.com',
+            startDateTime: '2025-01-20T14:00:00Z',
           }),
           makeCalendarResult({
             eventId: 'evt2',
-            organizer: { email: 'hr@meta.com' },
+            organizerEmail: 'hr@meta.com',
             date: '2025-01-21',
             time: '10:00',
-            start: { dateTime: '2025-01-21T10:00:00Z' },
+            startDateTime: '2025-01-21T10:00:00Z',
           }),
         ]),
         tokenStore: mockTokenStore(),

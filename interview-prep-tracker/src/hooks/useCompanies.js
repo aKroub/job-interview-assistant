@@ -1,11 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { localStorageService } from '../services/storageService';
 import {
-  createCompany,
-  applyStageUpdate,
-  applyDelete,
   applyAddInterview,
+  applyADeleteInterview,
+  applyDelete,
   applyInterviewStatusUpdate,
+  applyStageUpdate,
+  createCompany,
 } from '../utils/companyUtils';
 
 const STORAGE_KEY = 'companies';
@@ -81,6 +82,10 @@ export function useCompanies(storage = localStorageService) {
     persist(applyAddInterview(companies, companyId, interview));
   }
 
+  function deleteInterview(companyId, interviewId) {
+    persist(applyADeleteInterview(companies, companyId, interviewId));
+  }
+
   function updateInterviewStatus(companyId, interviewId, status) {
     persist(applyInterviewStatusUpdate(companies, companyId, interviewId, status));
   }
@@ -91,6 +96,7 @@ export function useCompanies(storage = localStorageService) {
     updateCompanyStage,
     deleteCompany,
     addInterview,
+    deleteInterview,
     updateInterviewStatus,
   };
 }

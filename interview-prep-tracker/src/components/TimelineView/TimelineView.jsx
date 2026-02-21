@@ -11,15 +11,17 @@ import { CalendarView } from './CalendarView';
  *   companies:               Object[],
  *   interviewTypes:          string[],
  *   onAddInterview:          (companyId: string, interview: Object) => void,
+ *   onDeleteInterview:       (companyId: string, interview: Object) => void,
  *   onUpdateInterviewStatus: (companyId: string, interviewId: string, status: string) => void,
  * }} props
  */
-export function TimelineView({ companies, interviewTypes, onAddInterview, onUpdateInterviewStatus }) {
+export function TimelineView({ companies, interviewTypes, onAddInterview, onDeleteInterview, onUpdateInterviewStatus }) {
   return (
     <CalendarView
       companies={companies}
       interviewTypes={interviewTypes}
       onAddInterview={onAddInterview}
+      onDeleteInterview={onDeleteInterview}
       onUpdateInterviewStatus={onUpdateInterviewStatus}
     />
   );

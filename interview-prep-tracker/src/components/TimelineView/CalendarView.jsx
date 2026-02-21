@@ -1,16 +1,16 @@
-import React, { useState, useCallback } from 'react';
-import { flattenAndSortInterviews } from '../../utils/companyUtils';
+import React, { useCallback, useState } from 'react';
 import {
-  getWeekStart,
   getWeekDays,
+  getWeekStart,
   groupInterviewsByDate,
-  shiftWeek,
   isSameDay,
+  shiftWeek,
   toDateString,
 } from '../../utils/calendarUtils';
-import { WeekHeader } from './WeekHeader';
-import { DayColumn } from './DayColumn';
+import { flattenAndSortInterviews } from '../../utils/companyUtils';
 import { AddInterviewModal } from './AddInterviewModal';
+import { DayColumn } from './DayColumn';
+import { WeekHeader } from './WeekHeader';
 
 /**
  * Weekly calendar view that displays interviews in a Sun–Sat day-column grid.
@@ -25,7 +25,7 @@ import { AddInterviewModal } from './AddInterviewModal';
  *   onUpdateInterviewStatus: (companyId: string, interviewId: string, status: string) => void,
  * }} props
  */
-export function CalendarView({ companies, interviewTypes, onAddInterview, onUpdateInterviewStatus }) {
+export function CalendarView({ companies, interviewTypes, onAddInterview, onDeleteInterview, onUpdateInterviewStatus }) {
   const [currentWeekStart, setCurrentWeekStart] = useState(() => getWeekStart(new Date()));
   const [showAddModal,     setShowAddModal]     = useState(false);
 
@@ -70,6 +70,7 @@ export function CalendarView({ companies, interviewTypes, onAddInterview, onUpda
               date={day}
               interviews={interviews}
               isToday={isSameDay(day, today)}
+              onDeleteInterview={onDeleteInterview}
               onUpdateStatus={onUpdateInterviewStatus}
             />
           );

@@ -16,7 +16,7 @@ import { InterviewCard } from './InterviewCard';
  *   onUpdateStatus: (companyId: string, interviewId: string, status: string) => void,
  * }} props
  */
-export function DayColumn({ date, interviews, isToday, onUpdateStatus }) {
+export function DayColumn({ date, interviews, isToday, onDeleteInterview, onUpdateStatus }) {
   const headerLabel = formatDayHeader(date);
 
   const columnClasses = isToday
@@ -52,6 +52,7 @@ export function DayColumn({ date, interviews, isToday, onUpdateStatus }) {
               <InterviewCard
                 key={interview.id}
                 interview={interview}
+                onDeleteInterview={onDeleteInterview}
                 onUpdateStatus={onUpdateStatus}
               />
             ))

@@ -66,6 +66,16 @@ export function applyAddInterview(companies, companyId, interview, idFn = Date.n
   );
 }
 
+export function applyADeleteInterview(companies, companyId, interviewId) {
+  return companies.map(company => {
+    if (company.id !== companyId) return company;
+      return {
+        ...company,
+        interviews: company.interviews.filter(i => i.id !== interviewId)
+      };
+  })
+}
+
 /**
  * Returns a new companies array with a single interview's status updated.
  *

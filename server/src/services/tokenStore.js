@@ -1,4 +1,4 @@
-import { readFile, writeFile, mkdir, access } from 'fs/promises';
+import { writeFile, mkdir, access } from 'fs/promises';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';

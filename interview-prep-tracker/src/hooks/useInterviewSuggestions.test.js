@@ -91,6 +91,35 @@ describe('useInterviewSuggestions', () => {
       expect(api._stream.close).toHaveBeenCalled();
     });
 
+    it('sets connectionStatus to connecting when stream opens', async () => {
+      const { result } = await setup({
+        fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+      });
+
+      // The hook sets 'connecting' synchronously when openStream is called
+      // After the mock stream is created, status should be 'connecting'
+      // (since our mock onConnected doesn't auto-fire)
+      expect(result.current.connectionStatus).toBe('connecting');
+    });
+
+    it('sets connectionStatus to connected when onConnected fires', async () => {
+      const { result, api } = await setup({
+        fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+      });
+
+      expect(result.current.connectionStatus).toBe('connecting');
+
+      // Capture the onConnected callback
+      const onConnectedCallback = api._stream.onConnected.mock.calls[0][0];
+
+      // Trigger connected event
+      await act(async () => {
+        onConnectedCallback({ status: 'connected' });
+      });
+
+      expect(result.current.connectionStatus).toBe('connected');
+    });
+
     it('resets retry count when SSE connection succeeds', async () => {
       const { api } = await setup({
         fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
@@ -101,7 +130,7 @@ describe('useInterviewSuggestions', () => {
 
       // Trigger connected event
       await act(async () => {
-        onConnectedCallback();
+        onConnectedCallback({ status: 'connected' });
       });
 
       // If retry was in progress, connected resets it (verified by retry count starting fresh on next error)

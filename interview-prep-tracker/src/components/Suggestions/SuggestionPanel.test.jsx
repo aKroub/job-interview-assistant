@@ -69,6 +69,11 @@ describe('SuggestionPanel — rendering', () => {
     expect(screen.getByText(/scanning gmail and calendar/i)).toBeInTheDocument();
   });
 
+  it('shows error state message when error with no suggestions', () => {
+    setup({ authStatus: 'authenticated', connectionStatus: 'error', suggestions: [] });
+    expect(screen.getByText(/unable to reach gmail & calendar.*retrying/i)).toBeInTheDocument();
+  });
+
   it('renders a SuggestionCard for each suggestion', () => {
     setup({
       authStatus: 'authenticated',

@@ -32,6 +32,10 @@ export function useInterviewSuggestions(api = defaultApi) {
   /** Ref to the active SSE stream — allows cleanup from any callback. */
   const streamRef = useRef(null);
 
+  /** Retry count and timer for SSE error recovery. */
+  const retryCountRef = useRef(0);
+  const retryTimerRef = useRef(null);
+
   /**
    * Checks Google OAuth status against the backend.
    */
@@ -40,11 +44,27 @@ export function useInterviewSuggestions(api = defaultApi) {
       const { authenticated } = await api.fetchAuthStatus();
       setAuthStatus(authenticated ? 'authenticated' : 'unauthenticated');
       return authenticated;
-    } catch {
+    } catch (err) {
+      console.warn('Failed to check auth status:', err);
       setAuthStatus('unauthenticated');
       return false;
     }
   }, [api]);
+
+  /**
+   * Closes the SSE stream if one is open and clears retry timer.
+   */
+  const closeStream = useCallback(() => {
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.close();
+      streamRef.current = null;
+    }
+    setConnectionStatus('disconnected');
+  }, []);
 
   /**
    * Opens the SSE stream to receive real-time suggestions.
@@ -63,27 +83,24 @@ export function useInterviewSuggestions(api = defaultApi) {
     stream
       .onConnected(() => {
         setConnectionStatus('connected');
+        retryCountRef.current = 0;
       })
       .onSuggestions((newSuggestions) => {
         setSuggestions(newSuggestions);
       })
       .onError(() => {
         setConnectionStatus('error');
+        if (retryCountRef.current < 3) {
+          retryTimerRef.current = setTimeout(() => {
+            retryCountRef.current += 1;
+            closeStream();
+            openStream();
+          }, 30_000);
+        }
       });
 
     streamRef.current = stream;
-  }, [api]);
-
-  /**
-   * Closes the SSE stream if one is open.
-   */
-  const closeStream = useCallback(() => {
-    if (streamRef.current) {
-      streamRef.current.close();
-      streamRef.current = null;
-    }
-    setConnectionStatus('disconnected');
-  }, []);
+  }, [api, closeStream]);
 
   // On mount: check auth, if authenticated open SSE stream
   useEffect(() => {
@@ -96,11 +113,25 @@ export function useInterviewSuggestions(api = defaultApi) {
       }
     }
 
+    function handleVisibilityChange() {
+      if (!cancelled && document.visibilityState === 'visible') {
+        // Re-check auth when the user returns to the tab
+        checkAuth().then(authenticated => {
+          if (!cancelled && authenticated && !streamRef.current) {
+            openStream();
+          }
+        });
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
     init();
 
     // Cleanup: close SSE on unmount
     return () => {
       cancelled = true;
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       closeStream();
     };
   }, [checkAuth, openStream, closeStream]);
@@ -117,7 +148,8 @@ export function useInterviewSuggestions(api = defaultApi) {
 
     try {
       await api.dismissSuggestion(suggestionId);
-    } catch {
+    } catch (err) {
+      console.warn('Failed to persist dismissal:', err);
       // If the server call fails, the suggestion stays dismissed locally
       // (next poll will re-fetch anyway). Silently ignore.
     }
@@ -130,7 +162,8 @@ export function useInterviewSuggestions(api = defaultApi) {
     try {
       const { suggestions: scanned } = await api.triggerScan();
       setSuggestions(scanned);
-    } catch {
+    } catch (err) {
+      console.warn('Scan failed:', err);
       // Silently ignore — the SSE stream will deliver results on next poll
     }
   }, [api]);
@@ -144,7 +177,8 @@ export function useInterviewSuggestions(api = defaultApi) {
     try {
       const { url } = await api.fetchAuthUrl();
       window.open(url, '_blank');
-    } catch {
+    } catch (err) {
+      console.warn('Failed to get auth URL:', err);
       // Silently ignore — user can retry
     }
   }, [api]);
@@ -159,7 +193,8 @@ export function useInterviewSuggestions(api = defaultApi) {
     try {
       await api.disconnectAuth();
       setAuthStatus('unauthenticated');
-    } catch {
+    } catch (err) {
+      console.warn('Failed to disconnect:', err);
       // Even if the server call fails, clear local state
       setAuthStatus('unauthenticated');
     }

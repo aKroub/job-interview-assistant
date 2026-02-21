@@ -1,5 +1,6 @@
+import { Building2, Clock, Pencil, Trash2 } from 'lucide-react';
 import React, { useState } from 'react';
-import { Clock, Building2, Pencil } from 'lucide-react';
+import { TYPE_CONFIG } from '../../constants/interviewTypes';
 import { deriveInterviewStatus } from '../../utils/companyUtils';
 
 /** Tailwind class sets for each display status (matches InterviewRow pattern). */
@@ -28,22 +29,40 @@ const STATUS_OPTIONS = [
  *   onUpdateStatus: (companyId: string, interviewId: string, status: string) => void,
  * }} props
  */
-export function InterviewCard({ interview, onUpdateStatus }) {
+export function InterviewCard({ interview, onDeleteInterview, onUpdateStatus }) {
   const [editing, setEditing] = useState(false);
 
   const displayStatus = deriveInterviewStatus(interview);
   const statusStyle   = STATUS_STYLES[displayStatus] ?? STATUS_STYLES.scheduled;
+
+  const typeConfig = TYPE_CONFIG[interview.type] || { Icon: Building2 };
+  const InterviewIcon = typeConfig.Icon
 
   function handleStatusChange(e) {
     onUpdateStatus(interview.companyId, interview.id, e.target.value);
     setEditing(false);
   }
 
+  function handleDelete() {
+    if (window.confirm(`Are you sure you want to delete the ${interview.companyName} interview?`)) {
+      onDeleteInterview(interview.companyId, interview.id);
+    }
+  }
+
   return (
-    <div className="bg-white rounded-md border border-gray-200 p-2 shadow-sm hover:shadow transition">
+    <div className="relative bg-white rounded-md border border-gray-200 p-2 shadow-sm hover:shadow transition">
+
+      <button
+        onClick={handleDelete}
+        className="absolute top-1.5 right-1.5 p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-600 transition" // opacity-0 group-hover:opacity-100"
+        aria-label="Delete interview"
+      >
+        <Trash2 size={12} />
+      </button>
+
       {/* Time + duration */}
       {interview.time && (
-        <div className="flex items-center gap-1 text-sm font-semibold text-gray-800 mb-1">
+        <div className="flex items-center gap-1 text-sm font-semibold text-gray-800 mb-1 pr-5">
           <Clock size={12} className="text-gray-500" />
           <span>{interview.time}</span>
           {interview.duration && (
@@ -55,8 +74,8 @@ export function InterviewCard({ interview, onUpdateStatus }) {
       )}
 
       {/* Company name */}
-      <div className="flex items-center gap-1 mb-1">
-        <Building2 size={12} className="text-purple-500 shrink-0" />
+      <div className="flex items-center gap-1 mb-1 pr-5">
+        <InterviewIcon size={12} className="text-purple-500 shrink-0" />
         <span className="text-xs font-medium text-gray-800 truncate">
           {interview.companyName}
         </span>

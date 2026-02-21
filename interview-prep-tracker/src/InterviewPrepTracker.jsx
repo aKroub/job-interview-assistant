@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
-import { useInterviewTracker } from './hooks/useInterviewTracker';
-import { STAGES, STAGE_LABELS } from './constants/stages';
-import { POSITIONS } from './constants/positions';
-import { INTERVIEW_TYPES } from './constants/interviewTypes';
-import { APP_TITLE } from './constants/app';
-import { TabNav } from './components/shared/TabNav';
-import { KanbanBoard } from './components/KanbanBoard/KanbanBoard';
-import { TimelineView } from './components/TimelineView/TimelineView';
-import { PrepContentView } from './components/PrepContentView/PrepContentView';
 import { AddCompanyModal } from './components/AddCompanyModal/AddCompanyModal';
-import { SuggestionPanel } from './components/Suggestions/SuggestionPanel';
+import { KanbanBoard } from './components/KanbanBoard/KanbanBoard';
+import { PrepContentView } from './components/PrepContentView/PrepContentView';
+import { TabNav } from './components/shared/TabNav';
 import { ConnectionStatus } from './components/Suggestions/ConnectionStatus';
+import { SuggestionPanel } from './components/Suggestions/SuggestionPanel';
+import { TimelineView } from './components/TimelineView/TimelineView';
+import { APP_TITLE } from './constants/app';
+import { INTERVIEW_TYPES } from './constants/interviewTypes';
+import { POSITIONS } from './constants/positions';
+import { STAGES, STAGE_LABELS } from './constants/stages';
+import { useInterviewTracker } from './hooks/useInterviewTracker';
 
 const EMPTY_DRAFT = { name: '', position: '', stage: STAGES[0] };
 
@@ -35,6 +35,7 @@ const InterviewPrepTracker = () => {
     updateCompanyStage,
     deleteCompany,
     addInterview,
+    deleteInterview,
     updateInterviewStatus,
     markQuestionSeen,
     resetCompanyQuestionsFor,
@@ -118,6 +119,7 @@ const InterviewPrepTracker = () => {
               companies={companies}
               interviewTypes={INTERVIEW_TYPES}
               onAddInterview={addInterview}
+              onDeleteInterview={deleteInterview}
               onUpdateInterviewStatus={updateInterviewStatus}
             />
           )}

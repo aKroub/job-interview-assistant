@@ -227,5 +227,47 @@ describe('createCalendarService', () => {
       // Score should include external-organizer bonus
       expect(results[0].reasons).toContain('external-organizer');
     });
+
+    it('includes companyName extracted from event summary', async () => {
+      const events = [
+        makeEvent({
+          summary: 'Interview with Torq',
+          organizerEmail: 'noreply@group.calendar.google.com',
+        }),
+      ];
+      const calendarApi = createMockCalendarApi(events);
+      const service = createCalendarService({}, {
+        calendarApi,
+        nowFn: fixedNow,
+        minScore: 0.1,
+        getUserEmail: async () => 'me@gmail.com',
+      });
+
+      const results = await service.scanForInterviews();
+
+      expect(results.length).toBe(1);
+      expect(results[0].companyName).toBe('torq');
+    });
+
+    it('returns empty companyName when no company pattern found', async () => {
+      const events = [
+        makeEvent({
+          summary: 'Technical Interview',
+          organizerEmail: 'recruiter@company.com',
+        }),
+      ];
+      const calendarApi = createMockCalendarApi(events);
+      const service = createCalendarService({}, {
+        calendarApi,
+        nowFn: fixedNow,
+        minScore: 0.1,
+        getUserEmail: async () => 'me@gmail.com',
+      });
+
+      const results = await service.scanForInterviews();
+
+      expect(results.length).toBe(1);
+      expect(results[0].companyName).toBe('');
+    });
   });
 });

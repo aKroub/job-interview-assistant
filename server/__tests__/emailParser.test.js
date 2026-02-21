@@ -6,6 +6,9 @@ import {
   extractDateTimeFromText,
   parseGmailMessage,
   extractEmailFromHeader,
+  extractCompanyNameFromText,
+  normalizeCompanyName,
+  SCHEDULING_PLATFORM_DOMAINS,
 } from '../src/utils/emailParser.js';
 
 describe('extractDomain', () => {
@@ -144,6 +147,28 @@ describe('scoreEmailForInterview', () => {
     const { score, matchedKeywords } = scoreEmailForInterview(null, null, null);
     expect(score).toBe(0);
     expect(matchedKeywords).toEqual([]);
+  });
+
+  it('does not penalize emails from comeet-notifications.com as noise', () => {
+    const { score } = scoreEmailForInterview(
+      'Interview Scheduled',
+      'Your interview has been confirmed',
+      'noreply@comeet-notifications.com'
+    );
+    // Should NOT be penalized to 0.1 like noise domains
+    expect(score).toBeGreaterThan(0.1);
+  });
+
+  it('gives recruiting platform bonus to comeet-notifications.com sender', () => {
+    const { matchedKeywords } = scoreEmailForInterview(
+      'Interview Scheduled',
+      'Your interview has been confirmed',
+      'noreply@comeet-notifications.com'
+    );
+    const hasPlatformBonus = matchedKeywords.some(
+      (kw) => kw.startsWith('recruiting-platform:')
+    );
+    expect(hasPlatformBonus).toBe(true);
   });
 });
 
@@ -294,5 +319,73 @@ describe('extractEmailFromHeader', () => {
 
   it('returns empty string for empty string', () => {
     expect(extractEmailFromHeader('')).toBe('');
+  });
+});
+
+describe('extractCompanyNameFromText', () => {
+  it('extracts "torq" from "Interview with Torq"', () => {
+    expect(extractCompanyNameFromText('Interview with Torq')).toBe('torq');
+  });
+
+  it('extracts "pango" from "Your in-person interview with Pango"', () => {
+    expect(extractCompanyNameFromText('Your in-person interview with Pango')).toBe('pango');
+  });
+
+  it('extracts "sentinelone" from "SentinelOne Interview Confirmation for Ayal"', () => {
+    expect(extractCompanyNameFromText('SentinelOne Interview Confirmation for Ayal')).toBe('sentinelone');
+  });
+
+  it('extracts company from "Interview at Google"', () => {
+    expect(extractCompanyNameFromText('Interview at Google')).toBe('google');
+  });
+
+  it('extracts company from "Interview - Google"', () => {
+    expect(extractCompanyNameFromText('Interview - Google')).toBe('google');
+  });
+
+  it('returns empty string for text with no company pattern', () => {
+    expect(extractCompanyNameFromText('Shai <> Ayal')).toBe('');
+  });
+
+  it('returns empty string for null/undefined input', () => {
+    expect(extractCompanyNameFromText(null)).toBe('');
+    expect(extractCompanyNameFromText(undefined)).toBe('');
+  });
+
+  it('handles multi-word names', () => {
+    expect(extractCompanyNameFromText('Red Hat Interview Confirmation')).toBe('red hat');
+  });
+});
+
+describe('normalizeCompanyName', () => {
+  it('normalizes "Torq" to "torq"', () => {
+    expect(normalizeCompanyName('Torq')).toBe('torq');
+  });
+
+  it('normalizes "SentinelOne" to "sentinelone"', () => {
+    expect(normalizeCompanyName('SentinelOne')).toBe('sentinelone');
+  });
+
+  it('strips dots and hyphens', () => {
+    expect(normalizeCompanyName('sentinel.one')).toBe('sentinelone');
+  });
+
+  it('strips common suffixes', () => {
+    expect(normalizeCompanyName('torq inc')).toBe('torq');
+  });
+
+  it('returns empty string for null/empty', () => {
+    expect(normalizeCompanyName(null)).toBe('');
+    expect(normalizeCompanyName('')).toBe('');
+  });
+});
+
+describe('SCHEDULING_PLATFORM_DOMAINS', () => {
+  it('includes calendar.google.com', () => {
+    expect(SCHEDULING_PLATFORM_DOMAINS).toContain('calendar.google.com');
+  });
+
+  it('includes comeet-notifications.com', () => {
+    expect(SCHEDULING_PLATFORM_DOMAINS).toContain('comeet-notifications.com');
   });
 });

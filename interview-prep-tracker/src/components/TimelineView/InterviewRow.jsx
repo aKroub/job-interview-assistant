@@ -1,6 +1,7 @@
-import React from 'react';
 import { Building2, Calendar, Clock } from 'lucide-react';
+import React from 'react';
 import { TYPE_CONFIG } from '../../constants/interviewTypes';
+import { deriveInterviewStatus } from '../../utils/companyUtils';
 
 /** Tailwind class sets for each display status (includes derived 'passed'). */
 const STATUS_STYLES = {

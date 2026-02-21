@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Calendar, Plus, X, Check, ExternalLink, Filter, Clock, Building2, Briefcase } from 'lucide-react';
+import { Briefcase, Building2, Calendar, Check, Clock, ExternalLink, Filter, Plus, Trash2, X } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { TYPE_CONFIG } from '../../constants/interviewTypes';
 
 // System Design Questions Database
 const SYSTEM_DESIGN_QUESTIONS = {
@@ -129,6 +130,21 @@ const InterviewPrepTracker = () => {
     saveData(updated, seenQuestions);
   };
 
+  const deleteInterview = (companyId, interviewToDelete, status) => {
+    const updated = companies.map(c => 
+      c.id === companyId 
+        ? { 
+            ...c, 
+            interviews: c.interviews.filter(
+              (interview) => interview.id !== interviewToDelete.id
+            )
+          }
+        : c
+    );
+    setCompanies(updated);
+    saveData(updated, seenQuestions);
+  };
+
   const updateInterviewStatus = (companyId, interviewId, status) => {
     const updated = companies.map(c => 
       c.id === companyId 
@@ -235,6 +251,8 @@ const InterviewPrepTracker = () => {
       setShowAddInterview(null);
     };
 
+    const InterviewIcon = TYPE_CONFIG[interview.type] || { Icon: Building2 };
+
     return (
       <div className="space-y-4">
         <h2 className="text-2xl font-bold text-gray-800 mb-6">Interview Timeline</h2>
@@ -310,7 +328,7 @@ const InterviewPrepTracker = () => {
                 <div className="flex items-start justify-between">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <Building2 size={20} className="text-purple-600" />
+                      <InterviewIcon size={20} className="text-purple-600" />
                       <div>
                         <h4 className="font-semibold text-gray-800">{interview.companyName}</h4>
                         <p className="text-sm text-gray-600">{interview.position}</p>
@@ -345,6 +363,17 @@ const InterviewPrepTracker = () => {
                     <option value="completed">Completed</option>
                     <option value="cancelled">Cancelled</option>
                   </select>
+                  <button 
+                    onClick={() => {
+                      if (window.confirm('Delete this interview?')) {
+                        deleteInterview(interview.companyId, interview);
+                      }
+                    }}
+                    className="p-1.5 text-gray-400 hover:text-red-600 transition-colors"
+                    title="Delete Interview"
+                  >
+                    <Trash2 size={18} />
+                  </button>
                 </div>
               </div>
             ))

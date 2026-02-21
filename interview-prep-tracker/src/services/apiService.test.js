@@ -196,6 +196,19 @@ describe('apiService — SSE stream', () => {
     expect(handler).toHaveBeenCalledWith({ status: 'connected' });
   });
 
+  it('fires connected handler immediately when readyState is already OPEN', () => {
+    const { Ctor, instance } = mockEventSource();
+    const handler = jest.fn();
+
+    // Simulate: readyState is already OPEN but onopen was missed
+    instance.readyState = 1;
+
+    const stream = createSuggestionStream(Ctor);
+    stream.onConnected(handler);
+
+    expect(handler).toHaveBeenCalledWith({ status: 'connected' });
+  });
+
   it('calls the suggestions handler with parsed data', () => {
     const { Ctor, listeners } = mockEventSource();
     const handler = jest.fn();

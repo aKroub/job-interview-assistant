@@ -2,7 +2,6 @@
   "name": "interview-prep-tracker",
   "version": "0.1.0",
   "private": true,
-  "proxy": "http://localhost:3001",
   "dependencies": {
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.9.1",
@@ -37,7 +36,8 @@
           "./src/reportWebVitals.js",
           "./src/setupTests.js",
           "./src/**/*.test.{js,jsx}",
-          "./src/constants/interviewTypes.js"
+          "./src/constants/interviewTypes.js",
+          "./src/setupProxy.js"
         ]
       }]
     },

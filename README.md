@@ -6,7 +6,7 @@ A full-featured interview preparation and job application tracking tool built wi
 
 ### 🎯 Pipeline Management (Kanban Board)
 - Visual kanban board to track companies through your interview pipeline
-- Six stages: Interested → Applied → Phone Screen → Technical → Final Round → Offer
+- Six stages: Interested → Applied → Phone Screen → Technical → HR → Offer
 - Quick stage updates via dropdown
 - Track position titles and company names
 - Easy company deletion
@@ -219,7 +219,7 @@ export const SYSTEM_DESIGN_QUESTIONS = {
 Edit `src/constants/stages.js`:
 
 ```js
-export const STAGES = ['interested', 'applied', 'phone', 'technical', 'final', 'offer'];
+export const STAGES = ['interested', 'applied', 'phone', 'technical', 'hr', 'offer'];
 export const STAGE_LABELS = { interested: 'Interested', /* ... */ };
 ```
 

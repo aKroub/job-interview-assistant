@@ -1,7 +1,7 @@
-import { STAGES, STAGE_LABELS } from './stages';
-import { POSITIONS } from './positions';
 import { INTERVIEW_TYPES } from './interviewTypes';
+import { POSITIONS } from './positions';
 import { SYSTEM_DESIGN_QUESTIONS } from './questions';
+import { STAGES, STAGE_LABELS } from './stages';
 
 // ---------------------------------------------------------------------------
 // stages
@@ -18,7 +18,7 @@ describe('STAGES', () => {
   });
 
   it('contains the expected stage keys in order', () => {
-    expect(STAGES).toEqual(['interested', 'applied', 'phone', 'technical', 'final', 'offer']);
+    expect(STAGES).toEqual(['interested', 'applied', 'phone', 'technical', 'hr', 'offer']);
   });
 });
 

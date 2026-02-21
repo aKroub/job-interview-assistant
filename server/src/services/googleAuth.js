@@ -24,17 +24,20 @@ export function createGoogleAuth(config, tokenStore) {
     config.redirectUri
   );
 
-  // Load existing tokens on initialization
+  // Load existing tokens on initialization (synchronous read from cache)
   const existingTokens = tokenStore.getTokens();
   if (existingTokens && existingTokens.access_token) {
     oauth2Client.setCredentials(existingTokens);
   }
 
-  // Refresh tokens automatically and persist the new ones
+  // Refresh tokens automatically and persist the new ones (async write)
   oauth2Client.on('tokens', (tokens) => {
     const current = tokenStore.getTokens() || {};
     const merged = { ...current, ...tokens };
-    tokenStore.saveTokens(merged);
+    // Fire and forget — don't block the refresh flow
+    tokenStore.saveTokens(merged).catch((err) => {
+      console.warn('Failed to persist refreshed tokens:', err.message);
+    });
     oauth2Client.setCredentials(merged);
   });
 
@@ -60,7 +63,7 @@ export function createGoogleAuth(config, tokenStore) {
   async function handleCallback(code) {
     const { tokens } = await oauth2Client.getToken(code);
     oauth2Client.setCredentials(tokens);
-    tokenStore.saveTokens(tokens);
+    await tokenStore.saveTokens(tokens);
   }
 
   /**
@@ -86,9 +89,11 @@ export function createGoogleAuth(config, tokenStore) {
 
   /**
    * Clears stored tokens and resets the OAuth client credentials.
+   *
+   * @returns {Promise<void>}
    */
-  function disconnect() {
-    tokenStore.clearTokens();
+  async function disconnect() {
+    await tokenStore.clearTokens();
     oauth2Client.setCredentials({});
   }
 

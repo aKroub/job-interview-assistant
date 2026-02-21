@@ -1,6 +1,20 @@
 import { Router } from 'express';
 
 /**
+ * Escapes HTML special characters to prevent XSS.
+ *
+ * @param {string} str - the string to escape
+ * @returns {string} - escaped HTML
+ */
+function escapeHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
  * Creates the authentication router for Google OAuth flow.
  *
  * Routes:
@@ -60,7 +74,7 @@ export function createAuthRouter(googleAuth) {
         '<html><body style="font-family: sans-serif; text-align: center; padding: 60px;">' +
         '<h2 style="color: #dc2626;">Connection Failed</h2>' +
         '<p>Could not complete the authorization. Please try again.</p>' +
-        `<p style="color: #6b7280; font-size: 14px;">${err.message}</p>` +
+        `<p style="color: #6b7280; font-size: 14px;">${escapeHtml(err.message)}</p>` +
         '</body></html>'
       );
     }
@@ -70,8 +84,8 @@ export function createAuthRouter(googleAuth) {
    * POST /api/auth/disconnect
    * Clears stored tokens and disconnects from Google.
    */
-  router.post('/disconnect', (_req, res) => {
-    googleAuth.disconnect();
+  router.post('/disconnect', async (_req, res) => {
+    await googleAuth.disconnect();
     res.json({ authenticated: false });
   });
 

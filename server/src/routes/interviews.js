@@ -11,9 +11,10 @@ import { Router } from 'express';
  * @param {{ detect: Function }} deps.detector - interview detector service
  * @param {{ addDismissed: Function }} deps.tokenStore - for persisting dismissals
  * @param {number} deps.pollIntervalMs - how often to poll (from config)
+ * @param {{ isAuthenticated: Function }} deps.googleAuth - for auth checks
  * @returns {import('express').Router}
  */
-export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs }) {
+export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, googleAuth }) {
   const router = Router();
 
   /** Set of active SSE response objects. */
@@ -43,6 +44,8 @@ export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs })
       const suggestions = await detector.detect();
       if (suggestions.length > 0) {
         broadcast('suggestions', suggestions);
+      } else {
+        broadcast('scan-complete', { count: 0 });
       }
     } catch (err) {
       // Broadcast the error so the frontend can show a status message
@@ -74,12 +77,18 @@ export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs })
    * GET /api/interviews/suggestions
    *
    * SSE endpoint. When a client connects:
-   * 1. Adds the client to the active set
-   * 2. Starts polling if this is the first client
-   * 3. Sends heartbeats every 30s to keep the connection alive
-   * 4. On disconnect: removes client, stops polling if last client
+   * 1. Checks authentication
+   * 2. Adds the client to the active set
+   * 3. Starts polling if this is the first client
+   * 4. Sends heartbeats every 30s to keep the connection alive
+   * 5. On disconnect: removes client, stops polling if last client
    */
   router.get('/suggestions', (req, res) => {
+    // Auth check
+    if (!googleAuth.isAuthenticated()) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
     // SSE headers
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -115,14 +124,19 @@ export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs })
    *
    * Persists a dismissed suggestion so it won't be shown again.
    */
-  router.post('/dismiss', (req, res) => {
+  router.post('/dismiss', async (req, res) => {
+    // Auth check
+    if (!googleAuth.isAuthenticated()) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
     const { suggestionId } = req.body;
 
     if (!suggestionId || typeof suggestionId !== 'string') {
       return res.status(400).json({ error: 'suggestionId is required' });
     }
 
-    tokenStore.addDismissed(suggestionId);
+    await tokenStore.addDismissed(suggestionId);
     res.json({ dismissed: true });
   });
 
@@ -134,6 +148,11 @@ export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs })
    * immediate results without waiting for the next poll.
    */
   router.post('/scan', async (_req, res) => {
+    // Auth check
+    if (!googleAuth.isAuthenticated()) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
     try {
       const suggestions = await detector.detect();
       res.json({ suggestions });

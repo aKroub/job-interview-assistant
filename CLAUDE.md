@@ -102,7 +102,7 @@ src/
 │   ├── questions.js    SYSTEM_DESIGN_QUESTIONS (the full question bank)
 │   ├── stages.js       STAGES array + STAGE_LABELS map
 │   ├── positions.js    POSITIONS array
-│   ├── interviewTypes.js  INTERVIEW_TYPES array
+│   ├── interviewTypes.js  INTERVIEW_TYPES array + TYPE_CONFIG map + DURATION_OPTIONS
 │   └── app.js          APP_TITLE env var with fallback
 │
 ├── services/           I/O abstractions — no React, injectable in tests
@@ -110,6 +110,7 @@ src/
 │   └── apiService.js       REST calls + SSE stream (injectable fetch/EventSource)
 │
 ├── utils/              Pure functions — no React, no globals, no side effects
+│   ├── calendarUtils.js
 │   ├── companyUtils.js
 │   └── questionUtils.js
 │
@@ -127,11 +128,13 @@ src/
 │   │   └── FormError.jsx
 │   ├── AddCompanyModal/
 │   ├── KanbanBoard/    (KanbanBoard, KanbanColumn, CompanyCard)
-│   ├── TimelineView/   (TimelineView, InterviewRow, AddInterviewForm)
+│   ├── TimelineView/   (TimelineView, CalendarView, WeekHeader, DayColumn,
+│   │                     InterviewCard, InterviewRow, AddInterviewForm,
+│   │                     AddInterviewModal)
 │   ├── PrepContentView/(PrepContentView, CompanyQuestionSection, QuestionCard)
 │   └── Suggestions/    (SuggestionPanel, SuggestionCard, ConnectionStatus)
 │
-├── InterviewPrepTracker.jsx   Thin orchestrating shell (~130 lines)
+├── InterviewPrepTracker.jsx   Thin orchestrating shell (~150 lines)
 └── App.js                     Renders <InterviewPrepTracker />
 ```
 

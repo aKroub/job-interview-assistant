@@ -24,10 +24,14 @@ const EMPTY_INTERVIEW = {
  *   interviewTypes: string[],
  *   onAdd:          (companyId: string, interview: Object) => void,
  *   onClose:        () => void,
+ *   initialValues:  Object | null,
  * }} props
  */
-export function AddInterviewModal({ companies, interviewTypes, onAdd, onClose }) {
-  const [interview, setInterview] = useState(EMPTY_INTERVIEW);
+export function AddInterviewModal({ companies, interviewTypes, onAdd, onClose, initialValues = null }) {
+  const [interview, setInterview] = useState(initialValues
+    ? { ...EMPTY_INTERVIEW, ...initialValues }
+    : EMPTY_INTERVIEW
+  );
   const [submitted, setSubmitted] = useState(false);
 
   const errors = {

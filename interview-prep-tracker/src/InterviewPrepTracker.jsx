@@ -5,6 +5,7 @@ import { PrepContentView } from './components/PrepContentView/PrepContentView';
 import { TabNav } from './components/shared/TabNav';
 import { ConnectionStatus } from './components/Suggestions/ConnectionStatus';
 import { SuggestionPanel } from './components/Suggestions/SuggestionPanel';
+import { AddInterviewModal } from './components/TimelineView/AddInterviewModal';
 import { TimelineView } from './components/TimelineView/TimelineView';
 import { APP_TITLE } from './constants/app';
 import { INTERVIEW_TYPES } from './constants/interviewTypes';
@@ -28,6 +29,7 @@ const InterviewPrepTracker = () => {
   const [showModal,       setShowModal]       = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [companyDraft,    setCompanyDraft]    = useState(EMPTY_DRAFT);
+  const [suggestionDraft, setSuggestionDraft] = useState(null);
 
   const {
     companies,
@@ -61,6 +63,30 @@ const InterviewPrepTracker = () => {
     setShowModal(true);
   }
 
+  function handleAcceptSuggestion(suggestion) {
+    const match = companies.find(
+      (c) => c.name.toLowerCase() === suggestion.companyName.toLowerCase()
+    );
+    setSuggestionDraft({
+      suggestion,
+      initialValues: {
+        companyId: match?.id ?? '',
+        type:      suggestion.type ?? '',
+        date:      suggestion.date ?? '',
+        time:      suggestion.time ?? '',
+        duration:  60,
+      },
+    });
+  }
+
+  function handleScheduleFromSuggestion(companyId, interview) {
+    addInterview(companyId, interview);
+    if (suggestionDraft?.suggestion?.id) {
+      dismissSuggestion(suggestionDraft.suggestion.id);
+    }
+    setSuggestionDraft(null);
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
       <div className="max-w-7xl mx-auto">
@@ -92,6 +118,7 @@ const InterviewPrepTracker = () => {
               authStatus={authStatus}
               connectionStatus={connectionStatus}
               onDismiss={dismissSuggestion}
+              onAccept={handleAcceptSuggestion}
               onScan={triggerScan}
               onConnect={connectGoogle}
               onDisconnect={disconnectGoogle}
@@ -143,6 +170,17 @@ const InterviewPrepTracker = () => {
             stages={STAGES}
             stageLabels={STAGE_LABELS}
             positions={POSITIONS}
+          />
+        )}
+
+        {/* Schedule interview from suggestion */}
+        {suggestionDraft && (
+          <AddInterviewModal
+            companies={companies}
+            interviewTypes={INTERVIEW_TYPES}
+            onAdd={handleScheduleFromSuggestion}
+            onClose={() => setSuggestionDraft(null)}
+            initialValues={suggestionDraft.initialValues}
           />
         )}
       </div>

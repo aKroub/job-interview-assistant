@@ -19,7 +19,7 @@ const INTERVIEW_KEYWORDS = [
   'system design',
   'onsite',
   'on-site',
-  'final round',
+  'hr',
   'panel interview',
 ];
 

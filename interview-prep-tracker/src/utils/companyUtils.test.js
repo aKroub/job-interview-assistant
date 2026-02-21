@@ -1,11 +1,17 @@
 import {
-  createCompany,
-  applyStageUpdate,
-  applyDelete,
   applyAddInterview,
+  applyDelete,
   applyInterviewStatusUpdate,
+  applyStageUpdate,
+  createCompany,
   flattenAndSortInterviews,
 } from './companyUtils';
+
+// ---------------------------------------------------------------------------
+// deriveInterviewStatus
+// ---------------------------------------------------------------------------
+
+import { deriveInterviewStatus } from './companyUtils';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -96,7 +102,7 @@ describe('applyStageUpdate', () => {
       makeCompany({ id: '1', stage: 'applied' }),
       makeCompany({ id: '2', stage: 'phone' }),
     ];
-    const result = applyStageUpdate(companies, '1', 'final');
+    const result = applyStageUpdate(companies, '1', 'hr');
     expect(result[1].stage).toBe('phone');
   });
 
@@ -242,12 +248,6 @@ describe('flattenAndSortInterviews', () => {
     expect(flattenAndSortInterviews(companies)).toHaveLength(2);
   });
 });
-
-// ---------------------------------------------------------------------------
-// deriveInterviewStatus
-// ---------------------------------------------------------------------------
-
-import { deriveInterviewStatus } from './companyUtils';
 
 describe('deriveInterviewStatus', () => {
   const PAST   = new Date('2030-01-01T00:00:00.000Z'); // "now" is in the future → interview is in the past

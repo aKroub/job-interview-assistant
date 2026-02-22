@@ -9,6 +9,10 @@ import { TYPE_CONFIG } from '../../constants/interviewTypes';
  * and email snippet. Clicking the card (or the "Schedule" button) triggers
  * onAccept; the dismiss × button removes the suggestion.
  *
+ * Email-only suggestions (source: 'gmail') render with an amber theme and
+ * a "Not on your calendar" badge so the user knows the event was detected
+ * from email only and has not been added to their calendar yet.
+ *
  * @param {{
  *   suggestion:  Object,
  *   onDismiss:   (suggestionId: string) => void,
@@ -17,6 +21,7 @@ import { TYPE_CONFIG } from '../../constants/interviewTypes';
  */
 export function SuggestionCard({ suggestion, onDismiss, onAccept }) {
   const { Icon, colour } = TYPE_CONFIG[suggestion.type] ?? { Icon: Calendar, colour: 'text-gray-600' };
+  const isEmailOnly = suggestion.source === 'gmail';
 
   function handleCardClick() {
     onAccept(suggestion);
@@ -29,7 +34,7 @@ export function SuggestionCard({ suggestion, onDismiss, onAccept }) {
 
   return (
     <div
-      className="bg-white border border-purple-200 rounded-lg p-4 shadow-sm flex flex-col gap-2 cursor-pointer hover:border-purple-400 hover:shadow-md transition"
+      className={`${isEmailOnly ? 'bg-amber-50 border-amber-200 hover:border-amber-400' : 'bg-white border-purple-200 hover:border-purple-400'} border rounded-lg p-4 shadow-sm flex flex-col gap-2 cursor-pointer hover:shadow-md transition`}
       onClick={handleCardClick}
       role="button"
       tabIndex={0}
@@ -69,6 +74,14 @@ export function SuggestionCard({ suggestion, onDismiss, onAccept }) {
         </div>
       )}
 
+      {/* Email-only badge */}
+      {isEmailOnly && (
+        <div className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 rounded px-2 py-0.5 w-fit">
+          <Mail size={12} className="shrink-0" />
+          <span>Not on your calendar</span>
+        </div>
+      )}
+
       {/* Email subject */}
       {suggestion.subject && (
         <div className="flex items-start gap-1 text-xs text-gray-600">
@@ -79,7 +92,7 @@ export function SuggestionCard({ suggestion, onDismiss, onAccept }) {
 
       {/* Email snippet */}
       {suggestion.emailSnippet && (
-        <p className="text-xs text-gray-500 line-clamp-2 border-l-2 border-purple-200 pl-2">
+        <p className={`text-xs text-gray-500 line-clamp-2 border-l-2 ${isEmailOnly ? 'border-amber-200' : 'border-purple-200'} pl-2`}>
           {suggestion.emailSnippet}
         </p>
       )}

@@ -79,9 +79,22 @@ describe('createInterviewDetector', () => {
       expect(suggestions[0].calendarEventId).toBe('evt1');
     });
 
-    it('returns EMPTY when only email matches (no calendar events)', async () => {
+    it('returns email-only suggestion when email exists but no calendar events and score >= 0.5', async () => {
       const detector = createInterviewDetector({
-        gmailService: mockGmail([makeEmailResult()]),
+        gmailService: mockGmail([makeEmailResult({ score: 0.8 })]),
+        calendarService: mockCalendar([]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const suggestions = await detector.detect();
+      expect(suggestions.length).toBe(1);
+      expect(suggestions[0].source).toBe('gmail');
+    });
+
+    it('returns EMPTY when only email exists but score is below email-only threshold', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ score: 0.35 })]),
         calendarService: mockCalendar([]),
         tokenStore: mockTokenStore(),
         idFn: fixedId,
@@ -108,6 +121,7 @@ describe('createInterviewDetector', () => {
         gmailService: mockGmail([makeEmailResult({
           senderDomain: 'apple.com',
           extractedDate: '2025-02-10',
+          score: 0.35, // below email-only threshold — tests cross-ref logic only
         })]),
         calendarService: mockCalendar([makeCalendarResult({
           organizerEmail: 'hr@microsoft.com',
@@ -152,11 +166,12 @@ describe('createInterviewDetector', () => {
 
   describe('detect — deduplication', () => {
     it('does not produce duplicate suggestions for the same email+event pair', async () => {
-      // Two emails from same company, one calendar event — only one match
+      // Two emails from same company, one calendar event — only one cross-ref match.
+      // Second email has low score so it does not surface as email-only either.
       const detector = createInterviewDetector({
         gmailService: mockGmail([
           makeEmailResult({ messageId: 'msg1' }),
-          makeEmailResult({ messageId: 'msg2' }),
+          makeEmailResult({ messageId: 'msg2', score: 0.35 }),
         ]),
         calendarService: mockCalendar([makeCalendarResult()]),
         tokenStore: mockTokenStore(),
@@ -199,11 +214,11 @@ describe('createInterviewDetector', () => {
 
   describe('detect — dismissed suggestions', () => {
     it('excludes previously dismissed suggestions', async () => {
-      const dismissedId = 'suggestion_msg1_evt1';
+      // Dismiss both the cross-ref ID and the email-only ID so neither surfaces
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult()]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore([dismissedId]),
+        tokenStore: mockTokenStore(['suggestion_msg1_evt1', 'suggestion_gmail_msg1']),
         idFn: fixedId,
       });
 
@@ -372,6 +387,115 @@ describe('createInterviewDetector', () => {
       expect(suggestions.length).toBe(1);
       // Email companyName is empty, so it falls back to calendar's companyName
       expect(suggestions[0].companyName).toBe('Pango');
+    });
+  });
+
+  describe('detect — email-only suggestions', () => {
+    it('produces an email-only suggestion with correct shape', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({
+          score: 0.8,
+          extractedDate: '2025-02-10',
+          extractedTime: '15:30',
+        })]),
+        calendarService: mockCalendar([]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+
+      expect(s.id).toBe('suggestion_gmail_msg1');
+      expect(s.source).toBe('gmail');
+      expect(s.confidence).toBeCloseTo(0.48); // 0.8 * 0.6
+      expect(s.calendarEventId).toBe('');
+      expect(s.duration).toBeNull();
+      expect(s.date).toBe('2025-02-10');
+      expect(s.time).toBe('15:30');
+      expect(s.emailMessageId).toBe('msg1');
+      expect(s.companyName).toBe('Google');
+      expect(typeof s.detectedAt).toBe('string');
+    });
+
+    it('does NOT produce email-only suggestion when email already matched a calendar event', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ score: 0.8 })]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const suggestions = await detector.detect();
+
+      // Only the cross-referenced suggestion, not an additional email-only one
+      expect(suggestions.length).toBe(1);
+      expect(suggestions[0].source).toBe('gmail+calendar');
+    });
+
+    it('excludes dismissed email-only suggestions', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ score: 0.8 })]),
+        calendarService: mockCalendar([]),
+        tokenStore: mockTokenStore(['suggestion_gmail_msg1']),
+        idFn: fixedId,
+      });
+
+      const suggestions = await detector.detect();
+      expect(suggestions).toEqual([]);
+    });
+
+    it('guesses interview type from email text (no calendar signals)', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({
+          score: 0.8,
+          subject: 'Phone Screen with Hiring Manager',
+        })]),
+        calendarService: mockCalendar([]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.type).toBe('Phone Interview');
+    });
+
+    it('email-only suggestions sort by date alongside cross-referenced ones', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([
+          makeEmailResult({ messageId: 'msg1', senderDomain: 'a.com', extractedDate: '2025-01-25', score: 0.8 }),
+          makeEmailResult({ messageId: 'msg2', senderDomain: 'b.com', extractedDate: '2025-01-20', score: 0.8 }),
+        ]),
+        calendarService: mockCalendar([
+          // Only msg1 matches a calendar event (by domain)
+          makeCalendarResult({ eventId: 'evt1', organizerEmail: 'hr@a.com', date: '2025-01-25', time: '10:00', startDateTime: '2025-01-25T10:00:00Z', endDateTime: '2025-01-25T11:00:00Z' }),
+        ]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const suggestions = await detector.detect();
+
+      expect(suggestions.length).toBe(2);
+      // msg2 (email-only, date 2025-01-20) comes before msg1 (cross-ref, date 2025-01-25)
+      expect(suggestions[0].date).toBe('2025-01-20');
+      expect(suggestions[0].source).toBe('gmail');
+      expect(suggestions[1].date).toBe('2025-01-25');
+      expect(suggestions[1].source).toBe('gmail+calendar');
+    });
+
+    it('email-only confidence is always below cross-reference minimum', async () => {
+      // Even a perfect email score (1.0) yields confidence 0.6, which is
+      // below the cross-reference minimum (0.5 for date-only match in practice
+      // always combined with other signals producing >= 0.65).
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ score: 1.0 })]),
+        calendarService: mockCalendar([]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.confidence).toBeLessThanOrEqual(0.6);
     });
   });
 

@@ -95,6 +95,74 @@ describe('SuggestionCard — rendering', () => {
   });
 });
 
+describe('SuggestionCard — email-only suggestions', () => {
+  function makeEmailOnlySuggestion(overrides = {}) {
+    return makeSuggestion({
+      id: 'suggestion_gmail_msg1',
+      source: 'gmail',
+      confidence: 0.48,
+      calendarEventId: '',
+      duration: null,
+      ...overrides,
+    });
+  }
+
+  it('renders "Not on your calendar" badge for email-only source', () => {
+    render(<SuggestionCard suggestion={makeEmailOnlySuggestion()} onDismiss={noop} onAccept={noop} />);
+    expect(screen.getByText('Not on your calendar')).toBeInTheDocument();
+  });
+
+  it('does NOT render "Not on your calendar" badge for cross-referenced source', () => {
+    render(<SuggestionCard suggestion={makeSuggestion()} onDismiss={noop} onAccept={noop} />);
+    expect(screen.queryByText('Not on your calendar')).not.toBeInTheDocument();
+  });
+
+  it('applies amber styling to the card for email-only source', () => {
+    render(<SuggestionCard suggestion={makeEmailOnlySuggestion()} onDismiss={noop} onAccept={noop} />);
+    const card = screen.getByRole('button', { name: /schedule google interview/i });
+    expect(card.className).toContain('bg-amber-50');
+    expect(card.className).toContain('border-amber-200');
+  });
+
+  it('applies default purple styling to the card for cross-referenced source', () => {
+    render(<SuggestionCard suggestion={makeSuggestion()} onDismiss={noop} onAccept={noop} />);
+    const card = screen.getByRole('button', { name: /schedule google interview/i });
+    expect(card.className).toContain('bg-white');
+    expect(card.className).toContain('border-purple-200');
+  });
+
+  it('applies amber border to snippet for email-only source', () => {
+    render(<SuggestionCard suggestion={makeEmailOnlySuggestion()} onDismiss={noop} onAccept={noop} />);
+    const snippet = screen.getByText('We would like to invite you for a technical interview.');
+    expect(snippet.className).toContain('border-amber-200');
+  });
+
+  it('applies purple border to snippet for cross-referenced source', () => {
+    render(<SuggestionCard suggestion={makeSuggestion()} onDismiss={noop} onAccept={noop} />);
+    const snippet = screen.getByText('We would like to invite you for a technical interview.');
+    expect(snippet.className).toContain('border-purple-200');
+  });
+
+  it('calls onAccept with the email-only suggestion when card is clicked', async () => {
+    const suggestion = makeEmailOnlySuggestion();
+    const onAccept = jest.fn();
+    render(<SuggestionCard suggestion={suggestion} onDismiss={noop} onAccept={onAccept} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /schedule google interview/i }));
+
+    expect(onAccept).toHaveBeenCalledWith(suggestion);
+  });
+
+  it('calls onDismiss with the email-only suggestion id when dismiss is clicked', async () => {
+    const onDismiss = jest.fn();
+    render(<SuggestionCard suggestion={makeEmailOnlySuggestion()} onDismiss={onDismiss} onAccept={noop} />);
+
+    await userEvent.click(screen.getByRole('button', { name: /dismiss google suggestion/i }));
+
+    expect(onDismiss).toHaveBeenCalledWith('suggestion_gmail_msg1');
+  });
+});
+
 describe('SuggestionCard — callbacks', () => {
   it('calls onDismiss with the suggestion id when dismiss is clicked', async () => {
     const onDismiss = jest.fn();

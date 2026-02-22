@@ -74,6 +74,47 @@ export async function triggerScan(fetchFn = fetch) {
 }
 
 /**
+ * Saves the current app state to Google Drive.
+ *
+ * @param {{ companies: Object[], seenQuestions: string[] }} data
+ * @param {Function} [fetchFn=fetch] - injectable fetch for testing
+ * @returns {Promise<{ saved: boolean, savedAt: string }>}
+ */
+export async function saveToDrive(data, fetchFn = fetch) {
+  const res = await fetchFn('/api/sync/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error(`Save to Drive failed: ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Loads app state from Google Drive.
+ *
+ * @param {Function} [fetchFn=fetch] - injectable fetch for testing
+ * @returns {Promise<Object>}
+ */
+export async function loadFromDrive(fetchFn = fetch) {
+  const res = await fetchFn('/api/sync/load');
+  if (!res.ok) throw new Error(`Load from Drive failed: ${res.status}`);
+  return res.json();
+}
+
+/**
+ * Checks whether a backup exists on Google Drive.
+ *
+ * @param {Function} [fetchFn=fetch] - injectable fetch for testing
+ * @returns {Promise<{ exists: boolean, lastSaved: string | null }>}
+ */
+export async function fetchBackupStatus(fetchFn = fetch) {
+  const res = await fetchFn('/api/sync/status');
+  if (!res.ok) throw new Error(`Backup status failed: ${res.status}`);
+  return res.json();
+}
+
+/**
  * Creates an SSE connection to the suggestions stream.
  *
  * Returns an object with event handler setters and a close method.

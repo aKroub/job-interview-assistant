@@ -56,6 +56,8 @@ A React app for tracking job applications (Kanban pipeline), scheduling intervie
 5. **Do not merge** until the user explicitly approves and CI passes
 6. PRs are opened against the previous feature branch (chained), or `main` when that branch is already merged
 7. **Max ~8 files changed per PR** — keeps diffs reviewable and isolates changes for future debugging
+8. **NEVER push directly to `main`** — all changes go through feature branches and PRs. No exceptions.
+9. **Merging PRs:** When the user approves a PR, merge it using `gh pr merge <number> --merge --admin`. The `--admin` flag is required because the repo owner cannot self-approve PRs due to GitHub's CODEOWNERS limitation.
 
 ---
 

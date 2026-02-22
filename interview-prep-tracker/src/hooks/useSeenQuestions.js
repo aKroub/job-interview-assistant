@@ -64,11 +64,25 @@ export function useSeenQuestions(storage = localStorageService) {
     return getTotalSeen(SYSTEM_DESIGN_QUESTIONS, seenQuestions, companyName);
   }
 
+  /**
+   * Replaces all seen-question IDs with a cloud-loaded array.
+   * Validates that all entries are strings before accepting.
+   *
+   * @param {string[]} idsArray - the full seenQuestions array from cloud backup
+   */
+  function replaceSeenQuestions(idsArray) {
+    if (!Array.isArray(idsArray) || !idsArray.every((id) => typeof id === 'string')) {
+      return;
+    }
+    persist(new Set(idsArray));
+  }
+
   return {
     seenQuestions,
     markQuestionSeen,
     resetCompanyQuestionsFor,
     getAvailableQuestionsFor,
     getTotalSeenFor,
+    replaceSeenQuestions,
   };
 }

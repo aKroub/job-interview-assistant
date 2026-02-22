@@ -90,6 +90,19 @@ export function useCompanies(storage = localStorageService) {
     persist(applyInterviewStatusUpdate(companies, companyId, interviewId, status));
   }
 
+  /**
+   * Replaces all companies with a cloud-loaded array.
+   * Validates each entry before accepting. Persists to storage.
+   *
+   * @param {Object[]} companiesArray - the full companies array from cloud backup
+   */
+  function replaceCompanies(companiesArray) {
+    if (!Array.isArray(companiesArray) || !companiesArray.every(isValidCompany)) {
+      return;
+    }
+    persist(companiesArray);
+  }
+
   return {
     companies,
     addCompany,
@@ -98,5 +111,6 @@ export function useCompanies(storage = localStorageService) {
     addInterview,
     deleteInterview,
     updateInterviewStatus,
+    replaceCompanies,
   };
 }

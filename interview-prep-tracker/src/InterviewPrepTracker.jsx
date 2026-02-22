@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { AddCompanyModal } from './components/AddCompanyModal/AddCompanyModal';
 import { KanbanBoard } from './components/KanbanBoard/KanbanBoard';
 import { PrepContentView } from './components/PrepContentView/PrepContentView';
+import { CloudSyncMenu } from './components/shared/CloudSyncMenu';
 import { TabNav } from './components/shared/TabNav';
 import { ConnectionStatus } from './components/Suggestions/ConnectionStatus';
 import { SuggestionPanel } from './components/Suggestions/SuggestionPanel';
@@ -50,6 +51,11 @@ const InterviewPrepTracker = () => {
     triggerScan,
     connectGoogle,
     disconnectGoogle,
+    syncStatus,
+    lastSaved,
+    syncError,
+    saveToDrive,
+    loadFromDrive,
   } = useInterviewTracker();
 
   function handleAddCompany() {
@@ -100,6 +106,14 @@ const InterviewPrepTracker = () => {
             </p>
           </div>
           <div className="flex items-center gap-3 pt-2 shrink-0">
+            <CloudSyncMenu
+              authStatus={authStatus}
+              syncStatus={syncStatus}
+              lastSaved={lastSaved}
+              syncError={syncError}
+              onSave={saveToDrive}
+              onLoad={loadFromDrive}
+            />
             <ConnectionStatus authStatus={authStatus} connectionStatus={connectionStatus} />
             <button
               onClick={() => setShowSuggestions((v) => !v)}

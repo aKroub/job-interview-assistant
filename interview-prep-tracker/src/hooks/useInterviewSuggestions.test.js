@@ -367,6 +367,160 @@ describe('useInterviewSuggestions', () => {
     });
   });
 
+  describe('dismiss race condition prevention', () => {
+    it('filters dismissed suggestions from SSE updates received after dismiss', async () => {
+      const { result, api } = await setup({
+        fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+      });
+
+      // Capture the onSuggestions callback from the SSE stream
+      const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0][0];
+
+      // Initial SSE push with two suggestions
+      await act(async () => {
+        onSuggestionsCallback([
+          { id: 's1', companyName: 'Google' },
+          { id: 's2', companyName: 'Meta' },
+        ]);
+      });
+      expect(result.current.suggestions).toHaveLength(2);
+
+      // User dismisses s1
+      await act(async () => {
+        await result.current.dismissSuggestion('s1');
+      });
+      expect(result.current.suggestions).toHaveLength(1);
+      expect(result.current.suggestions[0].id).toBe('s2');
+
+      // SSE polling fires BEFORE server persists the dismiss — includes s1 again
+      await act(async () => {
+        onSuggestionsCallback([
+          { id: 's1', companyName: 'Google' },
+          { id: 's2', companyName: 'Meta' },
+        ]);
+      });
+
+      // s1 must NOT reappear — the local dismissedIds filter catches it
+      expect(result.current.suggestions).toHaveLength(1);
+      expect(result.current.suggestions[0].id).toBe('s2');
+    });
+
+    it('filters dismissed suggestions from triggerScan results', async () => {
+      const { result, api } = await setup();
+
+      // Populate initial suggestions
+      api.triggerScan.mockResolvedValue({
+        suggestions: [
+          { id: 's1', companyName: 'Google' },
+          { id: 's2', companyName: 'Meta' },
+        ],
+      });
+      await act(async () => {
+        await result.current.triggerScan();
+      });
+      expect(result.current.suggestions).toHaveLength(2);
+
+      // Dismiss s1
+      await act(async () => {
+        await result.current.dismissSuggestion('s1');
+      });
+
+      // Manual scan returns s1 again (server hasn't persisted yet)
+      api.triggerScan.mockResolvedValue({
+        suggestions: [
+          { id: 's1', companyName: 'Google' },
+          { id: 's2', companyName: 'Meta' },
+        ],
+      });
+      await act(async () => {
+        await result.current.triggerScan();
+      });
+
+      // s1 must NOT reappear
+      expect(result.current.suggestions).toHaveLength(1);
+      expect(result.current.suggestions[0].id).toBe('s2');
+    });
+
+    it('keeps dismissed suggestion hidden even when server dismiss fails', async () => {
+      let consoleWarnSpy;
+      consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const { result, api } = await setup({
+        fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+      });
+
+      const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0][0];
+
+      // Initial SSE push
+      await act(async () => {
+        onSuggestionsCallback([{ id: 's1', companyName: 'Google' }]);
+      });
+
+      // Dismiss fails on the server
+      api.dismissSuggestion.mockRejectedValue(new Error('Network error'));
+      await act(async () => {
+        await result.current.dismissSuggestion('s1');
+      });
+
+      // SSE pushes the suggestion again (server never received the dismiss)
+      await act(async () => {
+        onSuggestionsCallback([{ id: 's1', companyName: 'Google' }]);
+      });
+
+      // Must still be hidden — local dismissedIds survives the API failure
+      expect(result.current.suggestions).toEqual([]);
+
+      consoleWarnSpy.mockRestore();
+    });
+
+    it('clears dismissed IDs on disconnectGoogle so suggestions can reappear on reconnect', async () => {
+      const { result, api } = await setup({
+        fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+      });
+
+      const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0][0];
+
+      // Push a suggestion and dismiss it
+      await act(async () => {
+        onSuggestionsCallback([{ id: 's1', companyName: 'Google' }]);
+      });
+      await act(async () => {
+        await result.current.dismissSuggestion('s1');
+      });
+
+      // Disconnect clears everything
+      await act(async () => {
+        await result.current.disconnectGoogle();
+      });
+
+      // Re-authenticate and open a fresh stream
+      api.fetchAuthStatus.mockResolvedValue({ authenticated: true });
+      await act(async () => {
+        // Simulate visibility change to trigger reconnection
+        Object.defineProperty(document, 'visibilityState', {
+          writable: true,
+          configurable: true,
+          value: 'visible',
+        });
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+      await act(async () => {
+        await new Promise(resolve => setTimeout(resolve, 0));
+      });
+
+      // The new stream's onSuggestions sends s1 — it should NOT be filtered
+      // because dismissedIds was cleared on disconnect
+      const newOnSuggestions = api._stream.onSuggestions.mock.calls.at(-1)?.[0];
+      if (newOnSuggestions) {
+        await act(async () => {
+          newOnSuggestions([{ id: 's1', companyName: 'Google' }]);
+        });
+        expect(result.current.suggestions).toHaveLength(1);
+        expect(result.current.suggestions[0].id).toBe('s1');
+      }
+    });
+  });
+
   describe('triggerScan', () => {
     it('updates suggestions from the scan result', async () => {
       const scanned = [{ id: 's1', companyName: 'Apple' }];

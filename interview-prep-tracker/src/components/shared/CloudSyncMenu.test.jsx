@@ -12,12 +12,13 @@ const defaultProps = {
   syncStatus: 'idle',
   lastSaved: null,
   syncError: null,
+  backups: [],
   onSave: jest.fn(),
   onLoad: jest.fn(),
 };
 
 function renderMenu(overrides = {}) {
-  const props = { ...defaultProps, ...overrides, onSave: jest.fn(), onLoad: jest.fn(), ...overrides };
+  const props = { ...defaultProps, onSave: jest.fn(), onLoad: jest.fn(), ...overrides };
   render(<CloudSyncMenu {...props} />);
   return props;
 }
@@ -91,22 +92,90 @@ describe('CloudSyncMenu — interactions', () => {
     expect(props.onSave).toHaveBeenCalledTimes(1);
   });
 
-  it('calls onLoad when Load from Drive is confirmed', async () => {
-    window.confirm = jest.fn().mockReturnValue(true);
-    const props = renderMenu();
+  it('shows version list when Load from Drive is clicked', async () => {
+    renderMenu({
+      backups: [
+        { fileId: 'f1', savedAt: '2026-02-22T10:00:00Z' },
+        { fileId: 'f2', savedAt: '2026-02-21T09:00:00Z' },
+      ],
+    });
     await openMenu();
     await userEvent.click(screen.getByText('Load from Drive'));
-    expect(window.confirm).toHaveBeenCalled();
-    expect(props.onLoad).toHaveBeenCalledTimes(1);
+
+    // Version list should appear with Back button
+    expect(screen.getByText('Back')).toBeInTheDocument();
+    // Load from Drive button should be hidden (replaced by version list)
+    expect(screen.queryByText('Load from Drive')).not.toBeInTheDocument();
   });
 
-  it('does not call onLoad when Load from Drive is cancelled', async () => {
-    window.confirm = jest.fn().mockReturnValue(false);
-    const props = renderMenu();
+  it('shows "No backups available" when backups array is empty', async () => {
+    renderMenu({ backups: [] });
     await openMenu();
     await userEvent.click(screen.getByText('Load from Drive'));
+    expect(screen.getByText('No backups available')).toBeInTheDocument();
+  });
+
+  it('shows "Latest" badge on first backup', async () => {
+    renderMenu({
+      backups: [
+        { fileId: 'f1', savedAt: '2026-02-22T10:00:00Z' },
+        { fileId: 'f2', savedAt: '2026-02-21T09:00:00Z' },
+      ],
+    });
+    await openMenu();
+    await userEvent.click(screen.getByText('Load from Drive'));
+    expect(screen.getByText('Latest')).toBeInTheDocument();
+  });
+
+  it('calls onLoad with fileId when a version is confirmed', async () => {
+    window.confirm = jest.fn().mockReturnValue(true);
+    const props = renderMenu({
+      backups: [
+        { fileId: 'f1', savedAt: '2026-02-22T10:00:00Z' },
+        { fileId: 'f2', savedAt: '2026-02-21T09:00:00Z' },
+      ],
+    });
+    await openMenu();
+    await userEvent.click(screen.getByText('Load from Drive'));
+
+    // Click the second version (not the first/Latest)
+    const versionButtons = screen.getAllByRole('button').filter(
+      (btn) => btn.textContent.includes('2026')
+    );
+    await userEvent.click(versionButtons[1]);
+
+    expect(window.confirm).toHaveBeenCalled();
+    expect(props.onLoad).toHaveBeenCalledWith('f2');
+  });
+
+  it('does not call onLoad when version selection is cancelled', async () => {
+    window.confirm = jest.fn().mockReturnValue(false);
+    const props = renderMenu({
+      backups: [{ fileId: 'f1', savedAt: '2026-02-22T10:00:00Z' }],
+    });
+    await openMenu();
+    await userEvent.click(screen.getByText('Load from Drive'));
+
+    const versionButtons = screen.getAllByRole('button').filter(
+      (btn) => btn.textContent.includes('2026')
+    );
+    await userEvent.click(versionButtons[0]);
+
     expect(window.confirm).toHaveBeenCalled();
     expect(props.onLoad).not.toHaveBeenCalled();
+  });
+
+  it('collapses version list when Back is clicked', async () => {
+    renderMenu({
+      backups: [{ fileId: 'f1', savedAt: '2026-02-22T10:00:00Z' }],
+    });
+    await openMenu();
+    await userEvent.click(screen.getByText('Load from Drive'));
+    expect(screen.getByText('Back')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByText('Back'));
+    expect(screen.queryByText('Back')).not.toBeInTheDocument();
+    expect(screen.getByText('Load from Drive')).toBeInTheDocument();
   });
 });
 

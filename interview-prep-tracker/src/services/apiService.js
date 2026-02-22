@@ -74,11 +74,12 @@ export async function triggerScan(fetchFn = fetch) {
 }
 
 /**
- * Saves the current app state to Google Drive.
+ * Saves the current app state to Google Drive as a new backup version.
+ * Returns the updated list of available backups.
  *
  * @param {{ companies: Object[], seenQuestions: string[] }} data
  * @param {Function} [fetchFn=fetch] - injectable fetch for testing
- * @returns {Promise<{ saved: boolean, savedAt: string }>}
+ * @returns {Promise<{ saved: boolean, savedAt: string, backups: Array<{ fileId: string, savedAt: string }> }>}
  */
 export async function saveToDrive(data, fetchFn = fetch) {
   const res = await fetchFn('/api/sync/save', {
@@ -91,22 +92,23 @@ export async function saveToDrive(data, fetchFn = fetch) {
 }
 
 /**
- * Loads app state from Google Drive.
+ * Loads app state from a specific backup version on Google Drive.
  *
+ * @param {string} fileId - the Google Drive file ID of the backup to load
  * @param {Function} [fetchFn=fetch] - injectable fetch for testing
  * @returns {Promise<Object>}
  */
-export async function loadFromDrive(fetchFn = fetch) {
-  const res = await fetchFn('/api/sync/load');
+export async function loadFromDrive(fileId, fetchFn = fetch) {
+  const res = await fetchFn(`/api/sync/load?fileId=${encodeURIComponent(fileId)}`);
   if (!res.ok) throw new Error(`Load from Drive failed: ${res.status}`);
   return res.json();
 }
 
 /**
- * Checks whether a backup exists on Google Drive.
+ * Fetches the list of available backup versions on Google Drive.
  *
  * @param {Function} [fetchFn=fetch] - injectable fetch for testing
- * @returns {Promise<{ exists: boolean, lastSaved: string | null }>}
+ * @returns {Promise<{ backups: Array<{ fileId: string, savedAt: string }> }>}
  */
 export async function fetchBackupStatus(fetchFn = fetch) {
   const res = await fetchFn('/api/sync/status');

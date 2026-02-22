@@ -10,8 +10,12 @@ import { useCloudSync } from './useCloudSync';
  */
 function createMockApi(overrides = {}) {
   return {
-    fetchBackupStatus: jest.fn().mockResolvedValue({ exists: false, lastSaved: null }),
-    saveToDrive: jest.fn().mockResolvedValue({ saved: true, savedAt: '2026-02-22T10:00:00Z' }),
+    fetchBackupStatus: jest.fn().mockResolvedValue({ backups: [] }),
+    saveToDrive: jest.fn().mockResolvedValue({
+      saved: true,
+      savedAt: '2026-02-22T10:00:00Z',
+      backups: [{ fileId: 'f1', savedAt: '2026-02-22T10:00:00Z' }],
+    }),
     loadFromDrive: jest.fn().mockResolvedValue({
       version: 1,
       savedAt: '2026-02-22T10:00:00Z',
@@ -63,6 +67,11 @@ describe('useCloudSync — initial state', () => {
     const { result } = setup();
     expect(result.current.syncError).toBeNull();
   });
+
+  it('starts with empty backups array', () => {
+    const { result } = setup();
+    expect(result.current.backups).toEqual([]);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -74,7 +83,7 @@ describe('useCloudSync — backup status check', () => {
     const { api } = setup({
       authStatus: 'authenticated',
       apiOverrides: {
-        fetchBackupStatus: jest.fn().mockResolvedValue({ exists: true, lastSaved: '2026-01-01T00:00:00Z' }),
+        fetchBackupStatus: jest.fn().mockResolvedValue({ backups: [{ fileId: 'f1', savedAt: '2026-01-01T00:00:00Z' }] }),
       },
     });
 
@@ -84,11 +93,34 @@ describe('useCloudSync — backup status check', () => {
     expect(api.fetchBackupStatus).toHaveBeenCalled();
   });
 
-  it('sets lastSaved when backup exists', async () => {
+  it('populates backups array when authenticated', async () => {
     const { result } = setup({
       authStatus: 'authenticated',
       apiOverrides: {
-        fetchBackupStatus: jest.fn().mockResolvedValue({ exists: true, lastSaved: '2026-01-01T00:00:00Z' }),
+        fetchBackupStatus: jest.fn().mockResolvedValue({
+          backups: [
+            { fileId: 'f1', savedAt: '2026-02-22T10:00:00Z' },
+            { fileId: 'f2', savedAt: '2026-02-21T10:00:00Z' },
+          ],
+        }),
+      },
+    });
+
+    await act(async () => {});
+
+    expect(result.current.backups).toEqual([
+      { fileId: 'f1', savedAt: '2026-02-22T10:00:00Z' },
+      { fileId: 'f2', savedAt: '2026-02-21T10:00:00Z' },
+    ]);
+  });
+
+  it('derives lastSaved from the first backup', async () => {
+    const { result } = setup({
+      authStatus: 'authenticated',
+      apiOverrides: {
+        fetchBackupStatus: jest.fn().mockResolvedValue({
+          backups: [{ fileId: 'f1', savedAt: '2026-01-01T00:00:00Z' }],
+        }),
       },
     });
 
@@ -139,7 +171,17 @@ describe('useCloudSync — saveToDrive', () => {
     });
   });
 
-  it('updates lastSaved on success', async () => {
+  it('updates backups from response', async () => {
+    const { result } = setup({ authStatus: 'authenticated' });
+
+    await act(async () => { await result.current.saveToDrive(); });
+
+    expect(result.current.backups).toEqual([
+      { fileId: 'f1', savedAt: '2026-02-22T10:00:00Z' },
+    ]);
+  });
+
+  it('derives lastSaved from updated backups', async () => {
     const { result } = setup({ authStatus: 'authenticated' });
 
     await act(async () => { await result.current.saveToDrive(); });
@@ -175,10 +217,18 @@ describe('useCloudSync — saveToDrive', () => {
 // ---------------------------------------------------------------------------
 
 describe('useCloudSync — loadFromDrive', () => {
+  it('passes fileId to api.loadFromDrive', async () => {
+    const { result, api } = setup({ authStatus: 'authenticated' });
+
+    await act(async () => { await result.current.loadFromDrive('file-abc'); });
+
+    expect(api.loadFromDrive).toHaveBeenCalledWith('file-abc');
+  });
+
   it('calls replaceCompanies and replaceSeenQuestions with loaded data', async () => {
     const { result, replaceCompanies, replaceSeenQuestions } = setup({ authStatus: 'authenticated' });
 
-    await act(async () => { await result.current.loadFromDrive(); });
+    await act(async () => { await result.current.loadFromDrive('file-abc'); });
 
     expect(replaceCompanies).toHaveBeenCalledWith([
       { id: '1', name: 'Acme', position: 'SWE', stage: 'applied', interviews: [] },
@@ -186,18 +236,10 @@ describe('useCloudSync — loadFromDrive', () => {
     expect(replaceSeenQuestions).toHaveBeenCalledWith(['q1']);
   });
 
-  it('updates lastSaved on success', async () => {
-    const { result } = setup({ authStatus: 'authenticated' });
-
-    await act(async () => { await result.current.loadFromDrive(); });
-
-    expect(result.current.lastSaved).toBe('2026-02-22T10:00:00Z');
-  });
-
   it('sets syncStatus to success after load', async () => {
     const { result } = setup({ authStatus: 'authenticated' });
 
-    await act(async () => { await result.current.loadFromDrive(); });
+    await act(async () => { await result.current.loadFromDrive('file-abc'); });
 
     expect(result.current.syncStatus).toBe('success');
   });
@@ -210,7 +252,7 @@ describe('useCloudSync — loadFromDrive', () => {
       },
     });
 
-    await act(async () => { await result.current.loadFromDrive(); });
+    await act(async () => { await result.current.loadFromDrive('file-abc'); });
 
     expect(result.current.syncStatus).toBe('error');
     expect(result.current.syncError).toBe('No backup found on Google Drive');
@@ -224,7 +266,7 @@ describe('useCloudSync — loadFromDrive', () => {
       },
     });
 
-    await act(async () => { await result.current.loadFromDrive(); });
+    await act(async () => { await result.current.loadFromDrive('file-abc'); });
 
     expect(result.current.syncStatus).toBe('error');
     expect(result.current.syncError).toBe('Download failed');
@@ -238,7 +280,7 @@ describe('useCloudSync — loadFromDrive', () => {
       },
     });
 
-    await act(async () => { await result.current.loadFromDrive(); });
+    await act(async () => { await result.current.loadFromDrive('file-abc'); });
 
     expect(replaceCompanies).not.toHaveBeenCalled();
     expect(replaceSeenQuestions).not.toHaveBeenCalled();

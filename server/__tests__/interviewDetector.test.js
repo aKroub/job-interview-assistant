@@ -374,4 +374,95 @@ describe('createInterviewDetector', () => {
       expect(suggestions[0].companyName).toBe('Pango');
     });
   });
+
+  describe('detect — sorting by date (soonest first)', () => {
+    it('sorts suggestions by date ascending (soonest interview first)', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([
+          makeEmailResult({ messageId: 'msg1', senderDomain: 'a.com', extractedDate: '2025-01-25' }),
+          makeEmailResult({ messageId: 'msg2', senderDomain: 'b.com', extractedDate: '2025-01-20' }),
+          makeEmailResult({ messageId: 'msg3', senderDomain: 'c.com', extractedDate: '2025-01-22' }),
+        ]),
+        calendarService: mockCalendar([
+          makeCalendarResult({ eventId: 'evt1', organizerEmail: 'hr@a.com', date: '2025-01-25', time: '10:00', startDateTime: '2025-01-25T10:00:00Z', endDateTime: '2025-01-25T11:00:00Z' }),
+          makeCalendarResult({ eventId: 'evt2', organizerEmail: 'hr@b.com', date: '2025-01-20', time: '14:00', startDateTime: '2025-01-20T14:00:00Z', endDateTime: '2025-01-20T15:00:00Z' }),
+          makeCalendarResult({ eventId: 'evt3', organizerEmail: 'hr@c.com', date: '2025-01-22', time: '09:00', startDateTime: '2025-01-22T09:00:00Z', endDateTime: '2025-01-22T10:00:00Z' }),
+        ]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const suggestions = await detector.detect();
+
+      expect(suggestions.length).toBe(3);
+      expect(suggestions[0].date).toBe('2025-01-20');
+      expect(suggestions[1].date).toBe('2025-01-22');
+      expect(suggestions[2].date).toBe('2025-01-25');
+    });
+
+    it('pushes suggestions without a date to the bottom', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([
+          makeEmailResult({ messageId: 'msg1', senderDomain: 'a.com', extractedDate: '' }),
+          makeEmailResult({ messageId: 'msg2', senderDomain: 'b.com', extractedDate: '2025-01-20' }),
+        ]),
+        calendarService: mockCalendar([
+          makeCalendarResult({ eventId: 'evt1', organizerEmail: 'hr@a.com', date: '', time: '' }),
+          makeCalendarResult({ eventId: 'evt2', organizerEmail: 'hr@b.com', date: '2025-01-20', time: '14:00', startDateTime: '2025-01-20T14:00:00Z', endDateTime: '2025-01-20T15:00:00Z' }),
+        ]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const suggestions = await detector.detect();
+
+      expect(suggestions.length).toBe(2);
+      expect(suggestions[0].date).toBe('2025-01-20');
+      expect(suggestions[1].date).toBe('');
+    });
+
+    it('sorts by time ascending when dates are equal', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([
+          makeEmailResult({ messageId: 'msg1', senderDomain: 'a.com', extractedDate: '2025-01-20' }),
+          makeEmailResult({ messageId: 'msg2', senderDomain: 'b.com', extractedDate: '2025-01-20' }),
+        ]),
+        calendarService: mockCalendar([
+          makeCalendarResult({ eventId: 'evt1', organizerEmail: 'hr@a.com', date: '2025-01-20', time: '14:00', startDateTime: '2025-01-20T14:00:00Z', endDateTime: '2025-01-20T15:00:00Z' }),
+          makeCalendarResult({ eventId: 'evt2', organizerEmail: 'hr@b.com', date: '2025-01-20', time: '09:00', startDateTime: '2025-01-20T09:00:00Z', endDateTime: '2025-01-20T10:00:00Z' }),
+        ]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const suggestions = await detector.detect();
+
+      expect(suggestions.length).toBe(2);
+      expect(suggestions[0].time).toBe('09:00');
+      expect(suggestions[1].time).toBe('14:00');
+    });
+
+    it('breaks date+time ties by confidence descending', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([
+          makeEmailResult({ messageId: 'msg1', senderDomain: 'a.com', extractedDate: '2025-01-20' }),
+          makeEmailResult({ messageId: 'msg2', senderDomain: 'b.com', extractedDate: '2025-01-20', companyName: 'b' }),
+        ]),
+        calendarService: mockCalendar([
+          // evt1 matches by domain only (confidence ~0.7)
+          makeCalendarResult({ eventId: 'evt1', organizerEmail: 'hr@a.com', date: '2025-01-20', time: '14:00', startDateTime: '2025-01-20T14:00:00Z', endDateTime: '2025-01-20T15:00:00Z' }),
+          // evt2 matches by domain + date (confidence ~0.95)
+          makeCalendarResult({ eventId: 'evt2', organizerEmail: 'hr@b.com', date: '2025-01-20', time: '14:00', startDateTime: '2025-01-20T14:00:00Z', endDateTime: '2025-01-20T15:00:00Z', companyName: 'b' }),
+        ]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const suggestions = await detector.detect();
+
+      expect(suggestions.length).toBe(2);
+      // Higher confidence first when date+time are equal
+      expect(suggestions[0].confidence).toBeGreaterThanOrEqual(suggestions[1].confidence);
+    });
+  });
 });

@@ -4,8 +4,9 @@ import * as defaultApi from '../services/apiService';
 /**
  * Custom hook that manages Google Drive backup/restore operations.
  *
- * Provides manual save-to-Drive and load-from-Drive functionality.
- * Checks backup status on mount when authenticated.
+ * Supports multi-version backups: keeps up to 5 versions on Drive.
+ * Provides save-to-Drive and load-from-Drive (by fileId) functionality.
+ * Fetches the list of available backups on mount when authenticated.
  *
  * @param {Object} deps
  * @param {Object}   [deps.api=defaultApi] - injectable API service
@@ -14,7 +15,7 @@ import * as defaultApi from '../services/apiService';
  * @param {Object[]} deps.companies - current companies state
  * @param {Set}      deps.seenQuestions - current seen-questions state
  * @param {string}   deps.authStatus - 'checking' | 'authenticated' | 'unauthenticated'
- * @returns {{ syncStatus: string, lastSaved: string|null, syncError: string|null, saveToDrive: Function, loadFromDrive: Function }}
+ * @returns {{ syncStatus: string, lastSaved: string|null, syncError: string|null, backups: Array, saveToDrive: Function, loadFromDrive: Function }}
  */
 export function useCloudSync({
   api = defaultApi,
@@ -25,8 +26,11 @@ export function useCloudSync({
   authStatus,
 }) {
   const [syncStatus, setSyncStatus] = useState('idle');
-  const [lastSaved, setLastSaved]   = useState(null);
+  const [backups, setBackups]       = useState([]);
   const [syncError, setSyncError]   = useState(null);
+
+  /** Derived from the most recent backup. */
+  const lastSaved = backups.length > 0 ? backups[0].savedAt : null;
 
   /** Ref for the success-to-idle auto-reset timeout. */
   const resetTimerRef = useRef(null);
@@ -55,15 +59,15 @@ export function useCloudSync({
     return () => clearResetTimer();
   }, []);
 
-  // Check backup status on mount when authenticated
+  // Fetch list of backups on mount when authenticated
   useEffect(() => {
     let cancelled = false;
 
     async function checkStatus() {
       try {
-        const info = await api.fetchBackupStatus();
-        if (!cancelled && info.exists) {
-          setLastSaved(info.lastSaved);
+        const { backups: list } = await api.fetchBackupStatus();
+        if (!cancelled && Array.isArray(list)) {
+          setBackups(list);
         }
       } catch {
         // Silently ignore — backup status is informational
@@ -78,7 +82,7 @@ export function useCloudSync({
   }, [authStatus, api]);
 
   /**
-   * Saves the current app state to Google Drive.
+   * Saves the current app state to Google Drive as a new backup version.
    */
   const saveToDrive = useCallback(async () => {
     clearResetTimer();
@@ -90,8 +94,10 @@ export function useCloudSync({
         companies,
         seenQuestions: [...seenQuestions],
       };
-      const { savedAt } = await api.saveToDrive(payload);
-      setLastSaved(savedAt);
+      const result = await api.saveToDrive(payload);
+      if (Array.isArray(result.backups)) {
+        setBackups(result.backups);
+      }
       setSuccessWithAutoReset();
     } catch (err) {
       setSyncStatus('error');
@@ -100,15 +106,17 @@ export function useCloudSync({
   }, [companies, seenQuestions, api]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /**
-   * Loads app state from Google Drive, replacing all local data.
+   * Loads app state from a specific backup version on Google Drive.
+   *
+   * @param {string} fileId - the Google Drive file ID to load
    */
-  const loadFromDrive = useCallback(async () => {
+  const loadFromDrive = useCallback(async (fileId) => {
     clearResetTimer();
     setSyncStatus('loading');
     setSyncError(null);
 
     try {
-      const data = await api.loadFromDrive();
+      const data = await api.loadFromDrive(fileId);
 
       if (data.exists === false) {
         setSyncStatus('error');
@@ -118,7 +126,6 @@ export function useCloudSync({
 
       replaceCompanies(data.companies);
       replaceSeenQuestions(data.seenQuestions);
-      setLastSaved(data.savedAt);
       setSuccessWithAutoReset();
     } catch (err) {
       setSyncStatus('error');
@@ -130,6 +137,7 @@ export function useCloudSync({
     syncStatus,
     lastSaved,
     syncError,
+    backups,
     saveToDrive,
     loadFromDrive,
   };

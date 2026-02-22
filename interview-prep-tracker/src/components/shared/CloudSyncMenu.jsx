@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings, Upload, Download, Check, AlertCircle, Loader } from 'lucide-react';
+import { Settings, Upload, Download, Check, AlertCircle, Loader, ChevronLeft } from 'lucide-react';
 
 /**
  * Formats a timestamp into a human-readable relative or absolute string.
@@ -23,19 +23,39 @@ function formatLastSaved(isoString) {
 }
 
 /**
+ * Formats a timestamp into a full date + time string for the version list.
+ *
+ * @param {string} isoString - ISO 8601 timestamp
+ * @returns {string} e.g. "Feb 22, 2026, 10:00 AM"
+ */
+function formatVersionTimestamp(isoString) {
+  const date = new Date(isoString);
+  return date.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+/**
  * Gear icon dropdown for Google Drive cloud backup/restore.
+ * Supports multi-version backups with version selection.
  *
  * @param {{
  *   authStatus: 'checking' | 'authenticated' | 'unauthenticated',
  *   syncStatus: 'idle' | 'saving' | 'loading' | 'success' | 'error',
  *   lastSaved:  string | null,
  *   syncError:  string | null,
+ *   backups:    Array<{ fileId: string, savedAt: string }>,
  *   onSave:     () => void,
- *   onLoad:     () => void,
+ *   onLoad:     (fileId: string) => void,
  * }} props
  */
-export function CloudSyncMenu({ authStatus, syncStatus, lastSaved, syncError, onSave, onLoad }) {
-  const [isOpen, setIsOpen] = useState(false);
+export function CloudSyncMenu({ authStatus, syncStatus, lastSaved, syncError, backups, onSave, onLoad }) {
+  const [isOpen, setIsOpen]               = useState(false);
+  const [showVersionList, setShowVersionList] = useState(false);
   const menuRef = useRef(null);
 
   const isAuthenticated = authStatus === 'authenticated';
@@ -48,6 +68,7 @@ export function CloudSyncMenu({ authStatus, syncStatus, lastSaved, syncError, on
     function handleClickOutside(e) {
       if (menuRef.current && !menuRef.current.contains(e.target)) {
         setIsOpen(false);
+        setShowVersionList(false);
       }
     }
 
@@ -55,19 +76,20 @@ export function CloudSyncMenu({ authStatus, syncStatus, lastSaved, syncError, on
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
-  function handleLoad() {
+  function handleLoadVersion(fileId) {
     const confirmed = window.confirm(
-      'This will replace all local data with the cloud backup. Continue?'
+      'This will replace all local data with the selected backup. Continue?'
     );
     if (confirmed) {
-      onLoad();
+      setShowVersionList(false);
+      onLoad(fileId);
     }
   }
 
   return (
     <div className="relative" ref={menuRef}>
       <button
-        onClick={() => setIsOpen((v) => !v)}
+        onClick={() => { setIsOpen((v) => !v); setShowVersionList(false); }}
         className="p-1.5 rounded-md text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition"
         aria-label="Cloud sync settings"
       >
@@ -86,6 +108,7 @@ export function CloudSyncMenu({ authStatus, syncStatus, lastSaved, syncError, on
             </p>
           )}
 
+          {/* Save button */}
           <button
             onClick={onSave}
             disabled={!isAuthenticated || isBusy}
@@ -98,17 +121,56 @@ export function CloudSyncMenu({ authStatus, syncStatus, lastSaved, syncError, on
             Save to Drive
           </button>
 
-          <button
-            onClick={handleLoad}
-            disabled={!isAuthenticated || isBusy}
-            className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
-          >
-            {syncStatus === 'loading'
-              ? <Loader size={15} className="animate-spin text-purple-500" />
-              : <Download size={15} className="text-gray-500" />
-            }
-            Load from Drive
-          </button>
+          {/* Load button — toggles version list */}
+          {!showVersionList && (
+            <button
+              onClick={() => setShowVersionList(true)}
+              disabled={!isAuthenticated || isBusy}
+              className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+            >
+              {syncStatus === 'loading'
+                ? <Loader size={15} className="animate-spin text-purple-500" />
+                : <Download size={15} className="text-gray-500" />
+              }
+              Load from Drive
+            </button>
+          )}
+
+          {/* Version list */}
+          {showVersionList && (
+            <div>
+              <button
+                onClick={() => setShowVersionList(false)}
+                className="w-full flex items-center gap-1 px-3 py-1.5 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition"
+              >
+                <ChevronLeft size={13} />
+                Back
+              </button>
+
+              {backups.length === 0 && (
+                <p className="px-3 py-2 text-xs text-gray-400">
+                  No backups available
+                </p>
+              )}
+
+              {backups.map((backup, index) => (
+                <button
+                  key={backup.fileId}
+                  onClick={() => handleLoadVersion(backup.fileId)}
+                  disabled={isBusy}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                >
+                  <Download size={14} className="text-gray-400 shrink-0" />
+                  <span className="truncate">{formatVersionTimestamp(backup.savedAt)}</span>
+                  {index === 0 && (
+                    <span className="ml-auto shrink-0 text-[10px] font-medium bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded-full">
+                      Latest
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Status feedback */}
           <div className="px-3 pt-1 border-t border-gray-100 mt-1">

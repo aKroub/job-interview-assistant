@@ -54,6 +54,7 @@ const InterviewPrepTracker = () => {
     syncStatus,
     lastSaved,
     syncError,
+    backups,
     saveToDrive,
     loadFromDrive,
   } = useInterviewTracker();
@@ -111,6 +112,7 @@ const InterviewPrepTracker = () => {
               syncStatus={syncStatus}
               lastSaved={lastSaved}
               syncError={syncError}
+              backups={backups}
               onSave={saveToDrive}
               onLoad={loadFromDrive}
             />

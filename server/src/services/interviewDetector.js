@@ -105,8 +105,9 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
       }
     }
 
-    // Sort by confidence descending
-    suggestions.sort((a, b) => b.confidence - a.confidence);
+    // Sort by interview date ascending (soonest first) so the most urgent
+    // interview is always at the top of the suggestions list.
+    suggestions.sort(compareSuggestionsByDate);
 
     return suggestions;
   }
@@ -154,6 +155,46 @@ function computeDurationMinutes(startIso, endIso) {
   const endMs   = new Date(endIso).getTime();
   if (isNaN(startMs) || isNaN(endMs) || endMs <= startMs) return null;
   return Math.round((endMs - startMs) / 60000);
+}
+
+/**
+ * Compares two suggestions for sorting: soonest interview date first.
+ *
+ * - Primary: date ascending (soonest first). No-date suggestions sink to the bottom.
+ * - Secondary: time ascending when dates are equal.
+ * - Tertiary: confidence descending as tiebreaker.
+ *
+ * YYYY-MM-DD and HH:mm formats sort correctly with lexicographic comparison,
+ * so no Date parsing is needed.
+ *
+ * @param {{ date: string, time: string, confidence: number }} a
+ * @param {{ date: string, time: string, confidence: number }} b
+ * @returns {number} negative if a comes first, positive if b comes first
+ */
+function compareSuggestionsByDate(a, b) {
+  const aHasDate = Boolean(a.date);
+  const bHasDate = Boolean(b.date);
+
+  // Suggestions without dates sink to the bottom
+  if (aHasDate && !bHasDate) return -1;
+  if (!aHasDate && bHasDate) return 1;
+  if (!aHasDate && !bHasDate) return b.confidence - a.confidence;
+
+  // Both have dates — compare lexicographically (YYYY-MM-DD sorts correctly)
+  if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+
+  // Same date — compare by time
+  const aHasTime = Boolean(a.time);
+  const bHasTime = Boolean(b.time);
+
+  if (aHasTime && !bHasTime) return -1;
+  if (!aHasTime && bHasTime) return 1;
+  if (aHasTime && bHasTime && a.time !== b.time) {
+    return a.time < b.time ? -1 : 1;
+  }
+
+  // Same date and time (or both missing time) — tiebreak by confidence
+  return b.confidence - a.confidence;
 }
 
 /**

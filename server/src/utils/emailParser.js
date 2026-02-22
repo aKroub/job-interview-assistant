@@ -195,18 +195,94 @@ export function scoreEmailForInterview(subject, body, senderEmail) {
 }
 
 /**
- * Attempts to extract a date and time from email text.
+ * Converts a regex time match into an HH:mm string.
+ *
+ * @param {RegExpMatchArray} match - a match from the time pattern regex
+ * @returns {string} time in HH:mm format
+ */
+function parseTimeMatch(match) {
+  let hours = parseInt(match[1], 10);
+  const minutes = match[2];
+  const ampm = (match[3] || '').toLowerCase();
+
+  if (ampm === 'pm' && hours < 12) hours += 12;
+  if (ampm === 'am' && hours === 12) hours = 0;
+
+  return `${String(hours).padStart(2, '0')}:${minutes}`;
+}
+
+/**
+ * Converts an HH:mm time string to total minutes since midnight.
+ *
+ * @param {string} timeStr - time in HH:mm format
+ * @returns {number} minutes since midnight
+ */
+function timeToMinutes(timeStr) {
+  const [h, m] = timeStr.split(':').map(Number);
+  return h * 60 + m;
+}
+
+/**
+ * Checks whether two adjacent time matches form a time range
+ * (e.g. "11:30 until 11:45") rather than a rescheduling pattern
+ * (e.g. "Originally 2:00 PM, changed to 3:30 PM").
+ *
+ * @param {string} fullText - the full text being parsed
+ * @param {RegExpMatchArray} firstMatch - the earlier time match
+ * @param {RegExpMatchArray} secondMatch - the later time match
+ * @returns {{ startTime: string, duration: number } | null}
+ *          non-null when a valid range is detected
+ */
+function detectTimeRange(fullText, firstMatch, secondMatch) {
+  const startTime = parseTimeMatch(firstMatch);
+  const endTime = parseTimeMatch(secondMatch);
+
+  // End time must be after start time for a valid same-day range
+  const startMinutes = timeToMinutes(startTime);
+  const endMinutes = timeToMinutes(endTime);
+  if (endMinutes <= startMinutes) return null;
+
+  // Extract the text between the two time matches
+  const betweenStart = firstMatch.index + firstMatch[0].length;
+  const betweenEnd = secondMatch.index;
+  const between = fullText.slice(betweenStart, betweenEnd);
+
+  // Check for rescheduling keywords — if present, this is NOT a range.
+  // Look both between the two times AND in a short window before the first
+  // time, because phrases like "moved from 2:00 PM to 4:00 PM" place the
+  // rescheduling keyword before the range, not inside it.
+  const reschedulePattern = /\b(changed|rescheduled|moved|updated|originally|previously|was|now)\b/i;
+  const beforeFirst = fullText.slice(Math.max(0, firstMatch.index - 30), firstMatch.index);
+  if (reschedulePattern.test(between) || reschedulePattern.test(beforeFirst)) return null;
+
+  // Check for range connectors — the connector must be the only content
+  // between the two times (aside from whitespace) to avoid false positives
+  const rangeConnectorPattern = /^\s*(?:to|until|till|[-\u2013\u2014])\s*$/i;
+  if (!rangeConnectorPattern.test(between)) return null;
+
+  const duration = endMinutes - startMinutes;
+  return { startTime, duration };
+}
+
+/**
+ * Attempts to extract a date, time, and duration from email text.
  * Looks for common date/time patterns in the subject and body.
  * When multiple dates are found, returns the LAST one (for rescheduled emails).
+ * When exactly two times are found with a range connector between them
+ * (e.g. "11:30 until 11:45", "2:00-2:45 PM"), returns the FIRST time
+ * as the start and computes the duration in minutes.
+ * When two times appear without a range connector (rescheduling),
+ * returns the LAST time and duration = null.
  *
  * @param {string} text - combined subject + body text
- * @returns {{ date: string | null, time: string | null }} - ISO date (YYYY-MM-DD) and time (HH:mm) if found
+ * @returns {{ date: string | null, time: string | null, duration: number | null }}
  */
 export function extractDateTimeFromText(text) {
-  if (!text || typeof text !== 'string') return { date: null, time: null };
+  if (!text || typeof text !== 'string') return { date: null, time: null, duration: null };
 
   let date = null;
   let time = null;
+  let duration = null;
 
   // Month name → zero-based index lookup (avoids timezone issues with Date constructor)
   const MONTH_MAP = {
@@ -252,22 +328,29 @@ export function extractDateTimeFromText(text) {
     }
   }
 
-  // Match time patterns like "2:30 PM", "14:30", "2:30pm" — use LAST match
+  // Match time patterns like "2:30 PM", "14:30", "2:30pm"
   const timePattern = /\b(\d{1,2}):(\d{2})\s*(am|pm)?\b/gi;
   const timeMatches = Array.from(text.matchAll(timePattern));
-  if (timeMatches.length > 0) {
-    const lastMatch = timeMatches[timeMatches.length - 1];
-    let hours = parseInt(lastMatch[1], 10);
-    const minutes = lastMatch[2];
-    const ampm = (lastMatch[3] || '').toLowerCase();
 
-    if (ampm === 'pm' && hours < 12) hours += 12;
-    if (ampm === 'am' && hours === 12) hours = 0;
-
-    time = `${String(hours).padStart(2, '0')}:${minutes}`;
+  if (timeMatches.length >= 2) {
+    // Check if the last two times form a range (e.g. "11:30 until 11:45")
+    const rangeResult = detectTimeRange(
+      text,
+      timeMatches[timeMatches.length - 2],
+      timeMatches[timeMatches.length - 1],
+    );
+    if (rangeResult) {
+      time = rangeResult.startTime;
+      duration = rangeResult.duration;
+    } else {
+      // Rescheduling or unrelated — use last time, no duration
+      time = parseTimeMatch(timeMatches[timeMatches.length - 1]);
+    }
+  } else if (timeMatches.length === 1) {
+    time = parseTimeMatch(timeMatches[0]);
   }
 
-  return { date, time };
+  return { date, time, duration };
 }
 
 /**

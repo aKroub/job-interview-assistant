@@ -148,7 +148,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
         type: guessInterviewTypeFromEmail(email),
         date: email.extractedDate || '',
         time: email.extractedTime || '',
-        duration: null,
+        duration: email.extractedDuration || null,
         subject: email.subject || '',
         emailSnippet: email.snippet || '',
         calendarEventId: '',

@@ -220,11 +220,11 @@ describe('extractDateTimeFromText', () => {
 
   it('returns nulls when no date or time found', () => {
     const result = extractDateTimeFromText('No specific details provided');
-    expect(result).toEqual({ date: null, time: null });
+    expect(result).toEqual({ date: null, time: null, duration: null });
   });
 
   it('returns nulls for null input', () => {
-    expect(extractDateTimeFromText(null)).toEqual({ date: null, time: null });
+    expect(extractDateTimeFromText(null)).toEqual({ date: null, time: null, duration: null });
   });
 
   it('extracts both date and time from combined text', () => {
@@ -256,11 +256,78 @@ describe('extractDateTimeFromText', () => {
     expect(result.date).toBe('2025-01-18');
   });
 
-  it('uses the last time when multiple times appear', () => {
+  it('uses the last time when multiple times appear in rescheduling context', () => {
     const result = extractDateTimeFromText(
       'Originally 2:00 PM, changed to 3:30 PM'
     );
     expect(result.time).toBe('15:30');
+    expect(result.duration).toBeNull();
+  });
+
+  // --- Time range detection ---
+
+  it('extracts start time and duration from "11:30 until 11:45"', () => {
+    const result = extractDateTimeFromText('Interview from 11:30 until 11:45');
+    expect(result.time).toBe('11:30');
+    expect(result.duration).toBe(15);
+  });
+
+  it('extracts start time and duration from "2:00 PM to 2:45 PM"', () => {
+    const result = extractDateTimeFromText('Meeting 2:00 PM to 2:45 PM');
+    expect(result.time).toBe('14:00');
+    expect(result.duration).toBe(45);
+  });
+
+  it('extracts start time and duration from hyphen range "10:00-10:30"', () => {
+    const result = extractDateTimeFromText('Call scheduled 10:00-10:30');
+    expect(result.time).toBe('10:00');
+    expect(result.duration).toBe(30);
+  });
+
+  it('extracts start time and duration from en-dash range "14:00\u201314:45"', () => {
+    const result = extractDateTimeFromText('Interview 14:00\u201314:45');
+    expect(result.time).toBe('14:00');
+    expect(result.duration).toBe(45);
+  });
+
+  it('extracts start time and duration from "9:00 AM till 9:30 AM"', () => {
+    const result = extractDateTimeFromText('Screen from 9:00 AM till 9:30 AM');
+    expect(result.time).toBe('09:00');
+    expect(result.duration).toBe(30);
+  });
+
+  // --- Rescheduling still uses last time ---
+
+  it('uses last time for rescheduling with "rescheduled to"', () => {
+    const result = extractDateTimeFromText('Was 10:00 AM, rescheduled to 11:00 AM');
+    expect(result.time).toBe('11:00');
+    expect(result.duration).toBeNull();
+  });
+
+  it('uses last time for rescheduling with "moved to"', () => {
+    const result = extractDateTimeFromText('Meeting moved from 2:00 PM to 4:00 PM');
+    expect(result.time).toBe('16:00');
+    expect(result.duration).toBeNull();
+  });
+
+  // --- Edge cases ---
+
+  it('returns null duration when only one time is present', () => {
+    const result = extractDateTimeFromText('Interview at 3:00 PM');
+    expect(result.time).toBe('15:00');
+    expect(result.duration).toBeNull();
+  });
+
+  it('returns null duration when end time is before start time', () => {
+    const result = extractDateTimeFromText('Call 14:00 to 09:00');
+    expect(result.time).toBe('09:00');
+    expect(result.duration).toBeNull();
+  });
+
+  it('returns null duration when times are separated by non-range text', () => {
+    const result = extractDateTimeFromText('Interview at 2:00 PM. Please confirm by 3:00 PM');
+    expect(result.time).toBe('15:00');
+    expect(result.duration).toBeNull();
   });
 });
 

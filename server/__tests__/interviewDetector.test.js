@@ -38,6 +38,7 @@ function makeEmailResult(overrides = {}) {
     matchedKeywords: ['interview invitation'],
     extractedDate: '2025-01-20',
     extractedTime: '14:00',
+    extractedDuration: null,
     ...overrides,
   };
 }
@@ -481,6 +482,26 @@ describe('createInterviewDetector', () => {
       expect(suggestions[0].source).toBe('gmail');
       expect(suggestions[1].date).toBe('2025-01-25');
       expect(suggestions[1].source).toBe('gmail+calendar');
+    });
+
+    it('uses extractedDuration from email when available', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({
+          score: 0.8,
+          extractedDate: '2025-02-10',
+          extractedTime: '11:30',
+          extractedDuration: 15,
+        })]),
+        calendarService: mockCalendar([]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+
+      expect(s.source).toBe('gmail');
+      expect(s.time).toBe('11:30');
+      expect(s.duration).toBe(15);
     });
 
     it('email-only confidence is always below cross-reference minimum', async () => {

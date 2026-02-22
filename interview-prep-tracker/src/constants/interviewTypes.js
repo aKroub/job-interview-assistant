@@ -24,4 +24,4 @@ export const TYPE_CONFIG = {
  * Available duration options (in minutes) for scheduling interviews.
  * Also accepted from backend API when auto-detected from Gmail/Calendar.
  */
-export const DURATION_OPTIONS = [30, 45, 60, 90, 120];
+export const DURATION_OPTIONS = [15, 30, 45, 60, 90, 120];

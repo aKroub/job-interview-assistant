@@ -44,6 +44,22 @@ export function useInterviewSuggestions(api = defaultApi) {
   const mountedRef = useRef(true);
 
   /**
+   * Local set of dismissed suggestion IDs.
+   *
+   * Prevents a race condition where SSE polling broadcasts suggestions
+   * between the optimistic local removal and the server-side persist.
+   * The SSE handler's full-array replacement would otherwise overwrite
+   * the optimistic update and re-surface the dismissed suggestion.
+   *
+   * IDs stay in this set for the lifetime of the hook (or until
+   * disconnectGoogle resets everything). This is safe because the
+   * server also persists dismissed IDs — on the next SSE cycle the
+   * server-side filter will have caught up, but the local set
+   * guarantees no flicker in the meantime.
+   */
+  const dismissedIdsRef = useRef(new Set());
+
+  /**
    * Checks Google OAuth status against the backend.
    */
   const checkAuth = useCallback(async () => {
@@ -98,7 +114,10 @@ export function useInterviewSuggestions(api = defaultApi) {
         retryCountRef.current = 0;
       })
       .onSuggestions((newSuggestions) => {
-        setSuggestions(newSuggestions);
+        const filtered = newSuggestions.filter(
+          (s) => !dismissedIdsRef.current.has(s.id)
+        );
+        setSuggestions(filtered);
       })
       .onError(() => {
         setConnectionStatus('error');
@@ -157,6 +176,9 @@ export function useInterviewSuggestions(api = defaultApi) {
    * @param {string} suggestionId
    */
   const dismissSuggestion = useCallback(async (suggestionId) => {
+    // Record the ID locally so incoming SSE updates never re-surface it
+    dismissedIdsRef.current.add(suggestionId);
+
     // Optimistic update — remove from local state immediately
     setSuggestions((prev) => prev.filter((s) => s.id !== suggestionId));
 
@@ -164,8 +186,9 @@ export function useInterviewSuggestions(api = defaultApi) {
       await api.dismissSuggestion(suggestionId);
     } catch (err) {
       console.warn('Failed to persist dismissal:', err);
-      // If the server call fails, the suggestion stays dismissed locally
-      // (next poll will re-fetch anyway). Silently ignore.
+      // The ID remains in dismissedIdsRef so the suggestion stays hidden
+      // locally even if the server call failed. On the next full session
+      // (page reload) the server will be the source of truth.
     }
   }, [api]);
 
@@ -175,7 +198,10 @@ export function useInterviewSuggestions(api = defaultApi) {
   const triggerScan = useCallback(async () => {
     try {
       const { suggestions: scanned } = await api.triggerScan();
-      setSuggestions(scanned);
+      const filtered = scanned.filter(
+        (s) => !dismissedIdsRef.current.has(s.id)
+      );
+      setSuggestions(filtered);
     } catch (err) {
       console.warn('Scan failed:', err);
       // Silently ignore — the SSE stream will deliver results on next poll
@@ -203,6 +229,7 @@ export function useInterviewSuggestions(api = defaultApi) {
   const disconnectGoogle = useCallback(async () => {
     closeStream();
     setSuggestions([]);
+    dismissedIdsRef.current = new Set();
 
     try {
       await api.disconnectAuth();

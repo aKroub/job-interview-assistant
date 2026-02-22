@@ -156,6 +156,44 @@ describe('createGmailService', () => {
       expect(results[0].companyName).toBe('microsoft');
     });
 
+    it('extracts duration from email content with time range', async () => {
+      const messages = [
+        makeMessage({
+          id: 'msg1',
+          subject: 'Technical Interview Scheduled',
+          from: 'recruiter@company.com',
+          snippet: 'Your interview is on January 20, 2025 from 3:00 PM to 3:45 PM via Zoom',
+        }),
+      ];
+      const gmailApi = createMockGmailApi(messages);
+      const service = createGmailService({}, { gmailApi, minScore: 0.1 });
+
+      const results = await service.scanForInterviews();
+
+      expect(results.length).toBe(1);
+      expect(results[0].extractedDate).toBe('2025-01-20');
+      expect(results[0].extractedTime).toBe('15:00');
+      expect(results[0].extractedDuration).toBe(45);
+    });
+
+    it('returns null extractedDuration when email has no time range', async () => {
+      const messages = [
+        makeMessage({
+          id: 'msg1',
+          subject: 'Technical Interview Scheduled',
+          from: 'recruiter@company.com',
+          snippet: 'Your technical interview is on January 20, 2025 at 3:00 PM via Zoom',
+        }),
+      ];
+      const gmailApi = createMockGmailApi(messages);
+      const service = createGmailService({}, { gmailApi, minScore: 0.1 });
+
+      const results = await service.scanForInterviews();
+
+      expect(results.length).toBe(1);
+      expect(results[0].extractedDuration).toBeNull();
+    });
+
     it('throws a clear error on 401/403 from Gmail API', async () => {
       const gmailApi = {
         users: {

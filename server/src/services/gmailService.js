@@ -61,6 +61,7 @@ export function createGmailService(authClient, options = {}) {
    *   matchedKeywords: string[],
    *   extractedDate: string | null,
    *   extractedTime: string | null,
+   *   extractedDuration: number | null,
    * }>>}
    */
   async function scanForInterviews() {
@@ -110,7 +111,7 @@ export function createGmailService(authClient, options = {}) {
 
       const combinedText = `${subject} ${snippet}`;
       const { score, matchedKeywords } = scoreEmailForInterview(subject, snippet, senderEmail);
-      const { date, time } = extractDateTimeFromText(combinedText);
+      const { date, time, duration } = extractDateTimeFromText(combinedText);
 
       if (score >= minScore) {
         results.push({
@@ -125,6 +126,7 @@ export function createGmailService(authClient, options = {}) {
           matchedKeywords,
           extractedDate: date,
           extractedTime: time,
+          extractedDuration: duration,
         });
       }
     }

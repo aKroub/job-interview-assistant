@@ -7,8 +7,10 @@ import { createGoogleAuth } from './services/googleAuth.js';
 import { createGmailService } from './services/gmailService.js';
 import { createCalendarService } from './services/calendarService.js';
 import { createInterviewDetector } from './services/interviewDetector.js';
+import { createDriveService } from './services/driveService.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createInterviewsRouter } from './routes/interviews.js';
+import { createSyncRouter } from './routes/sync.js';
 
 /**
  * Creates an async function that lazily fetches and caches the authenticated user's email.
@@ -49,6 +51,7 @@ export function createGetUserEmail(authClient, options = {}) {
  * @param {Object} [deps.tokenStore] - token store instance
  * @param {Object} [deps.googleAuth] - google auth instance
  * @param {Object} [deps.detector] - interview detector instance
+ * @param {Object} [deps.driveService] - Google Drive backup service
  * @returns {{ app: import('express').Express, config: Object, tokenStore: Object, googleAuth: Object }}
  */
 export function createApp(deps = {}) {
@@ -62,6 +65,7 @@ export function createApp(deps = {}) {
   const gmailService    = deps.gmailService    || createGmailService(authClient, { lookbackDays: config.emailLookbackDays });
   const calendarService = deps.calendarService || createCalendarService(authClient, { lookaheadDays: config.calendarLookaheadDays, getUserEmail });
   const detector        = deps.detector        || createInterviewDetector({ gmailService, calendarService, tokenStore });
+  const driveService    = deps.driveService    || createDriveService(authClient);
 
   const app = express();
   
@@ -83,6 +87,9 @@ export function createApp(deps = {}) {
     pollIntervalMs: config.pollIntervalMs,
     googleAuth,
   }));
+
+  // Cloud sync routes (Google Drive backup/restore)
+  app.use('/api/sync', createSyncRouter({ driveService, googleAuth }));
 
   // Health check
   app.get('/api/health', (_req, res) => {

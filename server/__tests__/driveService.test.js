@@ -1,26 +1,6 @@
 import { describe, it, expect } from '@jest/globals';
 import { createDriveService } from '../src/services/driveService.js';
 
-/**
- * Creates a mock Drive API with controllable file list and content.
- *
- * @param {Object[]} [files] - existing files to return from list
- * @param {Object} [fileContent] - content to return from get (alt: media)
- * @returns {Object} mock Drive API matching googleapis drive.files shape
- */
-function createMockDriveApi(files = [], fileContent = null) {
-  return {
-    files: {
-      list: async () => ({ data: { files } }),
-      create: async ({ requestBody, media }) => ({
-        data: { id: 'new-file-id', name: requestBody.name, mimeType: media.mimeType },
-      }),
-      update: async () => ({ data: { id: files[0]?.id || 'updated-id' } }),
-      get: async () => ({ data: fileContent }),
-    },
-  };
-}
-
 const SAMPLE_STATE = {
   version: 1,
   savedAt: '2026-02-22T10:00:00.000Z',
@@ -28,19 +8,42 @@ const SAMPLE_STATE = {
   seenQuestions: ['q1', 'q2'],
 };
 
+/**
+ * Creates a mock Drive API for testing.
+ *
+ * @param {Object[]} [files] - files returned by list
+ * @param {Object} [getContent] - content returned by get (alt: media)
+ * @returns {Object} mock Drive API
+ */
+function createMockDriveApi(files = [], getContent = null) {
+  const deletedIds = [];
+
+  return {
+    _deletedIds: deletedIds,
+    files: {
+      list: async () => ({ data: { files } }),
+      create: async ({ requestBody, media }) => ({
+        data: { id: 'new-file-id', name: requestBody.name, mimeType: media.mimeType },
+      }),
+      get: async () => ({ data: getContent }),
+      delete: async ({ fileId }) => { deletedIds.push(fileId); },
+    },
+  };
+}
+
 describe('createDriveService', () => {
   describe('saveState', () => {
-    it('creates a new file when no backup exists', async () => {
+    it('always creates a new file with timestamped name', async () => {
       const calls = [];
       const driveApi = {
         files: {
           list: async () => ({ data: { files: [] } }),
           create: async (params) => {
-            calls.push({ method: 'create', params });
+            calls.push(params);
             return { data: { id: 'new-id' } };
           },
-          update: async () => { throw new Error('should not be called'); },
-          get: async () => { throw new Error('should not be called'); },
+          get: async () => ({}),
+          delete: async () => {},
         },
       };
 
@@ -49,31 +52,47 @@ describe('createDriveService', () => {
 
       expect(result).toEqual({ saved: true, fileId: 'new-id' });
       expect(calls.length).toBe(1);
-      expect(calls[0].params.requestBody.name).toBe('interview-tracker-state.json');
-      expect(calls[0].params.media.mimeType).toBe('application/json');
+      expect(calls[0].requestBody.name).toBe('interview-tracker-state-2026-02-22T10-00-00.000Z.json');
+      expect(calls[0].media.mimeType).toBe('application/json');
     });
 
-    it('updates the existing file when a backup already exists', async () => {
-      const calls = [];
+    it('prunes old backups beyond the 5 most recent', async () => {
+      const files = [
+        { id: 'f1', name: 'interview-tracker-state-2026-02-06.json', createdTime: '2026-02-06' },
+        { id: 'f2', name: 'interview-tracker-state-2026-02-05.json', createdTime: '2026-02-05' },
+        { id: 'f3', name: 'interview-tracker-state-2026-02-04.json', createdTime: '2026-02-04' },
+        { id: 'f4', name: 'interview-tracker-state-2026-02-03.json', createdTime: '2026-02-03' },
+        { id: 'f5', name: 'interview-tracker-state-2026-02-02.json', createdTime: '2026-02-02' },
+        { id: 'f6', name: 'interview-tracker-state-2026-02-01.json', createdTime: '2026-02-01' },
+      ];
+      const deletedIds = [];
       const driveApi = {
         files: {
-          list: async () => ({ data: { files: [{ id: 'existing-id', modifiedTime: '2026-01-01' }] } }),
-          create: async () => { throw new Error('should not be called'); },
-          update: async (params) => {
-            calls.push({ method: 'update', params });
-            return { data: { id: 'existing-id' } };
-          },
-          get: async () => { throw new Error('should not be called'); },
+          list: async () => ({ data: { files } }),
+          create: async () => ({ data: { id: 'new-id' } }),
+          get: async () => ({}),
+          delete: async ({ fileId }) => { deletedIds.push(fileId); },
         },
       };
 
       const service = createDriveService({}, { driveApi });
-      const result = await service.saveState(SAMPLE_STATE);
+      await service.saveState(SAMPLE_STATE);
 
-      expect(result).toEqual({ saved: true, fileId: 'existing-id' });
-      expect(calls.length).toBe(1);
-      expect(calls[0].params.fileId).toBe('existing-id');
-      expect(calls[0].params.media.mimeType).toBe('application/json');
+      expect(deletedIds).toEqual(['f6']);
+    });
+
+    it('does not prune when 5 or fewer backups exist', async () => {
+      const files = [
+        { id: 'f1', name: 'n1.json', createdTime: '2026-02-05' },
+        { id: 'f2', name: 'n2.json', createdTime: '2026-02-04' },
+        { id: 'f3', name: 'n3.json', createdTime: '2026-02-03' },
+      ];
+      const driveApi = createMockDriveApi(files);
+
+      const service = createDriveService({}, { driveApi });
+      await service.saveState(SAMPLE_STATE);
+
+      expect(driveApi._deletedIds).toEqual([]);
     });
 
     it('propagates Drive API errors', async () => {
@@ -81,8 +100,8 @@ describe('createDriveService', () => {
         files: {
           list: async () => { throw new Error('Drive quota exceeded'); },
           create: async () => {},
-          update: async () => {},
           get: async () => {},
+          delete: async () => {},
         },
       };
 
@@ -92,61 +111,85 @@ describe('createDriveService', () => {
   });
 
   describe('loadState', () => {
-    it('returns parsed content when backup exists', async () => {
-      const driveApi = createMockDriveApi(
-        [{ id: 'file-1', modifiedTime: '2026-02-22T10:00:00Z' }],
-        SAMPLE_STATE
-      );
+    it('downloads content for the given fileId', async () => {
+      const getCalls = [];
+      const driveApi = {
+        files: {
+          list: async () => ({ data: { files: [] } }),
+          create: async () => ({ data: { id: 'new-id' } }),
+          get: async (params) => {
+            getCalls.push(params);
+            return { data: SAMPLE_STATE };
+          },
+          delete: async () => {},
+        },
+      };
 
       const service = createDriveService({}, { driveApi });
-      const result = await service.loadState();
+      const result = await service.loadState('file-abc');
 
       expect(result).toEqual(SAMPLE_STATE);
-    });
-
-    it('returns null when no backup exists', async () => {
-      const driveApi = createMockDriveApi([], null);
-
-      const service = createDriveService({}, { driveApi });
-      const result = await service.loadState();
-
-      expect(result).toBeNull();
+      expect(getCalls[0].fileId).toBe('file-abc');
+      expect(getCalls[0].alt).toBe('media');
     });
 
     it('propagates Drive API errors on file get', async () => {
       const driveApi = {
         files: {
-          list: async () => ({ data: { files: [{ id: 'file-1', modifiedTime: '2026-01-01' }] } }),
+          list: async () => ({ data: { files: [] } }),
           get: async () => { throw new Error('Network timeout'); },
           create: async () => {},
-          update: async () => {},
+          delete: async () => {},
         },
       };
 
       const service = createDriveService({}, { driveApi });
-      await expect(service.loadState()).rejects.toThrow('Network timeout');
+      await expect(service.loadState('file-xyz')).rejects.toThrow('Network timeout');
     });
   });
 
-  describe('getBackupInfo', () => {
-    it('returns exists: true with lastSaved when backup exists', async () => {
-      const driveApi = createMockDriveApi([
-        { id: 'file-1', modifiedTime: '2026-02-22T10:00:00Z' },
-      ]);
-
-      const service = createDriveService({}, { driveApi });
-      const result = await service.getBackupInfo();
-
-      expect(result).toEqual({ exists: true, lastSaved: '2026-02-22T10:00:00Z' });
-    });
-
-    it('returns exists: false with null lastSaved when no backup', async () => {
+  describe('listBackups', () => {
+    it('returns empty backups array when no files exist', async () => {
       const driveApi = createMockDriveApi([]);
 
       const service = createDriveService({}, { driveApi });
-      const result = await service.getBackupInfo();
+      const result = await service.listBackups();
 
-      expect(result).toEqual({ exists: false, lastSaved: null });
+      expect(result).toEqual({ backups: [] });
+    });
+
+    it('returns backups sorted newest-first with fileId and savedAt', async () => {
+      const files = [
+        { id: 'f1', name: 'n1.json', createdTime: '2026-02-22T10:00:00Z' },
+        { id: 'f2', name: 'n2.json', createdTime: '2026-02-21T10:00:00Z' },
+        { id: 'f3', name: 'n3.json', createdTime: '2026-02-20T10:00:00Z' },
+      ];
+      const driveApi = createMockDriveApi(files);
+
+      const service = createDriveService({}, { driveApi });
+      const result = await service.listBackups();
+
+      expect(result.backups).toEqual([
+        { fileId: 'f1', savedAt: '2026-02-22T10:00:00Z' },
+        { fileId: 'f2', savedAt: '2026-02-21T10:00:00Z' },
+        { fileId: 'f3', savedAt: '2026-02-20T10:00:00Z' },
+      ]);
+    });
+
+    it('limits results to 5 backups even if more files exist', async () => {
+      const files = Array.from({ length: 8 }, (_, i) => ({
+        id: `f${i}`,
+        name: `n${i}.json`,
+        createdTime: `2026-02-${String(22 - i).padStart(2, '0')}T10:00:00Z`,
+      }));
+      const driveApi = createMockDriveApi(files);
+
+      const service = createDriveService({}, { driveApi });
+      const result = await service.listBackups();
+
+      expect(result.backups.length).toBe(5);
+      expect(result.backups[0].fileId).toBe('f0');
+      expect(result.backups[4].fileId).toBe('f4');
     });
 
     it('propagates Drive API errors', async () => {
@@ -154,13 +197,13 @@ describe('createDriveService', () => {
         files: {
           list: async () => { throw new Error('Auth expired'); },
           create: async () => {},
-          update: async () => {},
           get: async () => {},
+          delete: async () => {},
         },
       };
 
       const service = createDriveService({}, { driveApi });
-      await expect(service.getBackupInfo()).rejects.toThrow('Auth expired');
+      await expect(service.listBackups()).rejects.toThrow('Auth expired');
     });
   });
 });

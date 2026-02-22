@@ -1,101 +1,127 @@
 import { google } from 'googleapis';
 
 /**
- * The filename used for the backup file in Google Drive.
- * Only one file with this name is maintained (create-or-update pattern).
+ * Prefix used for all backup file names in Google Drive.
+ * Each save creates a new file: `interview-tracker-state-{timestamp}.json`
  */
-const BACKUP_FILENAME = 'interview-tracker-state.json';
+const BACKUP_PREFIX = 'interview-tracker-state-';
+
+/** Maximum number of backup versions to keep. Older files are pruned after each save. */
+const MAX_BACKUPS = 5;
+
+/**
+ * Converts an ISO timestamp to a Drive-safe filename suffix.
+ * Replaces colons with dashes (e.g. "2026-02-22T10:00:00.000Z" → "2026-02-22T10-00-00-000Z").
+ *
+ * @param {string} isoString
+ * @returns {string}
+ */
+function toFilenameSuffix(isoString) {
+  return isoString.replace(/:/g, '-');
+}
 
 /**
  * Creates a Google Drive service for saving/loading app state.
  *
  * Uses the drive.file scope — the app can only access files it created.
- * A single JSON file is maintained in the user's Drive root.
+ * Each save creates a new timestamped JSON file in the user's Drive root.
+ * Only the most recent MAX_BACKUPS files are kept; older ones are pruned.
  *
  * @param {import('googleapis').Auth.OAuth2Client} authClient - authenticated OAuth2 client
  * @param {Object} [options]
  * @param {Object} [options.driveApi] - injectable Drive API instance for testing
- * @returns {{ saveState: Function, loadState: Function, getBackupInfo: Function }}
+ * @returns {{ saveState: Function, loadState: Function, listBackups: Function }}
  */
 export function createDriveService(authClient, options = {}) {
   const driveApi = options.driveApi || google.drive({ version: 'v3', auth: authClient });
 
   /**
-   * Finds the backup file by name (excluding trashed files).
-   * Returns the first match or null.
+   * Lists all backup files, sorted newest-first by createdTime.
+   * Uses a safety buffer of 10 results to cover any race conditions during pruning.
    *
-   * @returns {Promise<{ id: string, modifiedTime: string } | null>}
+   * @returns {Promise<Array<{ id: string, name: string, createdTime: string }>>}
    */
-  async function findBackupFile() {
+  async function listBackupFiles() {
     const res = await driveApi.files.list({
-      q: `name='${BACKUP_FILENAME}' and trashed=false`,
-      fields: 'files(id,modifiedTime)',
+      q: `name contains '${BACKUP_PREFIX}' and trashed=false`,
+      fields: 'files(id,name,createdTime)',
       spaces: 'drive',
-      pageSize: 1,
+      orderBy: 'createdTime desc',
+      pageSize: 10,
     });
-    const files = res.data.files || [];
-    return files.length > 0 ? files[0] : null;
+    return res.data.files || [];
   }
 
   /**
-   * Saves app state to Google Drive. Creates the file on first save,
-   * updates it on subsequent saves.
+   * Deletes backup files beyond the MAX_BACKUPS most recent.
+   *
+   * @param {Array<{ id: string }>} sortedFiles - files sorted newest-first
+   * @returns {Promise<void>}
+   */
+  async function pruneOldBackups(sortedFiles) {
+    const toDelete = sortedFiles.slice(MAX_BACKUPS);
+    await Promise.all(toDelete.map((f) => driveApi.files.delete({ fileId: f.id })));
+  }
+
+  /**
+   * Saves app state to Google Drive as a new timestamped file.
+   * After saving, prunes files beyond the MAX_BACKUPS most recent.
    *
    * @param {Object} data - the state payload (version, savedAt, companies, seenQuestions)
    * @returns {Promise<{ saved: boolean, fileId: string }>}
    */
   async function saveState(data) {
-    const existing = await findBackupFile();
-    const media = {
-      mimeType: 'application/json',
-      body: JSON.stringify(data),
-    };
-
-    if (existing) {
-      await driveApi.files.update({
-        fileId: existing.id,
-        media,
-      });
-      return { saved: true, fileId: existing.id };
-    }
+    const suffix = toFilenameSuffix(data.savedAt);
+    const fileName = `${BACKUP_PREFIX}${suffix}.json`;
 
     const created = await driveApi.files.create({
       requestBody: {
-        name: BACKUP_FILENAME,
+        name: fileName,
         mimeType: 'application/json',
       },
-      media,
+      media: {
+        mimeType: 'application/json',
+        body: JSON.stringify(data),
+      },
     });
+
+    // Re-list files after creating the new one, then prune extras
+    const allFiles = await listBackupFiles();
+    await pruneOldBackups(allFiles);
+
     return { saved: true, fileId: created.data.id };
   }
 
   /**
-   * Loads app state from Google Drive.
-   * Returns null if no backup file exists.
+   * Loads app state from a specific backup file on Google Drive.
+   * Returns null if the file cannot be found or read.
    *
+   * @param {string} fileId - the Google Drive file ID to load
    * @returns {Promise<Object | null>}
    */
-  async function loadState() {
-    const existing = await findBackupFile();
-    if (!existing) return null;
-
+  async function loadState(fileId) {
     const res = await driveApi.files.get({
-      fileId: existing.id,
+      fileId,
       alt: 'media',
     });
     return res.data;
   }
 
   /**
-   * Returns metadata about the backup file (whether it exists and when it was last saved).
+   * Returns a list of available backup versions, sorted newest-first.
+   * Each entry includes the fileId and savedAt timestamp.
+   * savedAt is extracted from the file content's savedAt field (encoded in the filename).
    *
-   * @returns {Promise<{ exists: boolean, lastSaved: string | null }>}
+   * @returns {Promise<{ backups: Array<{ fileId: string, savedAt: string }> }>}
    */
-  async function getBackupInfo() {
-    const existing = await findBackupFile();
-    if (!existing) return { exists: false, lastSaved: null };
-    return { exists: true, lastSaved: existing.modifiedTime };
+  async function listBackups() {
+    const files = await listBackupFiles();
+    const backups = files.slice(0, MAX_BACKUPS).map((f) => ({
+      fileId: f.id,
+      savedAt: f.createdTime,
+    }));
+    return { backups };
   }
 
-  return { saveState, loadState, getBackupInfo };
+  return { saveState, loadState, listBackups };
 }

@@ -3,11 +3,13 @@ import { Router } from 'express';
 /**
  * Creates the sync router for Google Drive backup/restore of app state.
  *
- * All endpoints require Google authentication. The frontend sends the
- * current app state to save, and receives the stored state on load.
+ * All endpoints require Google authentication. Supports multi-version backups:
+ * - Status returns a list of available backup versions
+ * - Save creates a new version and returns the updated list
+ * - Load requires a fileId to select which version to restore
  *
  * @param {Object} deps
- * @param {{ saveState: Function, loadState: Function, getBackupInfo: Function }} deps.driveService
+ * @param {{ saveState: Function, loadState: Function, listBackups: Function }} deps.driveService
  * @param {{ isAuthenticated: Function }} deps.googleAuth
  * @returns {import('express').Router}
  */
@@ -17,7 +19,7 @@ export function createSyncRouter({ driveService, googleAuth }) {
   /**
    * GET /api/sync/status
    *
-   * Returns whether a backup exists on Google Drive and when it was last saved.
+   * Returns a list of available backup versions on Google Drive.
    */
   router.get('/status', async (_req, res) => {
     if (!googleAuth.isAuthenticated()) {
@@ -25,8 +27,8 @@ export function createSyncRouter({ driveService, googleAuth }) {
     }
 
     try {
-      const info = await driveService.getBackupInfo();
-      res.json(info);
+      const result = await driveService.listBackups();
+      res.json(result);
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
@@ -36,7 +38,8 @@ export function createSyncRouter({ driveService, googleAuth }) {
    * POST /api/sync/save
    * Body: { companies: Object[], seenQuestions: string[] }
    *
-   * Saves the current app state to Google Drive.
+   * Saves the current app state as a new backup version on Google Drive.
+   * Returns the updated list of available backups.
    */
   router.post('/save', async (req, res) => {
     if (!googleAuth.isAuthenticated()) {
@@ -52,25 +55,33 @@ export function createSyncRouter({ driveService, googleAuth }) {
     try {
       const savedAt = new Date().toISOString();
       const payload = { version: 1, savedAt, companies, seenQuestions };
-      const result = await driveService.saveState(payload);
-      res.json({ saved: result.saved, savedAt });
+      await driveService.saveState(payload);
+
+      const { backups } = await driveService.listBackups();
+      res.json({ saved: true, savedAt, backups });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
   });
 
   /**
-   * GET /api/sync/load
+   * GET /api/sync/load?fileId=xxx
    *
-   * Loads app state from Google Drive. Returns { exists: false } if no backup exists.
+   * Loads app state from a specific backup version on Google Drive.
+   * Requires a fileId query parameter. Returns { exists: false } if the file is not found.
    */
-  router.get('/load', async (_req, res) => {
+  router.get('/load', async (req, res) => {
     if (!googleAuth.isAuthenticated()) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
+    const { fileId } = req.query;
+    if (!fileId) {
+      return res.status(400).json({ error: 'fileId query parameter is required' });
+    }
+
     try {
-      const state = await driveService.loadState();
+      const state = await driveService.loadState(fileId);
       if (!state) {
         return res.json({ exists: false });
       }

@@ -21,7 +21,7 @@ function createMockGoogleAuth(overrides = {}) {
  */
 function createMockDriveService(overrides = {}) {
   return {
-    getBackupInfo: async () => ({ exists: false, lastSaved: null }),
+    listBackups: async () => ({ backups: [] }),
     saveState: async () => ({ saved: true, fileId: 'file-123' }),
     loadState: async () => null,
     ...overrides,
@@ -65,29 +65,43 @@ describe('Sync routes', () => {
     });
 
     it('GET /api/sync/load returns 401 when not authenticated', async () => {
-      const res = await request(app).get('/api/sync/load');
+      const res = await request(app).get('/api/sync/load?fileId=abc');
       expect(res.status).toBe(401);
       expect(res.body).toEqual({ error: 'Not authenticated' });
     });
   });
 
   describe('GET /api/sync/status', () => {
-    it('returns backup info when authenticated', async () => {
+    it('returns backups array when authenticated', async () => {
       googleAuth._setAuthenticated(true);
-      driveService.getBackupInfo = async () => ({
-        exists: true,
-        lastSaved: '2026-02-22T10:00:00Z',
+      driveService.listBackups = async () => ({
+        backups: [
+          { fileId: 'f1', savedAt: '2026-02-22T10:00:00Z' },
+          { fileId: 'f2', savedAt: '2026-02-21T10:00:00Z' },
+        ],
       });
 
       const res = await request(app).get('/api/sync/status');
 
       expect(res.status).toBe(200);
-      expect(res.body).toEqual({ exists: true, lastSaved: '2026-02-22T10:00:00Z' });
+      expect(res.body.backups).toEqual([
+        { fileId: 'f1', savedAt: '2026-02-22T10:00:00Z' },
+        { fileId: 'f2', savedAt: '2026-02-21T10:00:00Z' },
+      ]);
+    });
+
+    it('returns empty backups when no files exist', async () => {
+      googleAuth._setAuthenticated(true);
+
+      const res = await request(app).get('/api/sync/status');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ backups: [] });
     });
 
     it('returns 500 when Drive API fails', async () => {
       googleAuth._setAuthenticated(true);
-      driveService.getBackupInfo = async () => { throw new Error('Drive unavailable'); };
+      driveService.listBackups = async () => { throw new Error('Drive unavailable'); };
 
       const res = await request(app).get('/api/sync/status');
 
@@ -97,8 +111,11 @@ describe('Sync routes', () => {
   });
 
   describe('POST /api/sync/save', () => {
-    it('saves state and returns savedAt timestamp', async () => {
+    it('saves state and returns savedAt with updated backups list', async () => {
       googleAuth._setAuthenticated(true);
+      driveService.listBackups = async () => ({
+        backups: [{ fileId: 'f-new', savedAt: '2026-02-22T10:00:00Z' }],
+      });
 
       const res = await request(app)
         .post('/api/sync/save')
@@ -110,6 +127,9 @@ describe('Sync routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.saved).toBe(true);
       expect(res.body.savedAt).toBeDefined();
+      expect(res.body.backups).toEqual([
+        { fileId: 'f-new', savedAt: '2026-02-22T10:00:00Z' },
+      ]);
     });
 
     it('passes version and savedAt in the payload to driveService', async () => {
@@ -166,7 +186,16 @@ describe('Sync routes', () => {
   });
 
   describe('GET /api/sync/load', () => {
-    it('returns state data when backup exists', async () => {
+    it('returns 400 when fileId query param is missing', async () => {
+      googleAuth._setAuthenticated(true);
+
+      const res = await request(app).get('/api/sync/load');
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('fileId');
+    });
+
+    it('returns state data for a valid fileId', async () => {
       googleAuth._setAuthenticated(true);
       const storedState = {
         version: 1,
@@ -174,19 +203,22 @@ describe('Sync routes', () => {
         companies: [{ id: '1', name: 'Acme' }],
         seenQuestions: ['q1'],
       };
-      driveService.loadState = async () => storedState;
+      driveService.loadState = async (fileId) => {
+        expect(fileId).toBe('file-abc');
+        return storedState;
+      };
 
-      const res = await request(app).get('/api/sync/load');
+      const res = await request(app).get('/api/sync/load?fileId=file-abc');
 
       expect(res.status).toBe(200);
       expect(res.body).toEqual(storedState);
     });
 
-    it('returns { exists: false } when no backup exists', async () => {
+    it('returns { exists: false } when loadState returns null', async () => {
       googleAuth._setAuthenticated(true);
       driveService.loadState = async () => null;
 
-      const res = await request(app).get('/api/sync/load');
+      const res = await request(app).get('/api/sync/load?fileId=nonexistent');
 
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ exists: false });
@@ -196,7 +228,7 @@ describe('Sync routes', () => {
       googleAuth._setAuthenticated(true);
       driveService.loadState = async () => { throw new Error('Download failed'); };
 
-      const res = await request(app).get('/api/sync/load');
+      const res = await request(app).get('/api/sync/load?fileId=file-abc');
 
       expect(res.status).toBe(500);
       expect(res.body).toEqual({ error: 'Download failed' });

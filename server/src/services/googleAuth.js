@@ -1,12 +1,13 @@
 import { google } from 'googleapis';
 
 /**
- * Required OAuth scopes — read-only access to Gmail and Calendar.
- * These are the minimum scopes needed to scan for interview invitations.
+ * Required OAuth scopes — read-only access to Gmail and Calendar,
+ * plus Drive file access for cloud backup/restore of app state.
  */
 const SCOPES = [
   'https://www.googleapis.com/auth/gmail.readonly',
   'https://www.googleapis.com/auth/calendar.readonly',
+  'https://www.googleapis.com/auth/drive.file',
 ];
 
 /**

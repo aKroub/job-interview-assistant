@@ -67,16 +67,16 @@ const InterviewPrepTracker = () => {
     const match = companies.find(
       (c) => c.name.toLowerCase() === suggestion.companyName.toLowerCase()
     );
-    setSuggestionDraft({
-      suggestion,
-      initialValues: {
-        companyId: match?.id ?? '',
-        type:      suggestion.type ?? '',
-        date:      suggestion.date ?? '',
-        time:      suggestion.time ?? '',
-        duration:  60,
-      },
-    });
+    const values = {
+      companyId: match?.id || '',
+      type:      suggestion.type || '',
+      date:      suggestion.date || '',
+      time:      suggestion.time || '',
+    };
+    if (suggestion.duration) {
+      values.duration = suggestion.duration;
+    }
+    setSuggestionDraft({ suggestion, initialValues: values });
   }
 
   function handleScheduleFromSuggestion(companyId, interview) {

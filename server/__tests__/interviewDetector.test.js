@@ -141,6 +141,7 @@ describe('createInterviewDetector', () => {
       expect(typeof s.type).toBe('string');
       expect(s.date).toBe('2025-01-20');
       expect(s.time).toBe('14:00');
+      expect(s.duration).toBe(60);
       expect(typeof s.subject).toBe('string');
       expect(typeof s.emailSnippet).toBe('string');
       expect(s.calendarEventId).toBe('evt1');
@@ -261,6 +262,68 @@ describe('createInterviewDetector', () => {
       const [s] = await detector.detect();
       expect(s.date).toBe('2025-01-20');
       expect(s.time).toBe('14:00');
+    });
+  });
+
+  describe('detect — duration extraction from calendar', () => {
+    it('computes 90-minute duration from a 10:00–11:30 calendar event', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult()]),
+        calendarService: mockCalendar([makeCalendarResult({
+          startDateTime: '2025-01-20T10:00:00Z',
+          endDateTime:   '2025-01-20T11:30:00Z',
+        })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.duration).toBe(90);
+    });
+
+    it('computes 45-minute duration from a 45-minute calendar event', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult()]),
+        calendarService: mockCalendar([makeCalendarResult({
+          startDateTime: '2025-01-20T14:00:00Z',
+          endDateTime:   '2025-01-20T14:45:00Z',
+        })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.duration).toBe(45);
+    });
+
+    it('returns null duration when endDateTime is missing', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult()]),
+        calendarService: mockCalendar([makeCalendarResult({
+          startDateTime: '2025-01-20T14:00:00Z',
+          endDateTime:   '',
+        })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.duration).toBeNull();
+    });
+
+    it('returns null duration when startDateTime is missing', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult()]),
+        calendarService: mockCalendar([makeCalendarResult({
+          startDateTime: '',
+          endDateTime:   '2025-01-20T15:00:00Z',
+        })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.duration).toBeNull();
     });
   });
 

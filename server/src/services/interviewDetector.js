@@ -29,6 +29,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
    *   type: string,
    *   date: string,
    *   time: string,
+   *   duration: number | null,
    *   subject: string,
    *   emailSnippet: string,
    *   calendarEventId: string,
@@ -76,6 +77,9 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
         // Guess the interview type from available signals
         const type = guessInterviewType(email, event);
 
+        // Compute duration from calendar start/end when both are available
+        const duration = computeDurationMinutes(event.startDateTime, event.endDateTime);
+
         suggestions.push({
           id: suggestionId,
           source: 'gmail+calendar',
@@ -85,6 +89,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
           type,
           date,
           time,
+          duration,
           subject: email.subject || event.summary || '',
           emailSnippet: email.snippet || '',
           calendarEventId: event.eventId,
@@ -133,6 +138,22 @@ function guessInterviewType(email, event) {
 
   // Default to video since most modern interviews are remote
   return 'Video Interview';
+}
+
+/**
+ * Computes the duration in minutes between two ISO datetime strings.
+ * Returns null when either value is missing or invalid.
+ *
+ * @param {string} startIso
+ * @param {string} endIso
+ * @returns {number | null} duration in whole minutes, or null
+ */
+function computeDurationMinutes(startIso, endIso) {
+  if (!startIso || !endIso) return null;
+  const startMs = new Date(startIso).getTime();
+  const endMs   = new Date(endIso).getTime();
+  if (isNaN(startMs) || isNaN(endMs) || endMs <= startMs) return null;
+  return Math.round((endMs - startMs) / 60000);
 }
 
 /**

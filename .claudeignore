@@ -1,0 +1,15 @@
+# .claudeignore — Interview Prep Tracker
+#
+# Only rules that add value beyond .gitignore (which Claude already respects).
+# For security-sensitive files (.env, secrets), use permissions.deny in
+# .claude/settings.json as the more reliable enforcement mechanism.
+
+# Lock files — large, no contextual value
+package-lock.json
+
+# IDE / editor config
+.vscode/
+.idea/
+
+# CRA boilerplate — not relevant to understanding the app
+interview-prep-tracker/public/

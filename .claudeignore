@@ -1,105 +1,15 @@
-# ===========================================
 # .claudeignore — Interview Prep Tracker
-# ===========================================
-# Reduces context noise by excluding files that
-# are irrelevant to understanding the codebase.
 #
-# For security-sensitive files (.env, secrets),
-# use permissions.deny in .claude/settings.json
-# as the more reliable enforcement mechanism.
-# ===========================================
+# Only rules that add value beyond .gitignore (which Claude already respects).
+# For security-sensitive files (.env, secrets), use permissions.deny in
+# .claude/settings.json as the more reliable enforcement mechanism.
 
-# ---------------------
-# Dependencies
-# ---------------------
-node_modules/
-
-# ---------------------
-# Git internals
-# ---------------------
-.git/
-
-# ---------------------
-# Build & output artifacts
-# ---------------------
-build/
-dist/
-out/
-coverage/
-
-# ---------------------
-# Lock files (large, no contextual value)
-# ---------------------
+# Lock files — large, no contextual value
 package-lock.json
-yarn.lock
-pnpm-lock.yaml
 
-# ---------------------
-# Logs
-# ---------------------
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# ---------------------
-# Environment & secrets
-# (.env.example is kept — it documents required vars)
-# ---------------------
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# ---------------------
-# OS files
-# ---------------------
-.DS_Store
-Thumbs.db
-
-# ---------------------
 # IDE / editor config
-# ---------------------
 .vscode/
 .idea/
-*.swp
-*.swo
-*~
 
-# ---------------------
-# Images, media & fonts
-# ---------------------
-*.png
-*.jpg
-*.jpeg
-*.gif
-*.svg
-*.ico
-*.webp
-*.bmp
-*.mp4
-*.mp3
-*.wav
-*.ogg
-*.woff
-*.woff2
-*.ttf
-*.eot
-
-# ---------------------
-# Minified / bundled files
-# ---------------------
-*.min.js
-*.min.css
-*.chunk.js
-*.chunk.css
-*.map
-
-# ---------------------
-# Temp & cache
-# ---------------------
-tmp/
-temp/
-*.tmp
-.cache/
+# CRA boilerplate — not relevant to understanding the app
+interview-prep-tracker/public/

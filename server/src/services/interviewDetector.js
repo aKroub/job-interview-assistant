@@ -77,6 +77,9 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
     // --- Cross-referenced suggestions (email + calendar) ---
     if (calendarResults.length > 0) {
       for (const email of emailResults) {
+        // Find the best-matching event for this email (highest confidence)
+        let bestMatch = null;
+
         for (const event of calendarResults) {
           // Skip already-matched events to avoid duplicates
           if (usedEventIds.has(event.eventId) || usedMessageIds.has(email.messageId)) {
@@ -92,6 +95,14 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
           // Skip dismissed suggestions
           if (dismissed.has(suggestionId)) continue;
 
+          if (!bestMatch || confidence > bestMatch.confidence) {
+            bestMatch = { event, confidence, suggestionId };
+          }
+        }
+
+        if (bestMatch) {
+          const { event, confidence, suggestionId } = bestMatch;
+
           // Use the calendar event's date/time (more reliable than email extraction)
           const date = event.date || email.extractedDate || '';
           const time = event.time || email.extractedTime || '';
@@ -99,8 +110,10 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
           // Guess the interview type from available signals
           const type = guessInterviewType(email, event);
 
-          // Compute duration from calendar start/end when both are available
-          const duration = computeDurationMinutes(event.startDateTime, event.endDateTime);
+          // Prefer email-extracted duration (explicit text like "15:00-15:20") over
+          // calendar slot duration (often padded by scheduling platforms)
+          const calendarDuration = computeDurationMinutes(event.startDateTime, event.endDateTime);
+          const duration = email.extractedDuration || calendarDuration;
 
           suggestions.push({
             id: suggestionId,
@@ -121,9 +134,6 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
 
           usedEventIds.add(event.eventId);
           usedMessageIds.add(email.messageId);
-
-          // One match per email is enough
-          break;
         }
       }
     }

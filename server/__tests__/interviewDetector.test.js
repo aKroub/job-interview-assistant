@@ -587,6 +587,91 @@ describe('createInterviewDetector', () => {
       expect(suggestions[1].time).toBe('14:00');
     });
 
+    it('picks the best-matching event when multiple events match the same email', async () => {
+      // Two events on the same date, but only the second one has a time matching the email
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([
+          makeEmailResult({
+            messageId: 'msg1',
+            senderDomain: 'other.com',
+            extractedDate: '2025-01-20',
+            extractedTime: '15:00',
+            extractedDuration: 20,
+          }),
+        ]),
+        calendarService: mockCalendar([
+          makeCalendarResult({
+            eventId: 'wrong',
+            organizerEmail: 'hr@different.com',
+            date: '2025-01-20',
+            time: '10:00',
+            startDateTime: '2025-01-20T10:00:00Z',
+            endDateTime: '2025-01-20T11:30:00Z',
+          }),
+          makeCalendarResult({
+            eventId: 'correct',
+            organizerEmail: 'hr@different.com',
+            date: '2025-01-20',
+            time: '15:00',
+            startDateTime: '2025-01-20T15:00:00Z',
+            endDateTime: '2025-01-20T15:20:00Z',
+          }),
+        ]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const suggestions = await detector.detect();
+
+      expect(suggestions.length).toBe(1);
+      expect(suggestions[0].calendarEventId).toBe('correct');
+      expect(suggestions[0].time).toBe('15:00');
+      expect(suggestions[0].duration).toBe(20);
+    });
+
+    it('prefers email-extracted duration over calendar slot duration', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([
+          makeEmailResult({
+            extractedDuration: 20,
+          }),
+        ]),
+        calendarService: mockCalendar([
+          makeCalendarResult({
+            startDateTime: '2025-01-20T14:00:00Z',
+            endDateTime: '2025-01-20T15:30:00Z',
+          }),
+        ]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      // Email says 20 min, calendar slot is 90 min — email wins
+      expect(s.duration).toBe(20);
+    });
+
+    it('falls back to calendar duration when email has no extractedDuration', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([
+          makeEmailResult({
+            extractedDuration: null,
+          }),
+        ]),
+        calendarService: mockCalendar([
+          makeCalendarResult({
+            startDateTime: '2025-01-20T14:00:00Z',
+            endDateTime: '2025-01-20T15:00:00Z',
+          }),
+        ]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.duration).toBe(60);
+    });
+
     it('breaks date+time ties by confidence descending', async () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([

@@ -6,6 +6,7 @@ import {
   extractCompanyFromDomain,
   scoreEmailForInterview,
   extractDateTimeFromText,
+  extractCompanyNameFromText,
 } from '../utils/emailParser.js';
 
 /**
@@ -107,9 +108,9 @@ export function createGmailService(authClient, options = {}) {
       const { subject, snippet, from, messageId } = parseGmailMessage(message);
       const senderEmail = extractEmailFromHeader(from);
       const senderDomain = extractDomain(senderEmail);
-      const companyName = extractCompanyFromDomain(senderDomain);
 
       const combinedText = `${subject} ${snippet}`;
+      const companyName = extractCompanyNameFromText(combinedText) || extractCompanyFromDomain(senderDomain);
       const { score, matchedKeywords } = scoreEmailForInterview(subject, snippet, senderEmail);
       const { date, time, duration } = extractDateTimeFromText(combinedText);
 

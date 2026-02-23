@@ -156,6 +156,24 @@ describe('createGmailService', () => {
       expect(results[0].companyName).toBe('microsoft');
     });
 
+    it('extracts company name from email text when sender is a scheduling platform', async () => {
+      const messages = [
+        makeMessage({
+          id: 'msg1',
+          subject: 'your interview invitation at Dream',
+          from: 'Scheduler <noreply@comeet-notifications.com>',
+          snippet: 'You have been invited to an interview',
+        }),
+      ];
+      const gmailApi = createMockGmailApi(messages);
+      const service = createGmailService({}, { gmailApi, minScore: 0.1 });
+
+      const results = await service.scanForInterviews();
+
+      expect(results.length).toBe(1);
+      expect(results[0].companyName).toBe('dream');
+    });
+
     it('extracts duration from email content with time range', async () => {
       const messages = [
         makeMessage({

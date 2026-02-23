@@ -378,4 +378,52 @@ describe('crossReferenceEmailAndEvent', () => {
     expect(result.isMatch).toBe(true);
     expect(result.confidence).toBe(0.95);
   });
+
+  it('boosts confidence when date and time both match', () => {
+    const email = makeEmailResult({
+      senderDomain: 'otherdomain.com',
+      extractedDate: '2025-01-15',
+      extractedTime: '14:00',
+    });
+    const event = makeCalendarResult({
+      organizerEmail: 'hr@differentcompany.com',
+      date: '2025-01-15',
+      time: '14:00',
+    });
+    const result = crossReferenceEmailAndEvent(email, event);
+    expect(result.isMatch).toBe(true);
+    expect(result.confidence).toBe(0.75);
+  });
+
+  it('returns date-only confidence (0.5) when date matches but time does not', () => {
+    const email = makeEmailResult({
+      senderDomain: 'otherdomain.com',
+      extractedDate: '2025-01-15',
+      extractedTime: '15:00',
+    });
+    const event = makeCalendarResult({
+      organizerEmail: 'hr@differentcompany.com',
+      date: '2025-01-15',
+      time: '10:00',
+    });
+    const result = crossReferenceEmailAndEvent(email, event);
+    expect(result.isMatch).toBe(true);
+    expect(result.confidence).toBe(0.5);
+  });
+
+  it('returns 0.97 confidence when domain, date, and time all match', () => {
+    const email = makeEmailResult({
+      senderDomain: 'google.com',
+      extractedDate: '2025-01-15',
+      extractedTime: '14:00',
+    });
+    const event = makeCalendarResult({
+      organizerEmail: 'recruiter@google.com',
+      date: '2025-01-15',
+      time: '14:00',
+    });
+    const result = crossReferenceEmailAndEvent(email, event);
+    expect(result.isMatch).toBe(true);
+    expect(result.confidence).toBe(0.97);
+  });
 });

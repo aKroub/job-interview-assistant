@@ -422,6 +422,14 @@ describe('extractCompanyNameFromText', () => {
   it('handles multi-word names', () => {
     expect(extractCompanyNameFromText('Red Hat Interview Confirmation')).toBe('red hat');
   });
+
+  it('extracts "dream" from "your interview invitation at Dream"', () => {
+    expect(extractCompanyNameFromText('your interview invitation at Dream')).toBe('dream');
+  });
+
+  it('extracts company when a word separates keyword and preposition', () => {
+    expect(extractCompanyNameFromText('interview scheduled with Google')).toBe('google');
+  });
 });
 
 describe('normalizeCompanyName', () => {

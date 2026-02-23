@@ -426,4 +426,90 @@ describe('crossReferenceEmailAndEvent', () => {
     expect(result.isMatch).toBe(true);
     expect(result.confidence).toBe(0.97);
   });
+
+  it('returns 0.93 confidence when company name, date, and time all match', () => {
+    const email = makeEmailResult({
+      senderDomain: 'comeet-notifications.com',
+      companyName: 'dream',
+      extractedDate: '2025-01-15',
+      extractedTime: '15:00',
+    });
+    const event = makeCalendarResult({
+      organizerEmail: 'noreply@group.calendar.google.com',
+      companyName: 'dream',
+      date: '2025-01-15',
+      time: '15:00',
+    });
+    const result = crossReferenceEmailAndEvent(email, event);
+    expect(result.isMatch).toBe(true);
+    expect(result.confidence).toBe(0.93);
+  });
+
+  it('ignores time match when email has no extractedTime', () => {
+    const email = makeEmailResult({
+      senderDomain: 'otherdomain.com',
+      extractedDate: '2025-01-15',
+    });
+    const event = makeCalendarResult({
+      organizerEmail: 'hr@differentcompany.com',
+      date: '2025-01-15',
+      time: '14:00',
+    });
+    const result = crossReferenceEmailAndEvent(email, event);
+    // No extractedTime → falls through to date-only (0.5)
+    expect(result.confidence).toBe(0.5);
+  });
+
+  it('ignores time match when calendar event has no time', () => {
+    const email = makeEmailResult({
+      senderDomain: 'otherdomain.com',
+      extractedDate: '2025-01-15',
+      extractedTime: '14:00',
+    });
+    const event = makeCalendarResult({
+      organizerEmail: 'hr@differentcompany.com',
+      date: '2025-01-15',
+      time: '',
+    });
+    const result = crossReferenceEmailAndEvent(email, event);
+    // No event time → falls through to date-only (0.5)
+    expect(result.confidence).toBe(0.5);
+  });
+
+  it('time match does not create a match on its own without date', () => {
+    const email = makeEmailResult({
+      senderDomain: 'otherdomain.com',
+      extractedDate: '2025-03-01',
+      extractedTime: '14:00',
+    });
+    const event = makeCalendarResult({
+      organizerEmail: 'hr@differentcompany.com',
+      date: '2025-01-15',
+      time: '14:00',
+    });
+    const result = crossReferenceEmailAndEvent(email, event);
+    // Same time but different dates → no match
+    expect(result.isMatch).toBe(false);
+  });
+
+  it('domain+date+time (0.97) beats company+date+time (0.93)', () => {
+    const withDomain = crossReferenceEmailAndEvent(
+      makeEmailResult({ senderDomain: 'google.com', extractedDate: '2025-01-15', extractedTime: '14:00', companyName: 'google' }),
+      makeCalendarResult({ organizerEmail: 'hr@google.com', date: '2025-01-15', time: '14:00', companyName: 'google' })
+    );
+    // domain+date+time is checked first → 0.97
+    expect(withDomain.confidence).toBe(0.97);
+  });
+
+  it('date+time (0.75) beats date-only (0.5)', () => {
+    const withTime = crossReferenceEmailAndEvent(
+      makeEmailResult({ senderDomain: 'other.com', extractedDate: '2025-01-15', extractedTime: '14:00' }),
+      makeCalendarResult({ organizerEmail: 'hr@different.com', date: '2025-01-15', time: '14:00' })
+    );
+    const withoutTime = crossReferenceEmailAndEvent(
+      makeEmailResult({ senderDomain: 'other.com', extractedDate: '2025-01-15' }),
+      makeCalendarResult({ organizerEmail: 'hr@different.com', date: '2025-01-15', time: '14:00' })
+    );
+    expect(withTime.confidence).toBeGreaterThan(withoutTime.confidence);
+  });
 });

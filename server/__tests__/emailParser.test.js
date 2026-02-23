@@ -430,6 +430,12 @@ describe('extractCompanyNameFromText', () => {
   it('extracts company when a word separates keyword and preposition', () => {
     expect(extractCompanyNameFromText('interview scheduled with Google')).toBe('google');
   });
+
+  it('extracts company from long subject with role description before "at"', () => {
+    expect(extractCompanyNameFromText(
+      'Your Phone Interview for the Engineering Team Leader - AI Application Foundation role at Dream'
+    )).toBe('dream');
+  });
 });
 
 describe('normalizeCompanyName', () => {

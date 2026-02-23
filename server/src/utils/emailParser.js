@@ -392,14 +392,28 @@ export function extractEmailFromHeader(fromHeader) {
 export function extractCompanyNameFromText(text) {
   if (!text || typeof text !== 'string') return '';
 
+  // COMPANY_TAIL — for patterns where the company name is the LAST capture
+  // (nothing follows it in the regex). Uses lazy matching + a lookahead to
+  // stop at punctuation, end-of-string, or common English stop words.
+  // This prevents the capture from absorbing entire sentences when subject
+  // and snippet are concatenated.
+  const TAIL = '([a-z0-9][a-z0-9 ._-]*?[a-z0-9])(?=\\s*[,!?.:;\\n\\r()\\[\\]{}|]|\\s*$|\\s+(?:for|on|in|via|from|to|we|you|your|is|are|has|have|had|will|would|this|that|the|a|an|i)\\b)';
+
+  // COMPANY_HEAD — for patterns where the company name is followed by more
+  // regex (e.g. "Interview Confirmation"). Uses the original greedy match
+  // because the following pattern naturally stops the capture.
+  const HEAD = '([a-z0-9][a-z0-9 ._-]*[a-z0-9])';
+
   const patterns = [
+    // "interview invitation at Dream", "interview scheduled with Google" (1-2 words between keyword and preposition)
+    new RegExp(`(?:interview|meeting|call|chat|screen)\\s+\\w+\\s+(?:with|at)\\s+${TAIL}`, 'i'),
     // "interview with Torq", "meeting with Pango", "call with Google"
-    /(?:interview|meeting|call|chat|screen)\s+(?:with|at)\s+([a-z0-9][a-z0-9 ._-]*[a-z0-9])/i,
+    new RegExp(`(?:interview|meeting|call|chat|screen)\\s+(?:with|at)\\s+${TAIL}`, 'i'),
     // "Torq Interview Confirmation", "SentinelOne Interview Scheduled"
-    /([a-z0-9][a-z0-9 ._-]*[a-z0-9])\s+interview\s+(?:confirmation|scheduled|invitation)/i,
+    new RegExp(`${HEAD}\\s+interview\\s+(?:confirmation|scheduled|invitation)`, 'i'),
     // "Torq - Interview" or "Interview - Torq"
-    /([a-z0-9][a-z0-9 ._-]*[a-z0-9])\s+[-\u2013\u2014]\s+(?:interview|technical screen|phone screen)/i,
-    /(?:interview|technical screen|phone screen)\s+[-\u2013\u2014]\s+([a-z0-9][a-z0-9 ._-]*[a-z0-9])/i,
+    new RegExp(`${HEAD}\\s+[-\u2013\u2014]\\s+(?:interview|technical screen|phone screen)`, 'i'),
+    new RegExp(`(?:interview|technical screen|phone screen)\\s+[-\u2013\u2014]\\s+${TAIL}`, 'i'),
   ];
 
   for (const pattern of patterns) {

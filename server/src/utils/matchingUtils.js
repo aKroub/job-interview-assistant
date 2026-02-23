@@ -211,12 +211,26 @@ export function crossReferenceEmailAndEvent(emailResult, calendarResult) {
      emailCompany.includes(calendarCompany) ||
      calendarCompany.includes(emailCompany));
 
+  // Time match — email-extracted time matches the calendar event time
+  const emailTime = emailResult.extractedTime || '';
+  const eventTime = calendarResult.time || '';
+  const timeMatch = emailTime && eventTime && emailTime === eventTime;
+
   // Scoring tiers (descending confidence):
+  if (domainMatch && dateMatch && timeMatch) {
+    return { isMatch: true, confidence: 0.97 };
+  }
   if (domainMatch && dateMatch) {
     return { isMatch: true, confidence: 0.95 };
   }
+  if (companyNameMatch && dateMatch && timeMatch) {
+    return { isMatch: true, confidence: 0.93 };
+  }
   if (companyNameMatch && dateMatch) {
     return { isMatch: true, confidence: 0.9 };
+  }
+  if (dateMatch && timeMatch) {
+    return { isMatch: true, confidence: 0.75 };
   }
   if (domainMatch) {
     return { isMatch: true, confidence: 0.7 };

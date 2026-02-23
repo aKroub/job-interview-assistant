@@ -174,6 +174,62 @@ describe('createGmailService', () => {
       expect(results[0].companyName).toBe('dream');
     });
 
+    it('extracts company from long subject with role description', async () => {
+      const messages = [
+        makeMessage({
+          id: 'msg1',
+          subject: 'Your Phone Interview for the Engineering Team Leader role at Dream | Liron & Ayal',
+          from: 'Scheduler <noreply@comeet-notifications.com>',
+          snippet: 'Please confirm your attendance',
+        }),
+      ];
+      const gmailApi = createMockGmailApi(messages);
+      const service = createGmailService({}, { gmailApi, minScore: 0.1 });
+
+      const results = await service.scanForInterviews();
+
+      expect(results.length).toBe(1);
+      expect(results[0].companyName).toBe('dream');
+    });
+
+    it('prefers text-extracted company over domain-extracted company', async () => {
+      const messages = [
+        makeMessage({
+          id: 'msg1',
+          subject: 'Interview with Torq',
+          from: 'Talent <talent@greenhouse.io>',
+          snippet: 'Your interview has been confirmed',
+        }),
+      ];
+      const gmailApi = createMockGmailApi(messages);
+      const service = createGmailService({}, { gmailApi, minScore: 0.1 });
+
+      const results = await service.scanForInterviews();
+
+      expect(results.length).toBe(1);
+      // "torq" from text wins over "greenhouse" from domain
+      expect(results[0].companyName).toBe('torq');
+    });
+
+    it('falls back to domain when no company pattern in text', async () => {
+      const messages = [
+        makeMessage({
+          id: 'msg1',
+          subject: 'Interview scheduled',
+          from: 'HR <hr@google.com>',
+          snippet: 'Your next round is confirmed',
+        }),
+      ];
+      const gmailApi = createMockGmailApi(messages);
+      const service = createGmailService({}, { gmailApi, minScore: 0.1 });
+
+      const results = await service.scanForInterviews();
+
+      expect(results.length).toBe(1);
+      // No text pattern → falls back to domain extraction
+      expect(results[0].companyName).toBe('google');
+    });
+
     it('extracts duration from email content with time range', async () => {
       const messages = [
         makeMessage({

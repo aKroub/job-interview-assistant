@@ -405,8 +405,8 @@ export function extractCompanyNameFromText(text) {
   const HEAD = '([a-z0-9][a-z0-9 ._-]*[a-z0-9])';
 
   const patterns = [
-    // "interview invitation at Dream", "interview scheduled with Google" (1-2 words between keyword and preposition)
-    new RegExp(`(?:interview|meeting|call|chat|screen)\\s+\\w+\\s+(?:with|at)\\s+${TAIL}`, 'i'),
+    // "Interview for the ... role at Dream", "interview scheduled with Google" (any words between keyword and preposition)
+    new RegExp(`(?:interview|meeting|call|chat|screen)\\s+.+?\\s+(?:with|at)\\s+${TAIL}`, 'i'),
     // "interview with Torq", "meeting with Pango", "call with Google"
     new RegExp(`(?:interview|meeting|call|chat|screen)\\s+(?:with|at)\\s+${TAIL}`, 'i'),
     // "Torq Interview Confirmation", "SentinelOne Interview Scheduled"

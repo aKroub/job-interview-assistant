@@ -430,6 +430,94 @@ describe('extractCompanyNameFromText', () => {
   it('extracts company when a word separates keyword and preposition', () => {
     expect(extractCompanyNameFromText('interview scheduled with Google')).toBe('google');
   });
+
+  it('extracts company from long subject with role description before "at"', () => {
+    expect(extractCompanyNameFromText(
+      'Your Phone Interview for the Engineering Team Leader - AI Application Foundation role at Dream'
+    )).toBe('dream');
+  });
+
+  it('extracts company when subject has pipe delimiter after name', () => {
+    expect(extractCompanyNameFromText(
+      'Your Phone Interview for the Engineering Team Leader role at Dream | Liron & Ayal'
+    )).toBe('dream');
+  });
+
+  it('extracts company from "meeting with" pattern', () => {
+    expect(extractCompanyNameFromText('meeting with Pango')).toBe('pango');
+  });
+
+  it('extracts company from "call with" pattern', () => {
+    expect(extractCompanyNameFromText('call with Meta')).toBe('meta');
+  });
+
+  it('extracts company from "screen with" pattern', () => {
+    expect(extractCompanyNameFromText('screen with Netflix')).toBe('netflix');
+  });
+
+  it('extracts company from "chat with" pattern', () => {
+    expect(extractCompanyNameFromText('chat with Spotify')).toBe('spotify');
+  });
+
+  it('extracts company from "Interview Scheduled" suffix pattern', () => {
+    expect(extractCompanyNameFromText('Google Interview Scheduled')).toBe('google');
+  });
+
+  it('extracts company from en-dash separator "Company – Interview"', () => {
+    expect(extractCompanyNameFromText('Amazon \u2013 Interview')).toBe('amazon');
+  });
+
+  it('extracts company from "Technical Screen – Company"', () => {
+    expect(extractCompanyNameFromText('Technical Screen \u2013 Amazon')).toBe('amazon');
+  });
+
+  it('stops at dot when extracting company name (dot is a delimiter)', () => {
+    // Dots act as delimiters in tail patterns — "Check.Point" captures only "Check"
+    expect(extractCompanyNameFromText('Interview with Check.Point')).toBe('check');
+  });
+
+  it('extracts company with hyphen in name', () => {
+    expect(extractCompanyNameFromText('Interview with Coca-Cola')).toBe('coca-cola');
+  });
+
+  it('strips "Ltd" suffix from company name', () => {
+    expect(extractCompanyNameFromText('Interview with Acme Ltd')).toBe('acme');
+  });
+
+  it('strips "Inc" suffix from company name', () => {
+    expect(extractCompanyNameFromText('Interview with Acme Inc')).toBe('acme');
+  });
+
+  it('does not extract from unrelated text mentioning "at"', () => {
+    expect(extractCompanyNameFromText('looking at the forecast for tomorrow')).toBe('');
+  });
+
+  it('does not extract from text with "with" in non-interview context', () => {
+    expect(extractCompanyNameFromText('coffee with friends')).toBe('');
+  });
+
+  it('handles concatenated subject+snippet without leaking into snippet', () => {
+    expect(extractCompanyNameFromText(
+      'Interview with Torq We are pleased to invite you to the next round'
+    )).toBe('torq');
+  });
+
+  it('returns empty string for empty string input', () => {
+    expect(extractCompanyNameFromText('')).toBe('');
+  });
+
+  it('is case-insensitive for the keyword', () => {
+    expect(extractCompanyNameFromText('INTERVIEW with Torq')).toBe('torq');
+    expect(extractCompanyNameFromText('Interview WITH Torq')).toBe('torq');
+  });
+
+  it('extracts company when subject has comma after name', () => {
+    expect(extractCompanyNameFromText('Interview with Google, please confirm')).toBe('google');
+  });
+
+  it('extracts company when subject has exclamation after name', () => {
+    expect(extractCompanyNameFromText('Interview with Google!')).toBe('google');
+  });
 });
 
 describe('normalizeCompanyName', () => {

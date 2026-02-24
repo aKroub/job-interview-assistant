@@ -7,6 +7,7 @@ import {
   scoreEmailForInterview,
   extractDateTimeFromText,
   extractCompanyNameFromText,
+  extractPlainTextBody,
 } from '../utils/emailParser.js';
 
 /**
@@ -87,13 +88,15 @@ export function createGmailService(authClient, options = {}) {
       return [];
     }
 
-    // Fetch full message details concurrently
+    // Fetch full message content concurrently.
+    // Using format 'full' instead of 'metadata' gives us the email body,
+    // which is needed for reliable date/time/duration extraction — the
+    // snippet (~200 chars) often truncates this information.
     const messagePromises = messageIds.map((id) =>
       gmailApi.users.messages.get({
         userId: 'me',
         id,
-        format: 'metadata',
-        metadataHeaders: ['Subject', 'From'],
+        format: 'full',
       })
     );
 
@@ -112,7 +115,13 @@ export function createGmailService(authClient, options = {}) {
       const combinedText = `${subject} ${snippet}`;
       const companyName = extractCompanyNameFromText(combinedText) || extractCompanyFromDomain(senderDomain);
       const { score, matchedKeywords } = scoreEmailForInterview(subject, snippet, senderEmail);
-      const { date, time, duration } = extractDateTimeFromText(combinedText);
+
+      // Extract date/time/duration from the full email body when available.
+      // The snippet (~200 chars) often truncates this information, causing
+      // both missed durations and lower cross-reference confidence.
+      const bodyText = extractPlainTextBody(message);
+      const dateTimeSource = bodyText ? `${subject} ${bodyText}` : combinedText;
+      const { date, time, duration } = extractDateTimeFromText(dateTimeSource);
 
       if (score >= minScore) {
         results.push({

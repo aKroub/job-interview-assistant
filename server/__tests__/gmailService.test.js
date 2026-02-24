@@ -27,20 +27,37 @@ function createMockGmailApi(messages = []) {
   };
 }
 
+/** Helper: base64url-encode a UTF-8 string. */
+function encode(text) {
+  return Buffer.from(text, 'utf-8').toString('base64url');
+}
+
 /**
  * Creates a Gmail message fixture for testing.
+ * When `body` is provided, the payload includes a text/plain part
+ * to simulate `format: 'full'` responses.
  */
-function makeMessage({ id = 'msg1', subject = '', from = '', snippet = '' }) {
-  return {
-    id,
-    snippet,
-    payload: {
+function makeMessage({ id = 'msg1', subject = '', from = '', snippet = '', body = '' }) {
+  const payload = body
+    ? {
+      mimeType: 'multipart/alternative',
       headers: [
         { name: 'Subject', value: subject },
         { name: 'From', value: from },
       ],
-    },
-  };
+      parts: [
+        { mimeType: 'text/plain', body: { data: encode(body) } },
+        { mimeType: 'text/html', body: { data: encode(`<p>${body}</p>`) } },
+      ],
+    }
+    : {
+      headers: [
+        { name: 'Subject', value: subject },
+        { name: 'From', value: from },
+      ],
+    };
+
+  return { id, snippet, payload };
 }
 
 describe('createGmailService', () => {
@@ -237,6 +254,50 @@ describe('createGmailService', () => {
           subject: 'Technical Interview Scheduled',
           from: 'recruiter@company.com',
           snippet: 'Your interview is on January 20, 2025 from 3:00 PM to 3:45 PM via Zoom',
+        }),
+      ];
+      const gmailApi = createMockGmailApi(messages);
+      const service = createGmailService({}, { gmailApi, minScore: 0.1 });
+
+      const results = await service.scanForInterviews();
+
+      expect(results.length).toBe(1);
+      expect(results[0].extractedDate).toBe('2025-01-20');
+      expect(results[0].extractedTime).toBe('15:00');
+      expect(results[0].extractedDuration).toBe(45);
+    });
+
+    it('extracts date and duration from email body when snippet is truncated', async () => {
+      const messages = [
+        makeMessage({
+          id: 'msg1',
+          subject: 'Interview Invitation',
+          from: 'recruiter@company.com',
+          // Snippet is truncated — no date or time range visible
+          snippet: 'We are pleased to invite you to an interview at our offices. Please see the details below regarding your upcoming',
+          // Full body contains the date and time range
+          body: 'We are pleased to invite you to an interview at our offices. Please see the details below regarding your upcoming interview.\n\nDate: January 20, 2025\nTime: 3:15 PM - 4:45 PM\nLocation: 3 HaMelacha St., Floor 10, Tel-Aviv',
+        }),
+      ];
+      const gmailApi = createMockGmailApi(messages);
+      const service = createGmailService({}, { gmailApi, minScore: 0.1 });
+
+      const results = await service.scanForInterviews();
+
+      expect(results.length).toBe(1);
+      expect(results[0].extractedDate).toBe('2025-01-20');
+      expect(results[0].extractedTime).toBe('15:15');
+      expect(results[0].extractedDuration).toBe(90);
+    });
+
+    it('falls back to snippet when body is not available', async () => {
+      const messages = [
+        makeMessage({
+          id: 'msg1',
+          subject: 'Technical Interview Scheduled',
+          from: 'recruiter@company.com',
+          snippet: 'Your interview is on January 20, 2025 from 3:00 PM to 3:45 PM via Zoom',
+          // No body provided — metadata-only format
         }),
       ];
       const gmailApi = createMockGmailApi(messages);

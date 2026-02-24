@@ -66,6 +66,7 @@ export function createCalendarService(authClient, options = {}) {
    *   matchedKeywords: string[],
    *   reasons: string[],
    *   hasVideoLink: boolean,
+   *   location: string,
    *   companyName: string,
    * }>>}
    */
@@ -105,6 +106,7 @@ export function createCalendarService(authClient, options = {}) {
           matchedKeywords,
           reasons,
           hasVideoLink: !!(event.hangoutLink || event.conferenceData),
+          location: event.location || '',
           companyName,
         });
       }

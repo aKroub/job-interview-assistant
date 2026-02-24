@@ -29,6 +29,7 @@ function makeEvent({
   endDateTime = '2025-01-20T15:00:00Z',
   recurringEventId = undefined,
   hangoutLink = undefined,
+  location = undefined,
 } = {}) {
   return {
     id,
@@ -39,6 +40,7 @@ function makeEvent({
     end: { dateTime: endDateTime },
     ...(recurringEventId ? { recurringEventId } : {}),
     ...(hangoutLink ? { hangoutLink } : {}),
+    ...(location ? { location } : {}),
   };
 }
 
@@ -247,6 +249,49 @@ describe('createCalendarService', () => {
 
       expect(results.length).toBe(1);
       expect(results[0].companyName).toBe('torq');
+    });
+
+    it('includes location field from calendar event', async () => {
+      const events = [
+        makeEvent({
+          summary: 'Interview with Torq',
+          location: '3 HaMelacha St., Floor 10, Tel-Aviv',
+          organizerEmail: 'recruiter@company.com',
+        }),
+      ];
+      const calendarApi = createMockCalendarApi(events);
+      const service = createCalendarService({}, {
+        calendarApi,
+        nowFn: fixedNow,
+        minScore: 0.1,
+        getUserEmail: async () => 'me@gmail.com',
+      });
+
+      const results = await service.scanForInterviews();
+
+      expect(results.length).toBe(1);
+      expect(results[0].location).toBe('3 HaMelacha St., Floor 10, Tel-Aviv');
+    });
+
+    it('returns empty location when event has no location', async () => {
+      const events = [
+        makeEvent({
+          summary: 'Technical Interview',
+          organizerEmail: 'recruiter@company.com',
+        }),
+      ];
+      const calendarApi = createMockCalendarApi(events);
+      const service = createCalendarService({}, {
+        calendarApi,
+        nowFn: fixedNow,
+        minScore: 0.1,
+        getUserEmail: async () => 'me@gmail.com',
+      });
+
+      const results = await service.scanForInterviews();
+
+      expect(results.length).toBe(1);
+      expect(results[0].location).toBe('');
     });
 
     it('returns empty companyName when no company pattern found', async () => {

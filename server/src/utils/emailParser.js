@@ -449,3 +449,44 @@ export function normalizeCompanyName(name) {
     .replace(/(inc|ltd|corp|llc|gmbh|co)$/, '')
     .trim();
 }
+
+/**
+ * Extracts the plain-text body from a Gmail API message fetched with
+ * `format: 'full'`. Recursively searches the MIME tree for a `text/plain`
+ * part and base64url-decodes its content.
+ *
+ * @param {Object} message - Gmail API message resource (format: 'full')
+ * @returns {string} decoded plain-text body, or empty string if none found
+ */
+export function extractPlainTextBody(message) {
+  const payload = message?.payload;
+  if (!payload) return '';
+
+  /**
+   * Recursively find the first text/plain part in the MIME tree.
+   *
+   * @param {Object} part - a MIME part node
+   * @returns {string | null} base64url-encoded data, or null
+   */
+  function findPlainText(part) {
+    if (!part) return null;
+
+    if (part.mimeType === 'text/plain' && part.body?.data) {
+      return part.body.data;
+    }
+
+    if (part.parts) {
+      for (const child of part.parts) {
+        const found = findPlainText(child);
+        if (found) return found;
+      }
+    }
+
+    return null;
+  }
+
+  const encoded = findPlainText(payload);
+  if (!encoded) return '';
+
+  return Buffer.from(encoded, 'base64url').toString('utf-8');
+}

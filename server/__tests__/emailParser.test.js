@@ -8,6 +8,7 @@ import {
   extractEmailFromHeader,
   extractCompanyNameFromText,
   normalizeCompanyName,
+  extractPlainTextBody,
   SCHEDULING_PLATFORM_DOMAINS,
 } from '../src/utils/emailParser.js';
 
@@ -576,5 +577,83 @@ describe('SCHEDULING_PLATFORM_DOMAINS', () => {
 
   it('includes comeet-notifications.com', () => {
     expect(SCHEDULING_PLATFORM_DOMAINS).toContain('comeet-notifications.com');
+  });
+});
+
+describe('extractPlainTextBody', () => {
+  /** Helper: base64url-encode a UTF-8 string. */
+  function encode(text) {
+    return Buffer.from(text, 'utf-8').toString('base64url');
+  }
+
+  it('extracts body from a simple text/plain message', () => {
+    const message = {
+      payload: {
+        mimeType: 'text/plain',
+        body: { data: encode('Hello, your interview is confirmed.') },
+      },
+    };
+    expect(extractPlainTextBody(message)).toBe('Hello, your interview is confirmed.');
+  });
+
+  it('extracts text/plain from a multipart/alternative message', () => {
+    const message = {
+      payload: {
+        mimeType: 'multipart/alternative',
+        body: {},
+        parts: [
+          { mimeType: 'text/plain', body: { data: encode('Plain text body') } },
+          { mimeType: 'text/html', body: { data: encode('<p>HTML body</p>') } },
+        ],
+      },
+    };
+    expect(extractPlainTextBody(message)).toBe('Plain text body');
+  });
+
+  it('extracts text/plain from nested multipart/mixed structure', () => {
+    const message = {
+      payload: {
+        mimeType: 'multipart/mixed',
+        body: {},
+        parts: [
+          {
+            mimeType: 'multipart/alternative',
+            body: {},
+            parts: [
+              { mimeType: 'text/plain', body: { data: encode('Nested plain text') } },
+              { mimeType: 'text/html', body: { data: encode('<p>HTML</p>') } },
+            ],
+          },
+          { mimeType: 'application/pdf', body: {} },
+        ],
+      },
+    };
+    expect(extractPlainTextBody(message)).toBe('Nested plain text');
+  });
+
+  it('returns empty string when no text/plain part exists', () => {
+    const message = {
+      payload: {
+        mimeType: 'text/html',
+        body: { data: encode('<p>Only HTML</p>') },
+      },
+    };
+    expect(extractPlainTextBody(message)).toBe('');
+  });
+
+  it('returns empty string for missing payload', () => {
+    expect(extractPlainTextBody({})).toBe('');
+    expect(extractPlainTextBody(null)).toBe('');
+  });
+
+  it('handles UTF-8 content correctly', () => {
+    const hebrew = 'שלום, הראיון שלך אושר';
+    const message = {
+      payload: {
+        mimeType: 'text/plain',
+        body: { data: encode(hebrew) },
+      },
+    };
+    expect(extractPlainTextBody(message)).toBe(hebrew);
   });
 });

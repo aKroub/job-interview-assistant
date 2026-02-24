@@ -178,7 +178,44 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
 }
 
 /**
+ * Video-conference URL patterns. When `event.location` matches one of these,
+ * the location is a join-link, not a physical address.
+ */
+const VIDEO_URL_PATTERNS = ['zoom.us', 'meet.google.com', 'teams.microsoft.com'];
+
+/**
+ * Text patterns that indicate a physical / in-person interview location.
+ * Checked against the combined email + calendar text.
+ */
+const IN_PERSON_PATTERN =
+  /\b(onsite|on-site|in-person|in person|office|campus|headquarters|hq|building)\b|floor\s+\d/i;
+
+/**
+ * Returns true when the calendar event's location field contains a physical
+ * address rather than a video-conference link.
+ *
+ * @param {string} location - calendar event location field
+ * @returns {boolean}
+ */
+function isPhysicalLocation(location) {
+  if (!location) return false;
+  const lower = location.toLowerCase();
+  if (lower.startsWith('http')) return false;
+  return !VIDEO_URL_PATTERNS.some((p) => lower.includes(p));
+}
+
+/**
  * Guesses the interview type from email and calendar signals.
+ *
+ * Priority order:
+ * 1. Phone — explicit "phone" keyword
+ * 2. In-Person — physical location via event.location or address keywords in text
+ * 3. Video — video link on calendar event or video keywords in text
+ * 4. Default — Video (most modern interviews are remote)
+ *
+ * In-person is checked BEFORE video because companies often attach
+ * video-conference links (e.g. Zoom room systems) to calendar events
+ * that are actually held on-site.
  *
  * @param {Object} email - gmail scan result
  * @param {Object} event - calendar scan result
@@ -190,13 +227,12 @@ function guessInterviewType(email, event) {
   if (combined.includes('phone')) {
     return 'Phone Interview';
   }
+  if (isPhysicalLocation(event.location) || IN_PERSON_PATTERN.test(combined)) {
+    return 'In-Person Interview';
+  }
   if (event.hasVideoLink || combined.includes('zoom') || combined.includes('meet') ||
       combined.includes('teams') || combined.includes('video')) {
     return 'Video Interview';
-  }
-  if (combined.includes('onsite') || combined.includes('on-site') || combined.includes('office') ||
-      combined.includes('in-person') || combined.includes('in person')) {
-    return 'In-Person Interview';
   }
 
   // Default to video since most modern interviews are remote
@@ -206,9 +242,9 @@ function guessInterviewType(email, event) {
 /**
  * Guesses the interview type from email signals only (no calendar event).
  *
- * Without calendar data there is no hasVideoLink signal, so the default
- * is 'Video Interview' (most modern interviews are remote) unless the
- * email text mentions a specific format.
+ * Without calendar data there is no hasVideoLink or location signal, so
+ * detection relies on text keywords only. Same priority as the full version:
+ * phone → in-person → video → default video.
  *
  * @param {Object} email - gmail scan result
  * @returns {string} one of 'Phone Interview', 'Video Interview', 'In-Person Interview'
@@ -219,14 +255,12 @@ function guessInterviewTypeFromEmail(email) {
   if (combined.includes('phone')) {
     return 'Phone Interview';
   }
+  if (IN_PERSON_PATTERN.test(combined)) {
+    return 'In-Person Interview';
+  }
   if (combined.includes('zoom') || combined.includes('meet') ||
       combined.includes('teams') || combined.includes('video')) {
     return 'Video Interview';
-  }
-  if (combined.includes('onsite') || combined.includes('on-site') ||
-      combined.includes('office') || combined.includes('in-person') ||
-      combined.includes('in person')) {
-    return 'In-Person Interview';
   }
 
   return 'Video Interview';

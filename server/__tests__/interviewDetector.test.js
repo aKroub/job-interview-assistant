@@ -57,6 +57,7 @@ function makeCalendarResult(overrides = {}) {
     matchedKeywords: ['interview'],
     reasons: ['keyword-match', 'external-organizer'],
     hasVideoLink: false,
+    location: '',
     companyName: '',
     ...overrides,
   };
@@ -257,6 +258,97 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ subject: 'Onsite Interview at HQ' })]),
         calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.type).toBe('In-Person Interview');
+    });
+
+    it('guesses "In-Person Interview" when event has a physical location even with video link', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ subject: 'Interview with Google' })]),
+        calendarService: mockCalendar([makeCalendarResult({
+          hasVideoLink: true,
+          location: '3 HaMelacha St., Floor 10, Tel-Aviv',
+        })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.type).toBe('In-Person Interview');
+    });
+
+    it('guesses "Video Interview" when event location is a Zoom URL', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ subject: 'Interview with Google' })]),
+        calendarService: mockCalendar([makeCalendarResult({
+          hasVideoLink: true,
+          location: 'https://zoom.us/j/123456',
+        })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.type).toBe('Video Interview');
+    });
+
+    it('guesses "In-Person Interview" when email mentions "office" even with video link', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({
+          subject: 'Interview at Google',
+          snippet: 'Please come to our office at 10 AM',
+        })]),
+        calendarService: mockCalendar([makeCalendarResult({ hasVideoLink: true })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.type).toBe('In-Person Interview');
+    });
+
+    it('guesses "In-Person Interview" when text mentions floor number', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({
+          subject: 'Interview with Google',
+          snippet: 'Conference Room, Floor 10',
+        })]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.type).toBe('In-Person Interview');
+    });
+
+    it('email-only: guesses "In-Person Interview" when email mentions on-site', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({
+          score: 0.8,
+          subject: 'On-site Interview at HQ',
+        })]),
+        calendarService: mockCalendar([]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.type).toBe('In-Person Interview');
+    });
+
+    it('email-only: in-person keywords take priority over video keywords', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({
+          score: 0.8,
+          subject: 'Interview at our office',
+          snippet: 'Zoom room 5 on the 3rd floor',
+        })]),
+        calendarService: mockCalendar([]),
         tokenStore: mockTokenStore(),
         idFn: fixedId,
       });

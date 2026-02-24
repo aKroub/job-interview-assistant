@@ -333,17 +333,20 @@ export function extractDateTimeFromText(text) {
   const timeMatches = Array.from(text.matchAll(timePattern));
 
   if (timeMatches.length >= 2) {
-    // Check if the last two times form a range (e.g. "11:30 until 11:45")
-    const rangeResult = detectTimeRange(
-      text,
-      timeMatches[timeMatches.length - 2],
-      timeMatches[timeMatches.length - 1],
-    );
-    if (rangeResult) {
-      time = rangeResult.startTime;
-      duration = rangeResult.duration;
-    } else {
-      // Rescheduling or unrelated — use last time, no duration
+    // Check ALL consecutive pairs from the end, stopping at the first valid
+    // range.  This handles cases like "3:15 PM - 4:45 PM. Please arrive by
+    // 3:00 PM" where the last two times do NOT form a range but an earlier
+    // pair does.
+    for (let i = timeMatches.length - 1; i >= 1; i--) {
+      const rangeResult = detectTimeRange(text, timeMatches[i - 1], timeMatches[i]);
+      if (rangeResult) {
+        time = rangeResult.startTime;
+        duration = rangeResult.duration;
+        break;
+      }
+    }
+    if (!duration) {
+      // No valid range found — rescheduling or unrelated; use last time
       time = parseTimeMatch(timeMatches[timeMatches.length - 1]);
     }
   } else if (timeMatches.length === 1) {

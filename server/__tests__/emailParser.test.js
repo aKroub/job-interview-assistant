@@ -329,6 +329,32 @@ describe('extractDateTimeFromText', () => {
     expect(result.time).toBe('15:00');
     expect(result.duration).toBeNull();
   });
+
+  // --- Multi-time range detection (third time after range) ---
+
+  it('extracts range when a third time follows the range', () => {
+    const result = extractDateTimeFromText(
+      'Interview 3:15 PM - 4:45 PM. Please arrive by 3:00 PM.'
+    );
+    expect(result.time).toBe('15:15');
+    expect(result.duration).toBe(90);
+  });
+
+  it('extracts range when extra time precedes the range', () => {
+    const result = extractDateTimeFromText(
+      'Confirmation at 9:00 AM. Interview 10:00 - 11:30'
+    );
+    expect(result.time).toBe('10:00');
+    expect(result.duration).toBe(90);
+  });
+
+  it('extracts range from 24h format with extra trailing time', () => {
+    const result = extractDateTimeFromText(
+      'Interview 15:15 - 16:45. Please confirm by 12:00'
+    );
+    expect(result.time).toBe('15:15');
+    expect(result.duration).toBe(90);
+  });
 });
 
 describe('parseGmailMessage', () => {

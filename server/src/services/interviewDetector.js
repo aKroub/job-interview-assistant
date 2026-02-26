@@ -15,6 +15,20 @@ const EMAIL_ONLY_MIN_SCORE = 0.5;
 const EMAIL_ONLY_CONFIDENCE_FACTOR = 0.6;
 
 /**
+ * Minimum calendar score required to surface a calendar-only suggestion.
+ * Mirrors EMAIL_ONLY_MIN_SCORE — calendar-only suggestions need a strong
+ * signal since there is no email cross-reference to validate them.
+ */
+const CALENDAR_ONLY_MIN_SCORE = 0.5;
+
+/**
+ * Scaling factor applied to calendar scores for calendar-only suggestions.
+ * Ensures calendar-only confidence is always lower than the minimum
+ * cross-reference confidence tier (0.5 for date-only match).
+ */
+const CALENDAR_ONLY_CONFIDENCE_FACTOR = 0.6;
+
+/**
  * Creates an interview detector that cross-references Gmail and Calendar results.
  *
  * PRIMARY RULE: A suggestion is created when BOTH an email AND a calendar event
@@ -25,6 +39,11 @@ const EMAIL_ONLY_CONFIDENCE_FACTOR = 0.6;
  * surfaced as lower-confidence "email-only" suggestions (source: 'gmail') so
  * the user does not miss interview invitations that were not auto-added to the
  * calendar.
+ *
+ * TERTIARY RULE: High-scoring calendar events that do NOT match any email are
+ * surfaced as lower-confidence "calendar-only" suggestions (source: 'calendar')
+ * so the user does not miss interviews where the email scored below the Gmail
+ * threshold.
  *
  * @param {Object} deps
  * @param {{ scanForInterviews: Function }} deps.gmailService
@@ -43,7 +62,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
    *
    * @returns {Promise<Array<{
    *   id: string,
-   *   source: 'gmail+calendar' | 'gmail',
+   *   source: 'gmail+calendar' | 'gmail' | 'calendar',
    *   confidence: number,
    *   companyName: string,
    *   companyDomain: string,
@@ -65,7 +84,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
       calendarService.scanForInterviews(),
     ]);
 
-    if (emailResults.length === 0) {
+    if (emailResults.length === 0 && calendarResults.length === 0) {
       return [];
     }
 
@@ -73,6 +92,11 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
     const suggestions = [];
     const usedEventIds = new Set();
     const usedMessageIds = new Set();
+    // Events that matched at least one email (regardless of whether the
+    // suggestion was dismissed). Calendar-only suggestions should only be
+    // created for truly orphaned events — not for events that were already
+    // shown as a cross-reference and dismissed by the user.
+    const matchedEventIds = new Set();
 
     // --- Cross-referenced suggestions (email + calendar) ---
     if (calendarResults.length > 0) {
@@ -89,6 +113,10 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
           const { isMatch, confidence } = crossReferenceEmailAndEvent(email, event);
 
           if (!isMatch) continue;
+
+          // Track that this event matched an email, even if the suggestion
+          // is dismissed — prevents it from appearing as calendar-only later.
+          matchedEventIds.add(event.eventId);
 
           const suggestionId = `suggestion_${email.messageId}_${event.eventId}`;
 
@@ -163,6 +191,35 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
         emailSnippet: email.snippet || '',
         calendarEventId: '',
         emailMessageId: email.messageId,
+        detectedAt: new Date(idFn()).toISOString(),
+      });
+    }
+
+    // --- Calendar-only suggestions ---
+    // Calendar events that did NOT match any email but have a high enough
+    // score to stand on their own. These help catch interviews where the
+    // email scored below the Gmail threshold or was not fetched.
+    for (const event of calendarResults) {
+      if (usedEventIds.has(event.eventId) || matchedEventIds.has(event.eventId)) continue;
+      if (event.score < CALENDAR_ONLY_MIN_SCORE) continue;
+
+      const suggestionId = `suggestion_calendar_${event.eventId}`;
+      if (dismissed.has(suggestionId)) continue;
+
+      suggestions.push({
+        id: suggestionId,
+        source: 'calendar',
+        confidence: event.score * CALENDAR_ONLY_CONFIDENCE_FACTOR,
+        companyName: capitalise(event.companyName || ''),
+        companyDomain: '',
+        type: guessInterviewTypeFromCalendar(event),
+        date: event.date || '',
+        time: event.time || '',
+        duration: computeDurationMinutes(event.startDateTime, event.endDateTime),
+        subject: event.summary || '',
+        emailSnippet: '',
+        calendarEventId: event.eventId,
+        emailMessageId: '',
         detectedAt: new Date(idFn()).toISOString(),
       });
     }
@@ -259,6 +316,32 @@ function guessInterviewTypeFromEmail(email) {
     return 'In-Person Interview';
   }
   if (combined.includes('zoom') || combined.includes('meet') ||
+      combined.includes('teams') || combined.includes('video')) {
+    return 'Video Interview';
+  }
+
+  return 'Video Interview';
+}
+
+/**
+ * Guesses the interview type from calendar signals only (no email).
+ *
+ * Uses event summary, description, location, and video link data.
+ * Same priority as the full version: phone → in-person → video → default video.
+ *
+ * @param {Object} event - calendar scan result
+ * @returns {string} one of 'Phone Interview', 'Video Interview', 'In-Person Interview'
+ */
+function guessInterviewTypeFromCalendar(event) {
+  const combined = `${event.summary || ''} ${event.description || ''}`.toLowerCase();
+
+  if (combined.includes('phone')) {
+    return 'Phone Interview';
+  }
+  if (isPhysicalLocation(event.location) || IN_PERSON_PATTERN.test(combined)) {
+    return 'In-Person Interview';
+  }
+  if (event.hasVideoLink || combined.includes('zoom') || combined.includes('meet') ||
       combined.includes('teams') || combined.includes('video')) {
     return 'Video Interview';
   }

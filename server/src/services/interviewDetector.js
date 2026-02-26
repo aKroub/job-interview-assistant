@@ -88,7 +88,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
       return [];
     }
 
-    const dismissed = new Set(tokenStore.getDismissed());
+    const dismissed = tokenStore.getDismissed();
     const suggestions = [];
     const usedEventIds = new Set();
     const usedMessageIds = new Set();
@@ -103,6 +103,10 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
       for (const email of emailResults) {
         // Find the best-matching event for this email (highest confidence)
         let bestMatch = null;
+        // Track whether ANY cross-ref match for this email was dismissed.
+        // If so, the email should not surface as email-only either — the
+        // user already dealt with this interview.
+        let matchWasDismissed = false;
 
         for (const event of calendarResults) {
           // Skip already-matched events to avoid duplicates
@@ -120,8 +124,12 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
 
           const suggestionId = `suggestion_${email.messageId}_${event.eventId}`;
 
-          // Skip dismissed suggestions
-          if (dismissed.has(suggestionId)) continue;
+          // Skip if this suggestion or any of its components was dismissed
+          if (dismissed.ids.has(suggestionId) ||
+              isDismissedComponent(dismissed, email.messageId, event.eventId)) {
+            matchWasDismissed = true;
+            continue;
+          }
 
           if (!bestMatch || confidence > bestMatch.confidence) {
             bestMatch = { event, confidence, suggestionId };
@@ -162,6 +170,10 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
 
           usedEventIds.add(event.eventId);
           usedMessageIds.add(email.messageId);
+        } else if (matchWasDismissed) {
+          // The email matched a calendar event but all matches were dismissed.
+          // Mark the email as used so it doesn't resurface as email-only.
+          usedMessageIds.add(email.messageId);
         }
       }
     }
@@ -175,7 +187,8 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
       if (email.score < EMAIL_ONLY_MIN_SCORE) continue;
 
       const suggestionId = `suggestion_gmail_${email.messageId}`;
-      if (dismissed.has(suggestionId)) continue;
+      if (dismissed.ids.has(suggestionId)) continue;
+      if (isDismissedComponent(dismissed, email.messageId, '')) continue;
 
       suggestions.push({
         id: suggestionId,
@@ -204,7 +217,8 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
       if (event.score < CALENDAR_ONLY_MIN_SCORE) continue;
 
       const suggestionId = `suggestion_calendar_${event.eventId}`;
-      if (dismissed.has(suggestionId)) continue;
+      if (dismissed.ids.has(suggestionId)) continue;
+      if (isDismissedComponent(dismissed, '', event.eventId)) continue;
 
       suggestions.push({
         id: suggestionId,
@@ -403,6 +417,24 @@ function compareSuggestionsByDate(a, b) {
 
   // Same date and time (or both missing time) — tiebreak by confidence
   return b.confidence - a.confidence;
+}
+
+/**
+ * Returns true when any of the suggestion's component IDs (emailId or calendarId)
+ * have already been dismissed. This prevents the same interview from resurfacing
+ * under a different composite suggestion ID when the source changes (e.g. an
+ * email-only suggestion was dismissed, then a calendar event appears and would
+ * produce a new cross-referenced suggestion).
+ *
+ * @param {{ ids: Set<string>, emailIds: Set<string>, calendarIds: Set<string> }} dismissed
+ * @param {string} emailId - email message ID (empty string if none)
+ * @param {string} calendarId - calendar event ID (empty string if none)
+ * @returns {boolean}
+ */
+function isDismissedComponent(dismissed, emailId, calendarId) {
+  if (emailId && dismissed.emailIds.has(emailId)) return true;
+  if (calendarId && dismissed.calendarIds.has(calendarId)) return true;
+  return false;
 }
 
 /**

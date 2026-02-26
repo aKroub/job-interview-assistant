@@ -86,55 +86,126 @@ describe('createTokenStore', () => {
   // --- Dismissed suggestions ---
 
   describe('getDismissed', () => {
-    it('returns empty array when no dismissed file exists', () => {
-      expect(store.getDismissed()).toEqual([]);
+    it('returns empty Sets when no dismissed file exists', () => {
+      const dismissed = store.getDismissed();
+      expect(dismissed.ids.size).toBe(0);
+      expect(dismissed.emailIds.size).toBe(0);
+      expect(dismissed.calendarIds.size).toBe(0);
     });
 
-    it('returns empty array for malformed JSON', () => {
+    it('returns empty Sets for malformed JSON', () => {
       writeFileSync(join(tempDir, 'dismissed.json'), '!!!', 'utf-8');
-      expect(store.getDismissed()).toEqual([]);
+      const dismissed = store.getDismissed();
+      expect(dismissed.ids.size).toBe(0);
     });
 
-    it('filters out non-string values', () => {
+    it('returns the three Sets: ids, emailIds, calendarIds', () => {
       writeFileSync(
         join(tempDir, 'dismissed.json'),
-        JSON.stringify(['valid', 123, null, 'also-valid']),
+        JSON.stringify([
+          { id: 'suggestion_gmail_msg1', emailId: 'msg1', calendarId: '' },
+          { id: 'suggestion_msg2_evt2', emailId: 'msg2', calendarId: 'evt2' },
+        ]),
         'utf-8'
       );
-      expect(store.getDismissed()).toEqual(['valid', 'also-valid']);
+
+      const dismissed = store.getDismissed();
+      expect(dismissed.ids).toEqual(new Set(['suggestion_gmail_msg1', 'suggestion_msg2_evt2']));
+      expect(dismissed.emailIds).toEqual(new Set(['msg1', 'msg2']));
+      expect(dismissed.calendarIds).toEqual(new Set(['evt2']));
+    });
+  });
+
+  describe('getDismissed — backward compatibility', () => {
+    it('loads old string-only format into ids Set', () => {
+      writeFileSync(
+        join(tempDir, 'dismissed.json'),
+        JSON.stringify(['suggestion_gmail_msg1', 'suggestion_msg2_evt2']),
+        'utf-8'
+      );
+
+      const dismissed = store.getDismissed();
+      expect(dismissed.ids).toEqual(new Set(['suggestion_gmail_msg1', 'suggestion_msg2_evt2']));
+      // Old format has no component IDs
+      expect(dismissed.emailIds.size).toBe(0);
+      expect(dismissed.calendarIds.size).toBe(0);
+    });
+
+    it('handles mixed old string + new object entries', () => {
+      writeFileSync(
+        join(tempDir, 'dismissed.json'),
+        JSON.stringify([
+          'old-string-entry',
+          { id: 'new-object-entry', emailId: 'msg1', calendarId: 'evt1' },
+        ]),
+        'utf-8'
+      );
+
+      const dismissed = store.getDismissed();
+      expect(dismissed.ids).toEqual(new Set(['old-string-entry', 'new-object-entry']));
+      expect(dismissed.emailIds).toEqual(new Set(['msg1']));
+      expect(dismissed.calendarIds).toEqual(new Set(['evt1']));
+    });
+
+    it('filters out non-string, non-object values', () => {
+      writeFileSync(
+        join(tempDir, 'dismissed.json'),
+        JSON.stringify(['valid', 123, null, { id: 'also-valid', emailId: 'e1', calendarId: '' }]),
+        'utf-8'
+      );
+
+      const dismissed = store.getDismissed();
+      expect(dismissed.ids).toEqual(new Set(['valid', 'also-valid']));
     });
   });
 
   describe('addDismissed', () => {
-    it('adds a suggestion ID to the dismissed list', async () => {
+    it('adds a suggestion record with component IDs', async () => {
+      await store.addDismissed({ id: 'suggestion-1', emailId: 'msg1', calendarId: 'evt1' });
+
+      const dismissed = store.getDismissed();
+      expect(dismissed.ids.has('suggestion-1')).toBe(true);
+      expect(dismissed.emailIds.has('msg1')).toBe(true);
+      expect(dismissed.calendarIds.has('evt1')).toBe(true);
+    });
+
+    it('accepts a plain string for backward compatibility', async () => {
       await store.addDismissed('suggestion-1');
-      expect(store.getDismissed()).toEqual(['suggestion-1']);
+
+      const dismissed = store.getDismissed();
+      expect(dismissed.ids.has('suggestion-1')).toBe(true);
     });
 
     it('does not duplicate an already-dismissed ID', async () => {
-      await store.addDismissed('suggestion-1');
-      await store.addDismissed('suggestion-1');
-      expect(store.getDismissed()).toEqual(['suggestion-1']);
+      await store.addDismissed({ id: 'suggestion-1', emailId: 'msg1', calendarId: '' });
+      await store.addDismissed({ id: 'suggestion-1', emailId: 'msg1', calendarId: '' });
+
+      const dismissed = store.getDismissed();
+      expect(dismissed.ids.size).toBe(1);
     });
 
-    it('accumulates multiple dismissed IDs', async () => {
-      await store.addDismissed('suggestion-1');
-      await store.addDismissed('suggestion-2');
-      await store.addDismissed('suggestion-3');
-      expect(store.getDismissed()).toEqual(['suggestion-1', 'suggestion-2', 'suggestion-3']);
+    it('accumulates multiple dismissed entries', async () => {
+      await store.addDismissed({ id: 'suggestion-1', emailId: 'msg1', calendarId: '' });
+      await store.addDismissed({ id: 'suggestion-2', emailId: 'msg2', calendarId: 'evt2' });
+      await store.addDismissed({ id: 'suggestion-3', emailId: '', calendarId: 'evt3' });
+
+      const dismissed = store.getDismissed();
+      expect(dismissed.ids.size).toBe(3);
+      expect(dismissed.emailIds).toEqual(new Set(['msg1', 'msg2']));
+      expect(dismissed.calendarIds).toEqual(new Set(['evt2', 'evt3']));
     });
 
     it('prunes oldest entries when exceeding maxDismissed', async () => {
       const smallStore = createTokenStore(tempDir, 3); // max 3 dismissed
 
-      await smallStore.addDismissed('suggestion-1');
-      await smallStore.addDismissed('suggestion-2');
-      await smallStore.addDismissed('suggestion-3');
-      await smallStore.addDismissed('suggestion-4'); // should prune suggestion-1
+      await smallStore.addDismissed({ id: 'suggestion-1', emailId: 'msg1', calendarId: '' });
+      await smallStore.addDismissed({ id: 'suggestion-2', emailId: 'msg2', calendarId: '' });
+      await smallStore.addDismissed({ id: 'suggestion-3', emailId: 'msg3', calendarId: '' });
+      await smallStore.addDismissed({ id: 'suggestion-4', emailId: 'msg4', calendarId: '' });
 
       const dismissed = smallStore.getDismissed();
-      expect(dismissed).toEqual(['suggestion-2', 'suggestion-3', 'suggestion-4']);
-      expect(dismissed).not.toContain('suggestion-1');
+      expect(dismissed.ids.has('suggestion-1')).toBe(false);
+      expect(dismissed.ids).toEqual(new Set(['suggestion-2', 'suggestion-3', 'suggestion-4']));
     });
 
     it('keeps exactly maxDismissed entries after pruning', async () => {
@@ -145,8 +216,21 @@ describe('createTokenStore', () => {
       await smallStore.addDismissed('c');
       await smallStore.addDismissed('d');
 
-      expect(smallStore.getDismissed()).toEqual(['c', 'd']);
-      expect(smallStore.getDismissed().length).toBe(2);
+      const dismissed = smallStore.getDismissed();
+      expect(dismissed.ids).toEqual(new Set(['c', 'd']));
+      expect(dismissed.ids.size).toBe(2);
+    });
+
+    it('stores empty strings for missing component IDs', async () => {
+      await store.addDismissed({ id: 'sug1', emailId: 'msg1' });
+      await store.addDismissed({ id: 'sug2', calendarId: 'evt2' });
+
+      const dismissed = store.getDismissed();
+      expect(dismissed.emailIds).toEqual(new Set(['msg1']));
+      expect(dismissed.calendarIds).toEqual(new Set(['evt2']));
+      // Empty strings should NOT appear in the Sets
+      expect(dismissed.emailIds.has('')).toBe(false);
+      expect(dismissed.calendarIds.has('')).toBe(false);
     });
   });
 

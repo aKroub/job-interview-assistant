@@ -120,9 +120,12 @@ export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, g
 
   /**
    * POST /api/interviews/dismiss
-   * Body: { suggestionId: string }
+   * Body: { suggestionId: string, emailMessageId?: string, calendarEventId?: string }
    *
    * Persists a dismissed suggestion so it won't be shown again.
+   * Component IDs (emailMessageId, calendarEventId) are stored alongside the
+   * composite suggestion ID so the same interview is recognised even when the
+   * suggestion source changes (e.g. email-only → cross-referenced).
    */
   router.post('/dismiss', async (req, res) => {
     // Auth check
@@ -130,13 +133,17 @@ export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, g
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const { suggestionId } = req.body;
+    const { suggestionId, emailMessageId, calendarEventId } = req.body;
 
     if (!suggestionId || typeof suggestionId !== 'string') {
       return res.status(400).json({ error: 'suggestionId is required' });
     }
 
-    await tokenStore.addDismissed(suggestionId);
+    await tokenStore.addDismissed({
+      id: suggestionId,
+      emailId: typeof emailMessageId === 'string' ? emailMessageId : '',
+      calendarId: typeof calendarEventId === 'string' ? calendarEventId : '',
+    });
     res.json({ dismissed: true });
   });
 

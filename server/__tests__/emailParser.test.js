@@ -171,6 +171,33 @@ describe('scoreEmailForInterview', () => {
     );
     expect(hasPlatformBonus).toBe(true);
   });
+
+  it('scores "phone interview" as a strong keyword', () => {
+    const { score, matchedKeywords } = scoreEmailForInterview(
+      'Your phone interview with Acme',
+      'Hi, we are pleased to confirm your phone interview.',
+      'recruiter@acme.com'
+    );
+    expect(score).toBeGreaterThanOrEqual(0.25);
+    expect(matchedKeywords).toContain('phone interview');
+  });
+
+  it('gives recruiting platform bonus to sparkhire.com sender', () => {
+    const fromSparkHire = scoreEmailForInterview(
+      'Your phone interview with Kela',
+      'Hi Ayal, your interview has been scheduled.',
+      'noreply@sparkhire.com'
+    );
+    const fromGeneric = scoreEmailForInterview(
+      'Your phone interview with Kela',
+      'Hi Ayal, your interview has been scheduled.',
+      'hr@kela.com'
+    );
+    expect(fromSparkHire.score).toBeGreaterThan(fromGeneric.score);
+    expect(fromSparkHire.matchedKeywords).toContainEqual(
+      expect.stringContaining('recruiting-platform:')
+    );
+  });
 });
 
 describe('extractDateTimeFromText', () => {

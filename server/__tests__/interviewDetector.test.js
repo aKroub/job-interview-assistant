@@ -106,16 +106,17 @@ describe('createInterviewDetector', () => {
       expect(suggestions).toEqual([]);
     });
 
-    it('returns EMPTY when only calendar matches (no emails)', async () => {
+    it('returns calendar-only suggestion when no emails but high-scoring calendar event', async () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([]),
-        calendarService: mockCalendar([makeCalendarResult()]),
+        calendarService: mockCalendar([makeCalendarResult({ score: 0.7 })]),
         tokenStore: mockTokenStore(),
         idFn: fixedId,
       });
 
       const suggestions = await detector.detect();
-      expect(suggestions).toEqual([]);
+      expect(suggestions.length).toBe(1);
+      expect(suggestions[0].source).toBe('calendar');
     });
 
     it('returns EMPTY when email and calendar exist but neither domain nor date match', async () => {
@@ -128,6 +129,7 @@ describe('createInterviewDetector', () => {
         calendarService: mockCalendar([makeCalendarResult({
           organizerEmail: 'hr@microsoft.com',
           date: '2025-01-20',
+          score: 0.3, // below calendar-only threshold
         })]),
         tokenStore: mockTokenStore(),
         idFn: fixedId,
@@ -603,6 +605,136 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ score: 1.0 })]),
         calendarService: mockCalendar([]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.confidence).toBeLessThanOrEqual(0.6);
+    });
+  });
+
+  describe('detect — calendar-only suggestions', () => {
+    it('produces a calendar-only suggestion with correct shape', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([]),
+        calendarService: mockCalendar([makeCalendarResult({
+          score: 0.7,
+          date: '2025-03-01',
+          time: '12:30',
+          startDateTime: '2025-03-01T12:30:00Z',
+          endDateTime: '2025-03-01T12:45:00Z',
+          summary: 'Your phone interview with Kela',
+          companyName: 'kela',
+        })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+
+      expect(s.id).toBe('suggestion_calendar_evt1');
+      expect(s.source).toBe('calendar');
+      expect(s.confidence).toBeCloseTo(0.42); // 0.7 * 0.6
+      expect(s.emailMessageId).toBe('');
+      expect(s.calendarEventId).toBe('evt1');
+      expect(s.date).toBe('2025-03-01');
+      expect(s.time).toBe('12:30');
+      expect(s.duration).toBe(15);
+      expect(s.companyName).toBe('Kela');
+      expect(s.subject).toBe('Your phone interview with Kela');
+      expect(typeof s.detectedAt).toBe('string');
+    });
+
+    it('skips calendar-only suggestions when event score is below threshold', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([]),
+        calendarService: mockCalendar([makeCalendarResult({ score: 0.3 })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const suggestions = await detector.detect();
+      expect(suggestions).toEqual([]);
+    });
+
+    it('excludes dismissed calendar-only suggestions', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([]),
+        calendarService: mockCalendar([makeCalendarResult({ score: 0.7 })]),
+        tokenStore: mockTokenStore(['suggestion_calendar_evt1']),
+        idFn: fixedId,
+      });
+
+      const suggestions = await detector.detect();
+      expect(suggestions).toEqual([]);
+    });
+
+    it('does NOT produce calendar-only suggestion when event already matched an email', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult()]),
+        calendarService: mockCalendar([makeCalendarResult({ score: 0.7 })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const suggestions = await detector.detect();
+
+      expect(suggestions.length).toBe(1);
+      expect(suggestions[0].source).toBe('gmail+calendar');
+    });
+
+    it('guesses "Phone Interview" from calendar summary', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([]),
+        calendarService: mockCalendar([makeCalendarResult({
+          score: 0.7,
+          summary: 'Phone interview with Kela',
+        })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.type).toBe('Phone Interview');
+    });
+
+    it('guesses "Video Interview" when calendar event has video link', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([]),
+        calendarService: mockCalendar([makeCalendarResult({
+          score: 0.7,
+          summary: 'Interview with Acme',
+          hasVideoLink: true,
+        })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.type).toBe('Video Interview');
+    });
+
+    it('guesses "In-Person Interview" when calendar event has physical location', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([]),
+        calendarService: mockCalendar([makeCalendarResult({
+          score: 0.7,
+          summary: 'Interview with Acme',
+          location: '123 Main St, Tel Aviv',
+        })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.type).toBe('In-Person Interview');
+    });
+
+    it('calendar-only confidence is always below cross-reference minimum', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([]),
+        calendarService: mockCalendar([makeCalendarResult({ score: 1.0 })]),
         tokenStore: mockTokenStore(),
         idFn: fixedId,
       });

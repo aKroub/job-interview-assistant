@@ -13,6 +13,7 @@ const STRONG_KEYWORDS = [
   'interview confirmation',
   'technical interview',
   'phone screen',
+  'phone interview',
   'video interview',
   'onsite interview',
   'on-site interview',
@@ -58,6 +59,7 @@ const RECRUITING_DOMAINS = [
   'modernloop.io',
   'prelude.co',
   'resource.io',
+  'sparkhire.com',
 ];
 
 /**

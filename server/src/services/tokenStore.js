@@ -13,12 +13,16 @@ const DISMISSED_FILE = 'dismissed.json';
 const DEFAULT_MAX_DISMISSED = 500;
 
 /**
- * Creates a token store that reads/writes OAuth tokens and dismissed suggestion IDs
+ * Creates a token store that reads/writes OAuth tokens and dismissed suggestion records
  * to a directory on disk. Uses an in-memory cache for fast synchronous reads,
  * with async writes to avoid blocking the event loop.
  *
+ * Dismissed records store component IDs (emailId, calendarId) alongside the composite
+ * suggestion ID. This prevents the same interview from resurfacing under a different
+ * composite ID when the suggestion source changes (e.g. email-only → cross-referenced).
+ *
  * @param {string} [dir=DEFAULT_DIR] - directory to store token and dismissed files
- * @param {number} [maxDismissed=DEFAULT_MAX_DISMISSED] - max dismissed IDs to keep (oldest pruned)
+ * @param {number} [maxDismissed=DEFAULT_MAX_DISMISSED] - max dismissed entries to keep (oldest pruned)
  * @returns {{ getTokens, saveTokens, clearTokens, getDismissed, addDismissed }}
  */
 export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_DISMISSED) {
@@ -27,6 +31,7 @@ export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_D
 
   // In-memory caches — populated on first read (sync, one-time startup cost)
   let tokensCache = null;
+  /** @type {Array<{ id: string, emailId?: string, calendarId?: string }> | null} */
   let dismissedCache = null;
 
   /**
@@ -94,47 +99,100 @@ export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_D
   }
 
   /**
-   * Returns the set of dismissed suggestion IDs (synchronous, cached).
-   * First call reads from disk, subsequent calls return from memory.
+   * Loads the raw dismissed records from disk, migrating old string-only
+   * entries to the new object format. Called once per store instance.
    *
-   * @returns {string[]}
+   * @returns {Array<{ id: string, emailId: string, calendarId: string }>}
    */
-  function getDismissed() {
-    if (dismissedCache !== null) return dismissedCache;
-
+  function loadDismissedRecords() {
     try {
       const raw = readFileSync(dismissedPath, 'utf-8');
       const parsed = JSON.parse(raw);
-      dismissedCache = Array.isArray(parsed) ? parsed.filter((v) => typeof v === 'string') : [];
-      return dismissedCache;
+      if (!Array.isArray(parsed)) return [];
+
+      return parsed
+        .map((entry) => {
+          // Backward compat: old format stored plain strings
+          if (typeof entry === 'string') {
+            return { id: entry, emailId: '', calendarId: '' };
+          }
+          if (entry && typeof entry === 'object' && typeof entry.id === 'string') {
+            return {
+              id: entry.id,
+              emailId: typeof entry.emailId === 'string' ? entry.emailId : '',
+              calendarId: typeof entry.calendarId === 'string' ? entry.calendarId : '',
+            };
+          }
+          return null;
+        })
+        .filter(Boolean);
     } catch {
-      dismissedCache = [];
       return [];
     }
   }
 
   /**
-   * Adds a suggestion ID to the dismissed list (async, non-blocking).
+   * Returns the dismissed suggestion records as three Sets for O(1) lookup.
+   * First call reads from disk, subsequent calls return from the in-memory cache.
+   *
+   * @returns {{ ids: Set<string>, emailIds: Set<string>, calendarIds: Set<string> }}
+   */
+  function getDismissed() {
+    if (dismissedCache === null) {
+      dismissedCache = loadDismissedRecords();
+    }
+
+    const ids = new Set();
+    const emailIds = new Set();
+    const calendarIds = new Set();
+
+    for (const entry of dismissedCache) {
+      ids.add(entry.id);
+      if (entry.emailId) emailIds.add(entry.emailId);
+      if (entry.calendarId) calendarIds.add(entry.calendarId);
+    }
+
+    return { ids, emailIds, calendarIds };
+  }
+
+  /**
+   * Adds a dismissed suggestion record (async, non-blocking).
    * Updates the in-memory cache immediately.
    * Prunes the oldest entries if the list exceeds maxDismissed.
    *
-   * @param {string} suggestionId
+   * Accepts either an object with component IDs or a plain string
+   * (backward compat for any old callers).
+   *
+   * @param {string | { id: string, emailId?: string, calendarId?: string }} entry
    * @returns {Promise<void>}
    */
-  async function addDismissed(suggestionId) {
-    const current = getDismissed();
-    if (!current.includes(suggestionId)) {
-      current.push(suggestionId);
-      
-      // Prune oldest entries if exceeds max
-      if (current.length > maxDismissed) {
-        current.splice(0, current.length - maxDismissed);
-      }
+  async function addDismissed(entry) {
+    // Normalise input — support plain string for backward compat
+    const record = typeof entry === 'string'
+      ? { id: entry, emailId: '', calendarId: '' }
+      : {
+        id: entry.id,
+        emailId: entry.emailId || '',
+        calendarId: entry.calendarId || '',
+      };
 
-      dismissedCache = current;
-      await ensureDir();
-      await writeFile(dismissedPath, JSON.stringify(current, null, 2), 'utf-8');
+    // Ensure cache is initialised
+    if (dismissedCache === null) {
+      dismissedCache = loadDismissedRecords();
     }
+
+    // Check for duplicate by composite ID
+    if (dismissedCache.some((e) => e.id === record.id)) return;
+
+    dismissedCache.push(record);
+
+    // Prune oldest entries if exceeds max
+    if (dismissedCache.length > maxDismissed) {
+      dismissedCache.splice(0, dismissedCache.length - maxDismissed);
+    }
+
+    await ensureDir();
+    await writeFile(dismissedPath, JSON.stringify(dismissedCache, null, 2), 'utf-8');
   }
 
   return { getTokens, saveTokens, clearTokens, getDismissed, addDismissed };

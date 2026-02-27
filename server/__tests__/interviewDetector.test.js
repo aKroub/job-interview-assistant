@@ -16,10 +16,32 @@ function mockCalendar(results = []) {
 }
 
 /**
- * Creates a mock token store with the given dismissed IDs.
+ * Creates a mock token store with the given dismissed entries.
+ *
+ * Accepts either plain string IDs (backward compat) or objects with
+ * { id, emailId, calendarId }. Returns getDismissed() in the new
+ * structured format: { ids, emailIds, calendarIds }.
+ *
+ * @param {Array<string | { id: string, emailId?: string, calendarId?: string }>} dismissed
  */
 function mockTokenStore(dismissed = []) {
-  return { getDismissed: () => dismissed };
+  return {
+    getDismissed: () => {
+      const ids = new Set();
+      const emailIds = new Set();
+      const calendarIds = new Set();
+      for (const entry of dismissed) {
+        if (typeof entry === 'string') {
+          ids.add(entry);
+        } else {
+          ids.add(entry.id);
+          if (entry.emailId) emailIds.add(entry.emailId);
+          if (entry.calendarId) calendarIds.add(entry.calendarId);
+        }
+      }
+      return { ids, emailIds, calendarIds };
+    },
+  };
 }
 
 /** Fixed ID generator for deterministic test output. */
@@ -228,6 +250,89 @@ describe('createInterviewDetector', () => {
 
       const suggestions = await detector.detect();
       expect(suggestions).toEqual([]);
+    });
+  });
+
+  describe('detect — cross-source dismissal via component IDs', () => {
+    it('email-only dismissed → cross-ref with same emailId is skipped', async () => {
+      // User dismissed email-only suggestion, then calendar event appeared
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult()]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: mockTokenStore([
+          { id: 'suggestion_gmail_msg1', emailId: 'msg1', calendarId: '' },
+        ]),
+        idFn: fixedId,
+      });
+
+      const suggestions = await detector.detect();
+      expect(suggestions).toEqual([]);
+    });
+
+    it('calendar-only dismissed → cross-ref with same calendarId is skipped', async () => {
+      // User dismissed calendar-only suggestion, then email arrived
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult()]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: mockTokenStore([
+          { id: 'suggestion_calendar_evt1', emailId: '', calendarId: 'evt1' },
+        ]),
+        idFn: fixedId,
+      });
+
+      const suggestions = await detector.detect();
+      expect(suggestions).toEqual([]);
+    });
+
+    it('cross-ref dismissed → email-only with same emailId is skipped', async () => {
+      // User dismissed cross-ref suggestion, then calendar event was deleted
+      // and the email would normally surface as email-only
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ score: 0.8 })]),
+        calendarService: mockCalendar([]),
+        tokenStore: mockTokenStore([
+          { id: 'suggestion_msg1_evt1', emailId: 'msg1', calendarId: 'evt1' },
+        ]),
+        idFn: fixedId,
+      });
+
+      const suggestions = await detector.detect();
+      expect(suggestions).toEqual([]);
+    });
+
+    it('cross-ref dismissed → calendar-only with same calendarId is skipped', async () => {
+      // User dismissed cross-ref suggestion, then email was deleted
+      // and the calendar event would normally surface as calendar-only
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([]),
+        calendarService: mockCalendar([makeCalendarResult({ score: 0.7 })]),
+        tokenStore: mockTokenStore([
+          { id: 'suggestion_msg1_evt1', emailId: 'msg1', calendarId: 'evt1' },
+        ]),
+        idFn: fixedId,
+      });
+
+      const suggestions = await detector.detect();
+      expect(suggestions).toEqual([]);
+    });
+
+    it('does NOT suppress unrelated suggestions when a component ID is dismissed', async () => {
+      // A different email (msg2) should still produce suggestions even though
+      // msg1's emailId is dismissed
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([
+          makeEmailResult({ messageId: 'msg2', senderDomain: 'meta.com', score: 0.8 }),
+        ]),
+        calendarService: mockCalendar([]),
+        tokenStore: mockTokenStore([
+          { id: 'suggestion_gmail_msg1', emailId: 'msg1', calendarId: '' },
+        ]),
+        idFn: fixedId,
+      });
+
+      const suggestions = await detector.detect();
+      expect(suggestions.length).toBe(1);
+      expect(suggestions[0].emailMessageId).toBe('msg2');
     });
   });
 

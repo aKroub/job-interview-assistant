@@ -16,7 +16,7 @@ function mockDetector(suggestions = []) {
 function mockTokenStore() {
   const dismissed = [];
   return {
-    addDismissed: async (id) => dismissed.push(id),
+    addDismissed: async (entry) => dismissed.push(entry),
     getDismissed: () => dismissed,
     _getDismissed: () => dismissed,
   };
@@ -102,7 +102,9 @@ describe('Interviews routes', () => {
 
       expect(res.status).toBe(200);
       expect(res.body).toEqual({ dismissed: true });
-      expect(store._getDismissed()).toContain('suggestion_abc');
+      expect(store._getDismissed()).toContainEqual(
+        expect.objectContaining({ id: 'suggestion_abc' })
+      );
     });
   });
 

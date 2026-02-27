@@ -88,8 +88,8 @@ const InterviewPrepTracker = () => {
 
   function handleScheduleFromSuggestion(companyId, interview) {
     addInterview(companyId, interview);
-    if (suggestionDraft?.suggestion?.id) {
-      dismissSuggestion(suggestionDraft.suggestion.id);
+    if (suggestionDraft?.suggestion) {
+      dismissSuggestion(suggestionDraft.suggestion);
     }
     setSuggestionDraft(null);
   }

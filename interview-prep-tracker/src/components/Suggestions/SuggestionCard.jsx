@@ -15,7 +15,7 @@ import { TYPE_CONFIG } from '../../constants/interviewTypes';
  *
  * @param {{
  *   suggestion:  Object,
- *   onDismiss:   (suggestionId: string) => void,
+ *   onDismiss:   (suggestion: Object) => void,
  *   onAccept:    (suggestion: Object) => void,
  * }} props
  */
@@ -29,7 +29,7 @@ export function SuggestionCard({ suggestion, onDismiss, onAccept }) {
 
   function handleDismissClick(e) {
     e.stopPropagation();
-    onDismiss(suggestion.id);
+    onDismiss(suggestion);
   }
 
   return (

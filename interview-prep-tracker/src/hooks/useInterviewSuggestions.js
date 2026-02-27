@@ -18,7 +18,7 @@ import * as defaultApi from '../services/apiService';
  *   suggestions: Object[],
  *   authStatus: 'checking' | 'authenticated' | 'unauthenticated',
  *   connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error',
- *   dismissSuggestion: (id: string) => Promise<void>,
+ *   dismissSuggestion: (suggestion: Object) => Promise<void>,
  *   triggerScan: () => Promise<void>,
  *   connectGoogle: () => Promise<void>,
  *   disconnectGoogle: () => Promise<void>,
@@ -58,6 +58,29 @@ export function useInterviewSuggestions(api = defaultApi) {
    * guarantees no flicker in the meantime.
    */
   const dismissedIdsRef = useRef(new Set());
+
+  /**
+   * Local sets of dismissed component IDs (email message IDs and calendar
+   * event IDs). These prevent the same interview from resurfacing under
+   * a different composite suggestion ID when the source changes (e.g.
+   * email-only → cross-referenced after a calendar event is added).
+   */
+  const dismissedEmailIdsRef = useRef(new Set());
+  const dismissedCalendarIdsRef = useRef(new Set());
+
+  /**
+   * Returns true when a suggestion matches any locally dismissed ID
+   * (composite suggestion ID, email message ID, or calendar event ID).
+   *
+   * @param {{ id: string, emailMessageId?: string, calendarEventId?: string }} s
+   * @returns {boolean}
+   */
+  function isDismissedLocally(s) {
+    if (dismissedIdsRef.current.has(s.id)) return true;
+    if (s.emailMessageId && dismissedEmailIdsRef.current.has(s.emailMessageId)) return true;
+    if (s.calendarEventId && dismissedCalendarIdsRef.current.has(s.calendarEventId)) return true;
+    return false;
+  }
 
   /**
    * Checks Google OAuth status against the backend.
@@ -115,7 +138,7 @@ export function useInterviewSuggestions(api = defaultApi) {
       })
       .onSuggestions((newSuggestions) => {
         const filtered = newSuggestions.filter(
-          (s) => !dismissedIdsRef.current.has(s.id)
+          (s) => !isDismissedLocally(s)
         );
         setSuggestions(filtered);
       })
@@ -171,22 +194,35 @@ export function useInterviewSuggestions(api = defaultApi) {
 
   /**
    * Dismisses a suggestion — removes it from local state and persists
-   * the dismissal on the server.
+   * the dismissal on the server. Tracks component IDs (emailMessageId,
+   * calendarEventId) locally so the same interview is recognised even
+   * when the composite suggestion ID changes.
    *
-   * @param {string} suggestionId
+   * @param {Object} suggestion - the full suggestion object
    */
-  const dismissSuggestion = useCallback(async (suggestionId) => {
-    // Record the ID locally so incoming SSE updates never re-surface it
-    dismissedIdsRef.current.add(suggestionId);
+  const dismissSuggestion = useCallback(async (suggestion) => {
+    // Record the composite ID and component IDs locally so incoming
+    // SSE updates never re-surface this interview under any form
+    dismissedIdsRef.current.add(suggestion.id);
+    if (suggestion.emailMessageId) {
+      dismissedEmailIdsRef.current.add(suggestion.emailMessageId);
+    }
+    if (suggestion.calendarEventId) {
+      dismissedCalendarIdsRef.current.add(suggestion.calendarEventId);
+    }
 
     // Optimistic update — remove from local state immediately
-    setSuggestions((prev) => prev.filter((s) => s.id !== suggestionId));
+    setSuggestions((prev) => prev.filter((s) => s.id !== suggestion.id));
 
     try {
-      await api.dismissSuggestion(suggestionId);
+      await api.dismissSuggestion(
+        suggestion.id,
+        suggestion.emailMessageId || '',
+        suggestion.calendarEventId || '',
+      );
     } catch (err) {
       console.warn('Failed to persist dismissal:', err);
-      // The ID remains in dismissedIdsRef so the suggestion stays hidden
+      // The IDs remain in local refs so the suggestion stays hidden
       // locally even if the server call failed. On the next full session
       // (page reload) the server will be the source of truth.
     }
@@ -199,7 +235,7 @@ export function useInterviewSuggestions(api = defaultApi) {
     try {
       const { suggestions: scanned } = await api.triggerScan();
       const filtered = scanned.filter(
-        (s) => !dismissedIdsRef.current.has(s.id)
+        (s) => !isDismissedLocally(s)
       );
       setSuggestions(filtered);
     } catch (err) {
@@ -230,6 +266,8 @@ export function useInterviewSuggestions(api = defaultApi) {
     closeStream();
     setSuggestions([]);
     dismissedIdsRef.current = new Set();
+    dismissedEmailIdsRef.current = new Set();
+    dismissedCalendarIdsRef.current = new Set();
 
     try {
       await api.disconnectAuth();

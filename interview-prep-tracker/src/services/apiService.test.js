@@ -104,20 +104,30 @@ describe('apiService — REST functions', () => {
   });
 
   describe('dismissSuggestion', () => {
-    it('sends POST with suggestionId in body', async () => {
+    it('sends POST with suggestionId and component IDs in body', async () => {
       const fetcher = mockFetch({ dismissed: true });
-      const result = await dismissSuggestion('suggestion_abc', fetcher);
+      const result = await dismissSuggestion('suggestion_abc', 'email_123', 'cal_456', fetcher);
       expect(result).toEqual({ dismissed: true });
       expect(fetcher).toHaveBeenCalledWith('/api/interviews/dismiss', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ suggestionId: 'suggestion_abc' }),
+        body: JSON.stringify({ suggestionId: 'suggestion_abc', emailMessageId: 'email_123', calendarEventId: 'cal_456' }),
+      });
+    });
+
+    it('defaults emailMessageId and calendarEventId to empty strings', async () => {
+      const fetcher = mockFetch({ dismissed: true });
+      await dismissSuggestion('suggestion_abc', undefined, undefined, fetcher);
+      expect(fetcher).toHaveBeenCalledWith('/api/interviews/dismiss', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ suggestionId: 'suggestion_abc', emailMessageId: '', calendarEventId: '' }),
       });
     });
 
     it('throws on non-200 response', async () => {
       const fetcher = mockFetch({}, 400);
-      await expect(dismissSuggestion('bad', fetcher)).rejects.toThrow('Dismiss failed: 400');
+      await expect(dismissSuggestion('bad', '', '', fetcher)).rejects.toThrow('Dismiss failed: 400');
     });
   });
 

@@ -284,7 +284,7 @@ describe('useInterviewSuggestions', () => {
       api.dismissSuggestion.mockRejectedValue(new Error('Network error'));
 
       await act(async () => {
-        await result.current.dismissSuggestion('s1');
+        await result.current.dismissSuggestion({ id: 's1' });
       });
 
       expect(consoleWarnSpy).toHaveBeenCalledWith(
@@ -349,21 +349,35 @@ describe('useInterviewSuggestions', () => {
       expect(result.current.suggestions).toHaveLength(2);
 
       await act(async () => {
-        await result.current.dismissSuggestion('s1');
+        await result.current.dismissSuggestion({ id: 's1' });
       });
 
       expect(result.current.suggestions).toHaveLength(1);
       expect(result.current.suggestions[0].id).toBe('s2');
     });
 
-    it('calls the API to persist the dismissal', async () => {
+    it('calls the API to persist the dismissal with component IDs', async () => {
       const { result, api } = await setup();
 
       await act(async () => {
-        await result.current.dismissSuggestion('suggestion_abc');
+        await result.current.dismissSuggestion({
+          id: 'suggestion_abc',
+          emailMessageId: 'msg_123',
+          calendarEventId: 'cal_456',
+        });
       });
 
-      expect(api.dismissSuggestion).toHaveBeenCalledWith('suggestion_abc');
+      expect(api.dismissSuggestion).toHaveBeenCalledWith('suggestion_abc', 'msg_123', 'cal_456');
+    });
+
+    it('defaults missing component IDs to empty strings in API call', async () => {
+      const { result, api } = await setup();
+
+      await act(async () => {
+        await result.current.dismissSuggestion({ id: 'suggestion_abc' });
+      });
+
+      expect(api.dismissSuggestion).toHaveBeenCalledWith('suggestion_abc', '', '');
     });
   });
 
@@ -387,7 +401,7 @@ describe('useInterviewSuggestions', () => {
 
       // User dismisses s1
       await act(async () => {
-        await result.current.dismissSuggestion('s1');
+        await result.current.dismissSuggestion({ id: 's1', companyName: 'Google' });
       });
       expect(result.current.suggestions).toHaveLength(1);
       expect(result.current.suggestions[0].id).toBe('s2');
@@ -422,7 +436,7 @@ describe('useInterviewSuggestions', () => {
 
       // Dismiss s1
       await act(async () => {
-        await result.current.dismissSuggestion('s1');
+        await result.current.dismissSuggestion({ id: 's1', companyName: 'Google' });
       });
 
       // Manual scan returns s1 again (server hasn't persisted yet)
@@ -459,7 +473,7 @@ describe('useInterviewSuggestions', () => {
       // Dismiss fails on the server
       api.dismissSuggestion.mockRejectedValue(new Error('Network error'));
       await act(async () => {
-        await result.current.dismissSuggestion('s1');
+        await result.current.dismissSuggestion({ id: 's1', companyName: 'Google' });
       });
 
       // SSE pushes the suggestion again (server never received the dismiss)
@@ -485,7 +499,7 @@ describe('useInterviewSuggestions', () => {
         onSuggestionsCallback([{ id: 's1', companyName: 'Google' }]);
       });
       await act(async () => {
-        await result.current.dismissSuggestion('s1');
+        await result.current.dismissSuggestion({ id: 's1', companyName: 'Google' });
       });
 
       // Disconnect clears everything

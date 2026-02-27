@@ -120,13 +120,14 @@ describe('SuggestionPanel — callbacks', () => {
     expect(onDisconnect).toHaveBeenCalledTimes(1);
   });
 
-  it('calls onDismiss with the suggestion id when a card is dismissed', async () => {
+  it('calls onDismiss with the full suggestion object when a card is dismissed', async () => {
+    const suggestion = makeSuggestion({ id: 's1', companyName: 'Google' });
     const { onDismiss } = setup({
       authStatus: 'authenticated',
-      suggestions: [makeSuggestion({ id: 's1', companyName: 'Google' })],
+      suggestions: [suggestion],
     });
     await userEvent.click(screen.getByRole('button', { name: /dismiss google suggestion/i }));
-    expect(onDismiss).toHaveBeenCalledWith('s1');
+    expect(onDismiss).toHaveBeenCalledWith(suggestion);
   });
 
   it('calls onAccept with the suggestion when a card is clicked', async () => {

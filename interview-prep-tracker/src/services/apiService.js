@@ -47,15 +47,21 @@ export async function disconnectAuth(fetchFn = fetch) {
 /**
  * Dismisses a suggestion so it won't appear again.
  *
- * @param {string} suggestionId - the suggestion ID to dismiss
+ * Sends component IDs (emailMessageId, calendarEventId) alongside the composite
+ * suggestion ID so the backend can prevent the same interview from resurfacing
+ * under a different composite ID when the suggestion source changes.
+ *
+ * @param {string} suggestionId - the composite suggestion ID to dismiss
+ * @param {string} [emailMessageId=''] - the email message ID (if known)
+ * @param {string} [calendarEventId=''] - the calendar event ID (if known)
  * @param {Function} [fetchFn=fetch] - injectable fetch for testing
  * @returns {Promise<{ dismissed: true }>}
  */
-export async function dismissSuggestion(suggestionId, fetchFn = fetch) {
+export async function dismissSuggestion(suggestionId, emailMessageId = '', calendarEventId = '', fetchFn = fetch) {
   const res = await fetchFn('/api/interviews/dismiss', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ suggestionId }),
+    body: JSON.stringify({ suggestionId, emailMessageId, calendarEventId }),
   });
   if (!res.ok) throw new Error(`Dismiss failed: ${res.status}`);
   return res.json();

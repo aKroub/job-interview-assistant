@@ -153,24 +153,26 @@ describe('SuggestionCard — email-only suggestions', () => {
     expect(onAccept).toHaveBeenCalledWith(suggestion);
   });
 
-  it('calls onDismiss with the email-only suggestion id when dismiss is clicked', async () => {
+  it('calls onDismiss with the full suggestion object when dismiss is clicked', async () => {
+    const suggestion = makeEmailOnlySuggestion();
     const onDismiss = jest.fn();
-    render(<SuggestionCard suggestion={makeEmailOnlySuggestion()} onDismiss={onDismiss} onAccept={noop} />);
+    render(<SuggestionCard suggestion={suggestion} onDismiss={onDismiss} onAccept={noop} />);
 
     await userEvent.click(screen.getByRole('button', { name: /dismiss google suggestion/i }));
 
-    expect(onDismiss).toHaveBeenCalledWith('suggestion_gmail_msg1');
+    expect(onDismiss).toHaveBeenCalledWith(suggestion);
   });
 });
 
 describe('SuggestionCard — callbacks', () => {
-  it('calls onDismiss with the suggestion id when dismiss is clicked', async () => {
+  it('calls onDismiss with the full suggestion object when dismiss is clicked', async () => {
+    const suggestion = makeSuggestion();
     const onDismiss = jest.fn();
-    render(<SuggestionCard suggestion={makeSuggestion()} onDismiss={onDismiss} onAccept={noop} />);
+    render(<SuggestionCard suggestion={suggestion} onDismiss={onDismiss} onAccept={noop} />);
 
     await userEvent.click(screen.getByRole('button', { name: /dismiss google suggestion/i }));
 
-    expect(onDismiss).toHaveBeenCalledWith('suggestion_msg1_evt1');
+    expect(onDismiss).toHaveBeenCalledWith(suggestion);
     expect(onDismiss).toHaveBeenCalledTimes(1);
   });
 

@@ -1,8 +1,8 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { KanbanBoard } from './KanbanBoard';
-import { STAGES, STAGE_LABELS } from '../../constants/stages';
+import { ACTIVE_STAGES, CLOSED_STAGE, STAGE_LABELS } from '../../constants/stages';
 import { PIPELINES, PIPELINE_LABELS } from '../../constants/pipelines';
 
 // ---------------------------------------------------------------------------
@@ -18,8 +18,9 @@ function setup({ companies = [], handlers = {} } = {}) {
   render(
     <KanbanBoard
       companies={companies}
-      stages={STAGES}
+      stages={ACTIVE_STAGES}
       stageLabels={STAGE_LABELS}
+      closedStage={CLOSED_STAGE}
       activePipeline="tel-aviv"
       pipelines={PIPELINES}
       pipelineLabels={PIPELINE_LABELS}
@@ -49,11 +50,10 @@ describe('KanbanBoard — rendering', () => {
     expect(screen.getByRole('button', { name: /add company/i })).toBeInTheDocument();
   });
 
-  it('renders a column for every stage', () => {
+  it('renders a column for every active stage', () => {
     setup();
-    // Each stage label should appear as a column heading
-    Object.values(STAGE_LABELS).forEach((label) => {
-      expect(screen.getByText(label)).toBeInTheDocument();
+    ACTIVE_STAGES.forEach((stage) => {
+      expect(screen.getByText(STAGE_LABELS[stage])).toBeInTheDocument();
     });
   });
 
@@ -105,5 +105,61 @@ describe('KanbanBoard — interactions', () => {
     const { onAddCompany } = setup();
     await userEvent.click(screen.getByRole('button', { name: /add company/i }));
     expect(onAddCompany).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Closed row
+// ---------------------------------------------------------------------------
+
+describe('KanbanBoard — closed row', () => {
+  it('renders the Closed row header with label and count', () => {
+    const companies = [
+      { id: 'c1', name: 'OldCo', position: 'SWE', stage: 'rejected', interviews: [] },
+    ];
+    setup({ companies });
+    expect(screen.getByText(STAGE_LABELS[CLOSED_STAGE])).toBeInTheDocument();
+    expect(screen.getByText('(1)')).toBeInTheDocument();
+  });
+
+  it('does not show closed cards when collapsed (default state)', () => {
+    const companies = [
+      { id: 'c1', name: 'OldCo', position: 'SWE', stage: 'rejected', interviews: [] },
+    ];
+    setup({ companies });
+    expect(screen.queryByText('OldCo')).not.toBeInTheDocument();
+  });
+
+  it('shows closed cards after clicking the toggle button', async () => {
+    const companies = [
+      { id: 'c1', name: 'OldCo', position: 'SWE', stage: 'rejected', interviews: [] },
+    ];
+    setup({ companies });
+    await userEvent.click(screen.getByRole('button', { expanded: false }));
+    expect(screen.getByText('OldCo')).toBeInTheDocument();
+  });
+
+  it('shows empty-state text when Closed is expanded but has no cards', async () => {
+    setup();
+    await userEvent.click(screen.getByRole('button', { expanded: false }));
+    expect(screen.getByText(/no closed processes yet/i)).toBeInTheDocument();
+  });
+
+  it('hides closed cards again after re-collapsing', async () => {
+    const companies = [
+      { id: 'c1', name: 'OldCo', position: 'SWE', stage: 'rejected', interviews: [] },
+    ];
+    setup({ companies });
+    const toggle = screen.getByRole('button', { expanded: false });
+    await userEvent.click(toggle);
+    expect(screen.getByText('OldCo')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { expanded: true }));
+    expect(screen.queryByText('OldCo')).not.toBeInTheDocument();
+  });
+
+  it('renders count of zero when no closed companies exist', () => {
+    setup();
+    const closedButton = screen.getByRole('button', { expanded: false });
+    expect(within(closedButton).getByText('(0)')).toBeInTheDocument();
   });
 });

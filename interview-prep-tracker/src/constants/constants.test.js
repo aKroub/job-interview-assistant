@@ -1,7 +1,7 @@
 import { INTERVIEW_TYPES } from './interviewTypes';
 import { POSITIONS } from './positions';
 import { SYSTEM_DESIGN_QUESTIONS } from './questions';
-import { STAGES, STAGE_LABELS } from './stages';
+import { ACTIVE_STAGES, CLOSED_STAGE, STAGES, STAGE_LABELS } from './stages';
 
 // ---------------------------------------------------------------------------
 // stages
@@ -38,6 +38,38 @@ describe('STAGE_LABELS', () => {
 
   it('uses "CV Screening" for the phone stage', () => {
     expect(STAGE_LABELS.phone).toBe('CV Screening');
+  });
+
+  it('uses "Closed" for the rejected stage', () => {
+    expect(STAGE_LABELS.rejected).toBe('Closed');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// ACTIVE_STAGES & CLOSED_STAGE
+// ---------------------------------------------------------------------------
+
+describe('ACTIVE_STAGES', () => {
+  it('contains 6 stages (all except rejected)', () => {
+    expect(ACTIVE_STAGES).toHaveLength(6);
+  });
+
+  it('does not include the rejected stage', () => {
+    expect(ACTIVE_STAGES).not.toContain('rejected');
+  });
+
+  it('preserves the order from STAGES', () => {
+    expect(ACTIVE_STAGES).toEqual(['interested', 'applied', 'phone', 'technical', 'hr', 'offer']);
+  });
+});
+
+describe('CLOSED_STAGE', () => {
+  it('equals "rejected"', () => {
+    expect(CLOSED_STAGE).toBe('rejected');
+  });
+
+  it('is not included in ACTIVE_STAGES', () => {
+    expect(ACTIVE_STAGES).not.toContain(CLOSED_STAGE);
   });
 });
 

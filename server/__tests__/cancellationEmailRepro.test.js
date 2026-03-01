@@ -15,7 +15,6 @@ import { describe, it, expect } from '@jest/globals';
 import {
   detectEmailIntent,
   extractCompanyNameFromText,
-  scoreEmailForInterview,
 } from '../src/utils/emailParser.js';
 import { createInterviewDetector } from '../src/services/interviewDetector.js';
 

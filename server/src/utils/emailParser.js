@@ -82,19 +82,49 @@ export const SCHEDULING_PLATFORM_DOMAINS = [
 /**
  * Multi-word phrases that indicate an interview has been cancelled.
  * Checked against the combined subject + body text.
- * Uses partial stems (e.g. "cancel" not "cancelled") to match both
- * US and UK spellings (cancelled/canceled).
+ *
+ * Original entries use partial stems (e.g. "cancel" not "cancelled")
+ * to match both US and UK spellings. Newer entries use full forms
+ * when the distinction matters (e.g. "cancelled event" vs "canceled event").
+ *
+ * NOTE: These run only on emails already scored as interview-related
+ * (minScore >= 0.3), but avoid overly broad standalone words like
+ * "cancellation" which can appear in policy text within invitations.
  */
 const CANCEL_PHRASES = [
+  // --- Verb constructions (stem-based for UK/US) ---
   'interview has been cancel',
   'interview is cancel',
   'interview was cancel',
+  // Same patterns for "meeting" / "event" (some platforms use these)
+  'meeting has been cancel',
+  'meeting is cancel',
+  'meeting was cancel',
+  'event has been cancel',
+  'event is cancel',
+  'event was cancel',
+
+  // --- Noun / phrase forms ---
   'interview cancellation',
   'cancel your interview',
-  'cancelled event',
-  'canceled event',
   'cancellation notice',
-  'cancellation',
+  'need to cancel',
+  'had to cancel',
+  'decided to cancel',
+
+  // --- Google Calendar / Outlook notification subject prefixes ---
+  'cancelled event',             // Google Calendar (UK)
+  'canceled event',              // Google Calendar (US)
+  'cancelled:',                  // Outlook / Microsoft 365
+  'canceled:',                   // Outlook / Microsoft 365 (US)
+
+  // --- "No longer" constructions ---
+  'no longer taking place',
+  'no longer scheduled',
+  'will not take place',
+  'will not be taking place',
+
+  // --- Rejection / not moving forward ---
   'no longer moving forward',
   'position has been filled',
   'decided not to proceed',
@@ -102,25 +132,66 @@ const CANCEL_PHRASES = [
   'we will not be moving forward',
   'will not be proceeding',
   'not moving forward with your',
+  'decided to go with another',
+  'chosen to move forward with another',
   'withdraw',
 ];
 
 /**
  * Keywords that indicate an interview has been rescheduled or updated.
  * Checked against the combined subject + body text.
+ *
+ * Covers common phrasings from recruiting platforms (Greenhouse, Lever,
+ * Comeet, Spark Hire, Goodtime, etc.) and calendar notifications
+ * (Google Calendar, Outlook/Microsoft 365).
  */
 const UPDATE_PHRASES = [
+  // --- Core reschedule verbs (stem-based for UK/US) ---
   'rescheduled',
   'reschedule',
+
+  // --- Verb constructions for interview/meeting/event ---
+  'interview has been rescheduled',
+  'interview has been moved',
+  'interview has been updated',
+  'interview has been postponed',
+  'interview was rescheduled',
+  'meeting has been rescheduled',
+  'meeting has been moved',
+  'meeting has been updated',
+  'event has been rescheduled',
+  'event has been updated',
+
+  // --- Time/date change phrases ---
   'new time',
   'updated time',
-  'moved to',
-  'changed to',
   'new date',
   'time has been changed',
   'date has been changed',
-  'interview has been updated',
-  'interview has been moved',
+  'time has changed',
+  'date has changed',
+  'moved to',
+  'changed to',
+  'postponed to',
+  'pushed to',
+  'shifted to',
+
+  // --- Google Calendar / Outlook notification prefixes ---
+  'updated invitation',           // Google Calendar
+  'updated event',                // Google Calendar
+  'updated:',                     // Outlook / Microsoft 365
+
+  // --- Platform-specific phrasings ---
+  'revised schedule',
+  'schedule change',
+  'schedule update',
+  'updated schedule',
+  'change in schedule',
+  'time change',
+  'date change',
+  'new interview time',
+  'new interview date',
+  'updated interview details',
 ];
 
 /**

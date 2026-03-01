@@ -9,14 +9,15 @@ import { FormError } from '../shared/FormError';
  * All persisted data and callbacks arrive via props.
  *
  * @param {{
- *   draft:         { name: string, position: string, stage: string, pipeline: string },
- *   onDraftChange: (updatedDraft: Object) => void,
- *   onAdd:         () => void,
- *   onClose:       () => void,
- *   stages:        string[],
- *   stageLabels:   Object,
- *   positions:     string[],
- *   pipelineLabel: string,
+ *   draft:          { name: string, position: string, stage: string, pipeline: string[] },
+ *   onDraftChange:  (updatedDraft: Object) => void,
+ *   onAdd:          () => void,
+ *   onClose:        () => void,
+ *   stages:         string[],
+ *   stageLabels:    Object,
+ *   positions:      string[],
+ *   pipelines:      string[],
+ *   pipelineLabels: Record<string, string>,
  * }} props
  */
 export function AddCompanyModal({
@@ -27,16 +28,18 @@ export function AddCompanyModal({
   stages,
   stageLabels,
   positions,
-  pipelineLabel,
+  pipelines,
+  pipelineLabels,
 }) {
   const [submitted, setSubmitted] = useState(false);
 
   const errors = {
-    name:     !draft.name.trim()     ? 'Company name is required'  : null,
-    position: !draft.position        ? 'Please select a position'  : null,
+    name:     !draft.name.trim()                     ? 'Company name is required'          : null,
+    position: !draft.position                        ? 'Please select a position'          : null,
+    pipeline: !draft.pipeline || draft.pipeline.length === 0 ? 'Select at least one pipeline' : null,
   };
 
-  const isValid = !errors.name && !errors.position;
+  const isValid = !errors.name && !errors.position && !errors.pipeline;
 
   function handleAdd() {
     setSubmitted(true);
@@ -49,17 +52,24 @@ export function AddCompanyModal({
     onClose();
   }
 
+  function handleTogglePipeline(pipelineId) {
+    const current = draft.pipeline || [];
+    const isSelected = current.includes(pipelineId);
+
+    // Prevent deselecting the last pipeline
+    if (isSelected && current.length <= 1) return;
+
+    const updated = isSelected
+      ? current.filter((p) => p !== pipelineId)
+      : [...current, pipelineId];
+
+    onDraftChange({ ...draft, pipeline: updated });
+  }
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <div className="flex items-center gap-3 mb-4">
-          <h3 className="text-xl font-bold text-gray-800">Add Company</h3>
-          {pipelineLabel && (
-            <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
-              {pipelineLabel}
-            </span>
-          )}
-        </div>
+        <h3 className="text-xl font-bold text-gray-800 mb-4">Add Company</h3>
 
         <div className="space-y-4">
 
@@ -93,6 +103,32 @@ export function AddCompanyModal({
               ))}
             </select>
             <FormError message={submitted ? errors.position : null} />
+          </div>
+
+          {/* Pipeline */}
+          <div>
+            <FieldLabel required>Pipeline</FieldLabel>
+            <div className="flex gap-2" role="group" aria-label="Pipeline selection">
+              {pipelines.map((p) => {
+                const isSelected = (draft.pipeline || []).includes(p);
+                return (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => handleTogglePipeline(p)}
+                    aria-pressed={isSelected}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
+                      isSelected
+                        ? 'bg-purple-600 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {pipelineLabels[p]}
+                  </button>
+                );
+              })}
+            </div>
+            <FormError message={submitted ? errors.pipeline : null} />
           </div>
 
           {/* Initial Stage */}

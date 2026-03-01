@@ -5,6 +5,8 @@ import {
   applyStageUpdate,
   createCompany,
   flattenAndSortInterviews,
+  isInPipeline,
+  isMultiPipeline,
   migrateCompanies,
 } from './companyUtils';
 
@@ -45,44 +47,98 @@ function makeInterview(overrides = {}) {
 }
 
 // ---------------------------------------------------------------------------
+// isInPipeline
+// ---------------------------------------------------------------------------
+
+describe('isInPipeline', () => {
+  it('returns true when pipeline array contains the given ID', () => {
+    const company = makeCompany({ pipeline: ['tel-aviv', 'us'] });
+    expect(isInPipeline(company, 'tel-aviv')).toBe(true);
+    expect(isInPipeline(company, 'us')).toBe(true);
+  });
+
+  it('returns false when pipeline array does not contain the given ID', () => {
+    const company = makeCompany({ pipeline: ['tel-aviv'] });
+    expect(isInPipeline(company, 'us')).toBe(false);
+  });
+
+  it('returns false for an empty pipeline array', () => {
+    const company = makeCompany({ pipeline: [] });
+    expect(isInPipeline(company, 'tel-aviv')).toBe(false);
+  });
+
+  it('handles legacy scalar string pipeline (backwards compat)', () => {
+    const company = makeCompany({ pipeline: 'us' });
+    expect(isInPipeline(company, 'us')).toBe(true);
+    expect(isInPipeline(company, 'tel-aviv')).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isMultiPipeline
+// ---------------------------------------------------------------------------
+
+describe('isMultiPipeline', () => {
+  it('returns true when pipeline array has 2 or more entries', () => {
+    const company = makeCompany({ pipeline: ['tel-aviv', 'us'] });
+    expect(isMultiPipeline(company)).toBe(true);
+  });
+
+  it('returns false when pipeline array has exactly 1 entry', () => {
+    const company = makeCompany({ pipeline: ['tel-aviv'] });
+    expect(isMultiPipeline(company)).toBe(false);
+  });
+
+  it('returns false when pipeline is a scalar string', () => {
+    const company = makeCompany({ pipeline: 'tel-aviv' });
+    expect(isMultiPipeline(company)).toBe(false);
+  });
+
+  it('returns false when pipeline is an empty array', () => {
+    const company = makeCompany({ pipeline: [] });
+    expect(isMultiPipeline(company)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // createCompany
 // ---------------------------------------------------------------------------
 
 describe('createCompany', () => {
   it('builds a company object with the supplied draft fields', () => {
-    const draft = { name: 'Google', position: 'SWE', stage: 'applied', pipeline: 'tel-aviv' };
+    const draft = { name: 'Google', position: 'SWE', stage: 'applied', pipeline: ['tel-aviv'] };
     const company = createCompany(draft, () => 42);
 
     expect(company.name).toBe('Google');
     expect(company.position).toBe('SWE');
     expect(company.stage).toBe('applied');
-    expect(company.pipeline).toBe('tel-aviv');
+    expect(company.pipeline).toEqual(['tel-aviv']);
   });
 
   it('assigns a string id from the idFn return value', () => {
-    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested', pipeline: 'us' }, () => 999);
+    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested', pipeline: ['us'] }, () => 999);
     expect(company.id).toBe('999');
   });
 
   it('initialises interviews as an empty array', () => {
-    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested', pipeline: 'tel-aviv' }, () => 1);
+    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested', pipeline: ['tel-aviv'] }, () => 1);
     expect(company.interviews).toEqual([]);
   });
 
   it('initialises notes as an empty string', () => {
-    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested', pipeline: 'tel-aviv' }, () => 1);
+    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested', pipeline: ['tel-aviv'] }, () => 1);
     expect(company.notes).toBe('');
   });
 
   it('sets createdAt to an ISO string', () => {
-    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested', pipeline: 'tel-aviv' }, () => 1);
+    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested', pipeline: ['tel-aviv'] }, () => 1);
     expect(() => new Date(company.createdAt)).not.toThrow();
     expect(company.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
-  it('includes the pipeline field from the draft', () => {
-    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested', pipeline: 'us' }, () => 1);
-    expect(company.pipeline).toBe('us');
+  it('stores the pipeline array from the draft', () => {
+    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested', pipeline: ['tel-aviv', 'us'] }, () => 1);
+    expect(company.pipeline).toEqual(['tel-aviv', 'us']);
   });
 });
 
@@ -91,20 +147,20 @@ describe('createCompany', () => {
 // ---------------------------------------------------------------------------
 
 describe('migrateCompanies', () => {
-  it('adds the default pipeline to companies missing the field', () => {
+  it('wraps undefined pipeline in an array with the default', () => {
     const companies = [makeCompany({ id: '1' })];
     const result = migrateCompanies(companies, 'tel-aviv');
-    expect(result[0].pipeline).toBe('tel-aviv');
+    expect(result[0].pipeline).toEqual(['tel-aviv']);
   });
 
-  it('does not overwrite an existing pipeline value', () => {
+  it('wraps a scalar string pipeline in an array', () => {
     const companies = [makeCompany({ id: '1', pipeline: 'us' })];
     const result = migrateCompanies(companies, 'tel-aviv');
-    expect(result[0].pipeline).toBe('us');
+    expect(result[0].pipeline).toEqual(['us']);
   });
 
-  it('returns the original array reference when no migration is needed', () => {
-    const companies = [makeCompany({ id: '1', pipeline: 'us' })];
+  it('returns the original array reference when all pipelines are already arrays', () => {
+    const companies = [makeCompany({ id: '1', pipeline: ['us'] })];
     const result = migrateCompanies(companies, 'tel-aviv');
     expect(result).toBe(companies);
   });
@@ -116,14 +172,30 @@ describe('migrateCompanies', () => {
     expect(original.pipeline).toBeUndefined();
   });
 
-  it('handles a mix of migrated and non-migrated companies', () => {
+  it('does not mutate scalar pipeline companies', () => {
+    const original = makeCompany({ id: '1', pipeline: 'us' });
+    const companies = [original];
+    migrateCompanies(companies, 'tel-aviv');
+    expect(original.pipeline).toBe('us');
+  });
+
+  it('handles a mix of undefined, scalar, and array pipelines', () => {
     const companies = [
-      makeCompany({ id: '1', pipeline: 'us' }),
-      makeCompany({ id: '2' }),
+      makeCompany({ id: '1', pipeline: ['us'] }),
+      makeCompany({ id: '2', pipeline: 'tel-aviv' }),
+      makeCompany({ id: '3' }),
     ];
     const result = migrateCompanies(companies, 'tel-aviv');
-    expect(result[0].pipeline).toBe('us');
-    expect(result[1].pipeline).toBe('tel-aviv');
+    expect(result[0].pipeline).toEqual(['us']);
+    expect(result[1].pipeline).toEqual(['tel-aviv']);
+    expect(result[2].pipeline).toEqual(['tel-aviv']);
+  });
+
+  it('leaves multi-pipeline arrays unchanged', () => {
+    const companies = [makeCompany({ id: '1', pipeline: ['tel-aviv', 'us'] })];
+    const result = migrateCompanies(companies, 'tel-aviv');
+    expect(result).toBe(companies);
+    expect(result[0].pipeline).toEqual(['tel-aviv', 'us']);
   });
 
   it('returns the original array reference for an empty array', () => {

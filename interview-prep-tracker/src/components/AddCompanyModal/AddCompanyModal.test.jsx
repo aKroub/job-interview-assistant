@@ -4,16 +4,17 @@ import userEvent from '@testing-library/user-event';
 import { AddCompanyModal } from './AddCompanyModal';
 import { ACTIVE_STAGES, STAGE_LABELS } from '../../constants/stages';
 import { POSITIONS } from '../../constants/positions';
+import { PIPELINES, PIPELINE_LABELS } from '../../constants/pipelines';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 function makeDraft(overrides = {}) {
-  return { name: '', position: '', stage: 'applied', ...overrides };
+  return { name: '', position: '', stage: 'applied', pipeline: ['tel-aviv'], ...overrides };
 }
 
-function setup(draftOverrides = {}, handlers = {}, { pipelineLabel = 'Tel Aviv' } = {}) {
+function setup(draftOverrides = {}, handlers = {}) {
   const draft = makeDraft(draftOverrides);
   const onDraftChange = handlers.onDraftChange ?? jest.fn();
   const onAdd        = handlers.onAdd        ?? jest.fn();
@@ -28,7 +29,8 @@ function setup(draftOverrides = {}, handlers = {}, { pipelineLabel = 'Tel Aviv' 
       stages={ACTIVE_STAGES}
       stageLabels={STAGE_LABELS}
       positions={POSITIONS}
-      pipelineLabel={pipelineLabel}
+      pipelines={PIPELINES}
+      pipelineLabels={PIPELINE_LABELS}
     />
   );
 
@@ -78,10 +80,49 @@ describe('AddCompanyModal — rendering', () => {
     expect(screen.getByRole('button', { name: /add company/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
   });
+});
 
-  it('renders the pipeline label badge', () => {
-    setup({}, {}, { pipelineLabel: 'US' });
-    expect(screen.getByText('US')).toBeInTheDocument();
+// ---------------------------------------------------------------------------
+// Pipeline toggle buttons
+// ---------------------------------------------------------------------------
+
+describe('AddCompanyModal — pipeline toggles', () => {
+  it('renders a toggle button for each pipeline', () => {
+    setup();
+    PIPELINES.forEach((p) => {
+      expect(screen.getByRole('button', { name: PIPELINE_LABELS[p] })).toBeInTheDocument();
+    });
+  });
+
+  it('shows the active pipeline as pressed', () => {
+    setup({ pipeline: ['tel-aviv'] });
+    const telAvivBtn = screen.getByRole('button', { name: 'Tel Aviv' });
+    const usBtn = screen.getByRole('button', { name: 'US' });
+    expect(telAvivBtn).toHaveAttribute('aria-pressed', 'true');
+    expect(usBtn).toHaveAttribute('aria-pressed', 'false');
+  });
+
+  it('calls onDraftChange with both pipelines when toggling a second pipeline on', () => {
+    const { onDraftChange } = setup({ pipeline: ['tel-aviv'] });
+    userEvent.click(screen.getByRole('button', { name: 'US' }));
+    expect(onDraftChange).toHaveBeenCalledWith(
+      expect.objectContaining({ pipeline: ['tel-aviv', 'us'] })
+    );
+  });
+
+  it('calls onDraftChange removing a pipeline when toggling it off', () => {
+    const { onDraftChange } = setup({ pipeline: ['tel-aviv', 'us'] });
+    userEvent.click(screen.getByRole('button', { name: 'US' }));
+    expect(onDraftChange).toHaveBeenCalledWith(
+      expect.objectContaining({ pipeline: ['tel-aviv'] })
+    );
+  });
+
+  it('does not deselect the last remaining pipeline', () => {
+    const { onDraftChange } = setup({ pipeline: ['tel-aviv'] });
+    userEvent.click(screen.getByRole('button', { name: 'Tel Aviv' }));
+    // onDraftChange should NOT be called since we can't deselect the last one
+    expect(onDraftChange).not.toHaveBeenCalled();
   });
 });
 
@@ -107,14 +148,20 @@ describe('AddCompanyModal — validation', () => {
     expect(screen.getByText(/please select a position/i)).toBeInTheDocument();
   });
 
+  it('shows pipeline error when pipeline array is empty', async () => {
+    setup({ name: 'Google', position: POSITIONS[0], pipeline: [] });
+    userEvent.click(screen.getByRole('button', { name: /add company/i }));
+    expect(screen.getByText(/select at least one pipeline/i)).toBeInTheDocument();
+  });
+
   it('does not call onAdd when form is invalid', async () => {
     const { onAdd } = setup();
     userEvent.click(screen.getByRole('button', { name: /add company/i }));
     expect(onAdd).not.toHaveBeenCalled();
   });
 
-  it('calls onAdd when both name and position are provided', async () => {
-    const { onAdd } = setup({ name: 'Google', position: POSITIONS[0] });
+  it('calls onAdd when name, position, and pipeline are provided', async () => {
+    const { onAdd } = setup({ name: 'Google', position: POSITIONS[0], pipeline: ['tel-aviv'] });
     userEvent.click(screen.getByRole('button', { name: /add company/i }));
     expect(onAdd).toHaveBeenCalledTimes(1);
   });

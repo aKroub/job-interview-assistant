@@ -8,16 +8,17 @@ import { CompanyCard } from './CompanyCard';
  * Companies are dragged from one column and dropped here to move them.
  *
  * @param {{
- *   stage:         string,
- *   label:         string,
- *   companies:     Object[],
- *   onDelete:      (companyId: string) => void,
- *   onUpdateStage: (companyId: string, newStage: string) => void,
- *   onDragStart:   (e: DragEvent, companyId: string) => void,
- *   onDragEnd:     (e: DragEvent) => void,
+ *   stage:          string,
+ *   label:          string,
+ *   companies:      Object[],
+ *   onDelete:       (companyId: string) => void,
+ *   onUpdateStage:  (companyId: string, newStage: string) => void,
+ *   onDragStart:    (e: DragEvent, companyId: string) => void,
+ *   onDragEnd:      (e: DragEvent) => void,
+ *   pipelineLabels: Record<string, string>,
  * }} props
  */
-export function KanbanColumn({ stage, label, companies, onDelete, onUpdateStage, onDragStart, onDragEnd }) {
+export function KanbanColumn({ stage, label, companies, onDelete, onUpdateStage, onDragStart, onDragEnd, pipelineLabels }) {
   const [isDragOver, setIsDragOver] = useState(false);
 
   const columnCompanies = companies.filter((c) => c.stage === stage);
@@ -65,6 +66,7 @@ export function KanbanColumn({ stage, label, companies, onDelete, onUpdateStage,
             onDelete={onDelete}
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
+            pipelineLabels={pipelineLabels}
           />
         ))}
       </div>

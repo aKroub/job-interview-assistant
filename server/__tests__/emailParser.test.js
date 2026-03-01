@@ -9,6 +9,7 @@ import {
   extractCompanyNameFromText,
   normalizeCompanyName,
   extractPlainTextBody,
+  detectEmailIntent,
   SCHEDULING_PLATFORM_DOMAINS,
 } from '../src/utils/emailParser.js';
 
@@ -682,5 +683,83 @@ describe('extractPlainTextBody', () => {
       },
     };
     expect(extractPlainTextBody(message)).toBe(hebrew);
+  });
+});
+
+describe('detectEmailIntent', () => {
+  it('returns "cancel" for "interview has been cancelled"', () => {
+    expect(detectEmailIntent('Interview update', 'Your interview has been cancelled.')).toBe('cancel');
+  });
+
+  it('returns "cancel" for "no longer moving forward"', () => {
+    expect(detectEmailIntent('Application update', 'We are no longer moving forward with your application.')).toBe('cancel');
+  });
+
+  it('returns "cancel" for "position has been filled"', () => {
+    expect(detectEmailIntent('Update', 'Unfortunately, the position has been filled.')).toBe('cancel');
+  });
+
+  it('returns "cancel" for "decided not to proceed"', () => {
+    expect(detectEmailIntent('', 'After careful consideration, we have decided not to proceed.')).toBe('cancel');
+  });
+
+  it('returns "cancel" for "regret to inform"', () => {
+    expect(detectEmailIntent('Interview status', 'We regret to inform you that we will not be continuing.')).toBe('cancel');
+  });
+
+  it('returns "cancel" for "we will not be moving forward"', () => {
+    expect(detectEmailIntent('', 'Thank you for your time. We will not be moving forward.')).toBe('cancel');
+  });
+
+  it('returns "cancel" for US spelling "canceled"', () => {
+    expect(detectEmailIntent('', 'Your interview has been canceled.')).toBe('cancel');
+  });
+
+  it('returns "cancel" for "withdrawn"', () => {
+    expect(detectEmailIntent('Application withdrawn', 'Your application has been withdrawn.')).toBe('cancel');
+  });
+
+  it('returns "update" for "rescheduled"', () => {
+    expect(detectEmailIntent('Interview rescheduled', 'Your interview has been rescheduled to January 25.')).toBe('update');
+  });
+
+  it('returns "update" for "new time"', () => {
+    expect(detectEmailIntent('Interview update', 'There is a new time for your interview: 3:00 PM.')).toBe('update');
+  });
+
+  it('returns "update" for "moved to"', () => {
+    expect(detectEmailIntent('', 'Your interview has been moved to Thursday at 2:00 PM.')).toBe('update');
+  });
+
+  it('returns "update" for "time has been changed"', () => {
+    expect(detectEmailIntent('', 'The time has been changed for your upcoming interview.')).toBe('update');
+  });
+
+  it('returns "update" for "interview has been updated"', () => {
+    expect(detectEmailIntent('', 'Your interview has been updated. Please check the new details.')).toBe('update');
+  });
+
+  it('returns "add" for a standard invitation', () => {
+    expect(detectEmailIntent('Interview Invitation', 'Your interview is scheduled for next Monday.')).toBe('add');
+  });
+
+  it('returns "add" for empty/null input', () => {
+    expect(detectEmailIntent(null, null)).toBe('add');
+    expect(detectEmailIntent('', '')).toBe('add');
+  });
+
+  it('cancel takes priority over update when both keywords present', () => {
+    expect(detectEmailIntent(
+      'Interview cancelled',
+      'Your interview has been cancelled. We will reschedule at a later date.',
+    )).toBe('cancel');
+  });
+
+  it('detects cancel in subject only', () => {
+    expect(detectEmailIntent('Interview has been cancelled', 'Please disregard the previous invite.')).toBe('cancel');
+  });
+
+  it('detects update in subject only', () => {
+    expect(detectEmailIntent('Interview rescheduled to Friday', '')).toBe('update');
   });
 });

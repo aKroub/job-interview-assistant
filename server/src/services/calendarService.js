@@ -1,5 +1,5 @@
 import { google } from 'googleapis';
-import { scoreCalendarEvent } from '../utils/matchingUtils.js';
+import { matchesInterviewKeywords, scoreCalendarEvent } from '../utils/matchingUtils.js';
 import { extractCompanyNameFromText } from '../utils/emailParser.js';
 
 /**
@@ -37,6 +37,7 @@ export function createCalendarService(authClient, options = {}) {
         timeMin,
         timeMax,
         singleEvents: true,
+        showDeleted: true,
         orderBy: 'startTime',
         maxResults: 50,
       });
@@ -51,7 +52,12 @@ export function createCalendarService(authClient, options = {}) {
 
   /**
    * Scans Google Calendar for upcoming interview-related events.
-   * Returns scored results above the minimum confidence threshold.
+   * Returns scored results above the minimum confidence threshold,
+   * plus any cancelled events that have interview keywords in their title.
+   *
+   * Cancelled events (status === 'cancelled') are included with
+   * `calendarStatus: 'cancelled'` so downstream consumers can detect
+   * interview cancellations. Active events have `calendarStatus: 'confirmed'`.
    *
    * @returns {Promise<Array<{
    *   eventId: string,
@@ -68,6 +74,7 @@ export function createCalendarService(authClient, options = {}) {
    *   hasVideoLink: boolean,
    *   location: string,
    *   companyName: string,
+   *   calendarStatus: 'confirmed' | 'cancelled',
    * }>>}
    */
   async function scanForInterviews() {
@@ -84,6 +91,45 @@ export function createCalendarService(authClient, options = {}) {
     const results = [];
 
     for (const event of events) {
+      const isCancelled = event.status === 'cancelled';
+
+      if (isCancelled) {
+        // Cancelled events may lack start/end — skip if we can't extract a date
+        const startDateTime = event.start?.dateTime || '';
+        const date = startDateTime ? startDateTime.slice(0, 10) : (event.start?.date || '');
+        if (!date) continue;
+
+        // Only include cancelled events that look like interviews (keyword in title)
+        const { isMatch, matchedKeywords } = matchesInterviewKeywords(
+          event.summary || '', event.description || ''
+        );
+        if (!isMatch) continue;
+
+        const time = startDateTime ? startDateTime.slice(11, 16) : '';
+        const companyName = extractCompanyNameFromText(event.summary || '') ||
+                            extractCompanyNameFromText(event.description || '');
+
+        results.push({
+          eventId: event.id || '',
+          summary: event.summary || '',
+          description: event.description || '',
+          organizerEmail: event.organizer?.email || '',
+          startDateTime,
+          endDateTime: event.end?.dateTime || '',
+          date,
+          time,
+          score: 0.8,
+          matchedKeywords,
+          reasons: ['cancelled-event'],
+          hasVideoLink: !!(event.hangoutLink || event.conferenceData),
+          location: event.location || '',
+          companyName,
+          calendarStatus: 'cancelled',
+        });
+        continue;
+      }
+
+      // Active events — score as before
       const { score, matchedKeywords, reasons } = scoreCalendarEvent(event, userEmail);
 
       if (score >= minScore) {
@@ -108,6 +154,7 @@ export function createCalendarService(authClient, options = {}) {
           hasVideoLink: !!(event.hangoutLink || event.conferenceData),
           location: event.location || '',
           companyName,
+          calendarStatus: 'confirmed',
         });
       }
     }

@@ -80,6 +80,44 @@ export const SCHEDULING_PLATFORM_DOMAINS = [
 ];
 
 /**
+ * Multi-word phrases that indicate an interview has been cancelled.
+ * Checked against the combined subject + body text.
+ * Uses partial stems (e.g. "cancel" not "cancelled") to match both
+ * US and UK spellings (cancelled/canceled).
+ */
+const CANCEL_PHRASES = [
+  'interview has been cancel',
+  'interview is cancel',
+  'interview was cancel',
+  'no longer moving forward',
+  'position has been filled',
+  'decided not to proceed',
+  'regret to inform',
+  'we will not be moving forward',
+  'will not be proceeding',
+  'not moving forward with your',
+  'withdraw',
+];
+
+/**
+ * Keywords that indicate an interview has been rescheduled or updated.
+ * Checked against the combined subject + body text.
+ */
+const UPDATE_PHRASES = [
+  'rescheduled',
+  'reschedule',
+  'new time',
+  'updated time',
+  'moved to',
+  'changed to',
+  'new date',
+  'time has been changed',
+  'date has been changed',
+  'interview has been updated',
+  'interview has been moved',
+];
+
+/**
  * Domains that send non-interview emails matching interview keywords.
  * Emails from these are likely newsletters or marketing, not real invitations.
  */
@@ -491,4 +529,37 @@ export function extractPlainTextBody(message) {
   if (!encoded) return '';
 
   return Buffer.from(encoded, 'base64url').toString('utf-8');
+}
+
+/**
+ * Detects the intent of an interview-related email by scanning for
+ * cancellation and rescheduling phrases.
+ *
+ * Priority: cancel > update > add.
+ * Cancel phrases are checked first because an email that says
+ * "your interview has been cancelled — we will reschedule" should
+ * be treated as a cancellation, not an update.
+ *
+ * @param {string} subject - email subject line
+ * @param {string} body - email body text (plain text preferred)
+ * @returns {'add' | 'cancel' | 'update'}
+ */
+export function detectEmailIntent(subject, body) {
+  const subjectLower = (subject || '').toLowerCase();
+  const bodyLower = (body || '').toLowerCase();
+  const combined = `${subjectLower} ${bodyLower}`;
+
+  for (const phrase of CANCEL_PHRASES) {
+    if (combined.includes(phrase)) {
+      return 'cancel';
+    }
+  }
+
+  for (const phrase of UPDATE_PHRASES) {
+    if (combined.includes(phrase)) {
+      return 'update';
+    }
+  }
+
+  return 'add';
 }

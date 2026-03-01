@@ -8,6 +8,7 @@ import {
   extractDateTimeFromText,
   extractCompanyNameFromText,
   extractPlainTextBody,
+  detectEmailIntent,
 } from '../utils/emailParser.js';
 
 /**
@@ -42,6 +43,9 @@ export function createGmailService(authClient, options = {}) {
       'phone screen',
       'hiring',
       'onsite',
+      'interview cancelled',
+      'interview canceled',
+      'interview rescheduled',
     ];
     const keywordQuery = keywords.map((kw) => `"${kw}"`).join(' OR ');
     return `(${keywordQuery}) newer_than:${days}d`;
@@ -64,6 +68,7 @@ export function createGmailService(authClient, options = {}) {
    *   extractedDate: string | null,
    *   extractedTime: string | null,
    *   extractedDuration: number | null,
+   *   intent: 'add' | 'cancel' | 'update',
    * }>>}
    */
   async function scanForInterviews() {
@@ -123,6 +128,9 @@ export function createGmailService(authClient, options = {}) {
       const dateTimeSource = bodyText ? `${subject} ${bodyText}` : combinedText;
       const { date, time, duration } = extractDateTimeFromText(dateTimeSource);
 
+      // Classify the email's purpose — invitation, cancellation, or reschedule
+      const intent = detectEmailIntent(subject, bodyText || snippet);
+
       if (score >= minScore) {
         results.push({
           messageId,
@@ -137,6 +145,7 @@ export function createGmailService(authClient, options = {}) {
           extractedDate: date,
           extractedTime: time,
           extractedDuration: duration,
+          intent,
         });
       }
     }

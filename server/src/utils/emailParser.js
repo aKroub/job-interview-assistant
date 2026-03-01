@@ -89,6 +89,12 @@ const CANCEL_PHRASES = [
   'interview has been cancel',
   'interview is cancel',
   'interview was cancel',
+  'interview cancellation',
+  'cancel your interview',
+  'cancelled event',
+  'canceled event',
+  'cancellation notice',
+  'cancellation',
   'no longer moving forward',
   'position has been filled',
   'decided not to proceed',
@@ -440,7 +446,7 @@ export function extractCompanyNameFromText(text) {
   // stop at punctuation, end-of-string, or common English stop words.
   // This prevents the capture from absorbing entire sentences when subject
   // and snippet are concatenated.
-  const TAIL = '([a-z0-9][a-z0-9 ._-]*?[a-z0-9])(?=\\s*[,!?.:;\\n\\r()\\[\\]{}|]|\\s*$|\\s+(?:for|on|in|via|from|to|we|you|your|is|are|has|have|had|will|would|this|that|the|a|an|i)\\b)';
+  const TAIL = '([a-z0-9][a-z0-9 ._-]*?[a-z0-9])(?=\\s*[,!?.:;\\n\\r()\\[\\]{}|]|\\s*$|\\s+(?:for|on|in|via|from|to|we|you|your|is|are|has|have|had|will|would|this|that|the|a|an|i|hi|hello|dear|regarding|about|please|just|and|or|but|so|if|at|with|by)\\b)';
 
   // COMPANY_HEAD — for patterns where the company name is followed by more
   // regex (e.g. "Interview Confirmation"). Uses the original greedy match
@@ -448,6 +454,10 @@ export function extractCompanyNameFromText(text) {
   const HEAD = '([a-z0-9][a-z0-9 ._-]*[a-z0-9])';
 
   const patterns = [
+    // "on behalf of Dream" — recruiting platforms (e.g. Spark Hire) send emails
+    // on behalf of the hiring company. Checked first to avoid false matches
+    // from "interview ... with {PersonName}" crossing subject–snippet boundaries.
+    new RegExp(`on\\s+behalf\\s+of\\s+${TAIL}`, 'i'),
     // "Interview for the ... role at Dream", "interview scheduled with Google" (any words between keyword and preposition)
     new RegExp(`(?:interview|meeting|call|chat|screen)\\s+.+?\\s+(?:with|at)\\s+${TAIL}`, 'i'),
     // "interview with Torq", "meeting with Pango", "call with Google"

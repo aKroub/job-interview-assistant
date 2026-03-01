@@ -58,6 +58,20 @@ describe('H1 — detectEmailIntent misses "Interview Cancellation" noun form', (
       'Your interview has been canceled due to scheduling conflicts.'
     )).toBe('cancel');
   });
+
+  it('detects Google Calendar "Cancelled event:" notification as cancel (UK spelling)', () => {
+    expect(detectEmailIntent(
+      'Cancelled event: Interview with Torq @ Mon 2 Mar 2026 15:15 – 16:45 (GMT+2) (ayalkroub@gmail.com)',
+      ''
+    )).toBe('cancel');
+  });
+
+  it('detects Google Calendar "Canceled event:" notification as cancel (US spelling)', () => {
+    expect(detectEmailIntent(
+      'Canceled event: Interview with Torq @ Mon 2 Mar 2026 15:15 – 16:45 (GMT+2)',
+      ''
+    )).toBe('cancel');
+  });
 });
 
 // -------------------------------------------------------------------------

@@ -98,6 +98,46 @@ Before opening any PR, confirm every item:
 
 ---
 
+## Post-PR Review & Stress Test (mandatory)
+
+After every PR is created and quality gates pass, run the two global skills **in order** before requesting user approval:
+
+### Step 1: Code Review (`code-review` skill)
+
+Invoke the `code-review` skill against the PR diff. The review must:
+
+1. Scope the full diff (`git diff main...HEAD`)
+2. Read all changed files in full (not just hunks) for context
+3. Analyze across all 7 categories: correctness, security, performance, maintainability, testing, simplicity, API
+4. Classify findings by severity (CRITICAL / HIGH / MEDIUM / LOW)
+5. **Fix all findings** rated HIGH or above immediately — commit the fixes to the same branch
+6. Fix MEDIUM/LOW findings as well unless there's a clear reason to defer
+7. Push the fixes and re-run quality gates before proceeding
+
+### Step 2: Stress Testing (`debug-mode` skill)
+
+After the code review fixes are committed, invoke the `debug-mode` skill:
+
+1. Create an isolated debug branch from the feature branch
+2. Generate 3-5 hypotheses about what could break (edge cases, race conditions, data corruption, state bugs)
+3. Write stress tests covering all hypotheses — commit them to the debug branch
+4. Run the stress tests and analyze results for each hypothesis
+5. If any bug is found: reset instrumentation, fix at root cause, verify red-to-green
+6. Cherry-pick the stress tests back to the feature branch as permanent regression tests
+7. Clean up the debug branch
+8. Push and re-run full quality gates
+
+### Output
+
+Both steps produce a structured summary for the user showing:
+- Code review findings (with severity) and what was fixed
+- Hypothesis table with CONFIRMED/REFUTED verdicts
+- Final test count and quality gate results
+
+Only after both steps pass cleanly should the PR be presented to the user for merge approval.
+
+---
+
 ## Architecture — Layered (bottom-up dependency order)
 
 ### Frontend (`interview-prep-tracker/src/`)

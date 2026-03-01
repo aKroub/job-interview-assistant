@@ -195,8 +195,9 @@ export function deriveInterviewStatus(interview, now = new Date()) {
 /**
  * Finds the interview in the user's tracker that best matches a suggestion.
  *
- * Matches by normalised company name + date (exact match). When multiple
- * interviews share the same date, the one with the closest time wins.
+ * Matches by normalised company name (exact or substring) + date. When
+ * multiple interviews share the same date, the one with the closest time wins.
+ * Exact name matches are preferred over substring matches.
  *
  * @param {Object[]} companies
  * @param {{ companyName: string, date: string, time: string }} suggestion
@@ -210,9 +211,14 @@ export function matchSuggestionToInterview(companies, suggestion) {
 
   let best = null;
   let bestTimeDiff = Infinity;
+  let bestIsExact = false;
 
   for (const company of companies) {
-    if (normalizeForMatch(company.name) !== targetName) continue;
+    const companyNorm = normalizeForMatch(company.name);
+    const isExact = companyNorm === targetName;
+    const isSubstring = !isExact && namesMatch(companyNorm, targetName);
+
+    if (!isExact && !isSubstring) continue;
 
     for (const interview of company.interviews) {
       if (interview.date !== targetDate) continue;
@@ -222,10 +228,14 @@ export function matchSuggestionToInterview(companies, suggestion) {
         ? Math.abs(timeToMinutes(suggestion.time) - timeToMinutes(interview.time))
         : 0;
 
-      if (!best || timeDiff < bestTimeDiff) {
-        best = { companyId: company.id, interviewId: interview.id };
-        bestTimeDiff = timeDiff;
-      }
+      // Exact name matches always beat substring matches
+      if (bestIsExact && !isExact) continue;
+      const dominated = best && (isExact === bestIsExact) && timeDiff >= bestTimeDiff;
+      if (dominated) continue;
+
+      best = { companyId: company.id, interviewId: interview.id };
+      bestTimeDiff = timeDiff;
+      bestIsExact = isExact;
     }
   }
 
@@ -252,6 +262,27 @@ export function applyInterviewUpdate(companies, companyId, interviewId, updates)
         }
       : c
   );
+}
+
+/**
+ * Returns true when two normalised company names are close enough to match.
+ *
+ * Checks whether either string contains the other — handles the common case
+ * where the backend extracts a short domain name (e.g. "checkpoint") while the
+ * user entered a longer form (e.g. "checkpointsoftwaretechnologies").
+ *
+ * Requires the shorter string to be at least 3 characters to avoid
+ * false positives on very short strings like "at" matching "meta".
+ *
+ * @param {string} a - normalised name
+ * @param {string} b - normalised name
+ * @returns {boolean}
+ */
+function namesMatch(a, b) {
+  if (!a || !b) return false;
+  const shorter = a.length <= b.length ? a : b;
+  if (shorter.length < 3) return false;
+  return a.includes(b) || b.includes(a);
 }
 
 /**

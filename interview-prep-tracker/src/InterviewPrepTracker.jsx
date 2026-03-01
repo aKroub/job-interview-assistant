@@ -90,19 +90,15 @@ const InterviewPrepTracker = () => {
 
     if (action === 'cancel') {
       const matched = matchSuggestionToInterview(companies, suggestion);
-      if (matched) {
-        updateInterviewStatus(matched.companyId, matched.interviewId, 'cancelled');
-      }
+      if (!matched) return;
+      updateInterviewStatus(matched.companyId, matched.interviewId, 'cancelled');
       dismissSuggestion(suggestion);
       return;
     }
 
     if (action === 'update') {
       const matched = matchSuggestionToInterview(companies, suggestion);
-      if (!matched) {
-        dismissSuggestion(suggestion);
-        return;
-      }
+      if (!matched) return;
       const values = {
         companyId: matched.companyId,
         type:      suggestion.type || '',

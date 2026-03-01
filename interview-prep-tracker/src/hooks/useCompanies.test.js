@@ -13,7 +13,7 @@ function setup() {
   return { result, storage };
 }
 
-const DRAFT = { name: 'Google', position: 'SWE', stage: 'applied' };
+const DRAFT = { name: 'Google', position: 'SWE', stage: 'applied', pipeline: 'tel-aviv' };
 const INTERVIEW = { type: 'Phone Screen', date: '2024-07-01', time: '10:00', status: 'scheduled' };
 
 // ---------------------------------------------------------------------------
@@ -172,6 +172,14 @@ describe('isValidCompany', () => {
   it('returns false when interviews is not an array', () => {
     expect(isValidCompany({ ...valid, interviews: null })).toBe(false);
     expect(isValidCompany({ ...valid, interviews: 'oops' })).toBe(false);
+  });
+
+  it('accepts companies without a pipeline field (backwards compat)', () => {
+    expect(isValidCompany(valid)).toBe(true);
+  });
+
+  it('accepts companies with a valid pipeline field', () => {
+    expect(isValidCompany({ ...valid, pipeline: 'us' })).toBe(true);
   });
 });
 

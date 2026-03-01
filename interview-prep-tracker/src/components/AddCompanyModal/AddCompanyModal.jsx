@@ -9,13 +9,14 @@ import { FormError } from '../shared/FormError';
  * All persisted data and callbacks arrive via props.
  *
  * @param {{
- *   draft:        { name: string, position: string, stage: string },
+ *   draft:         { name: string, position: string, stage: string, pipeline: string },
  *   onDraftChange: (updatedDraft: Object) => void,
- *   onAdd:        () => void,
- *   onClose:      () => void,
- *   stages:       string[],
- *   stageLabels:  Object,
- *   positions:    string[],
+ *   onAdd:         () => void,
+ *   onClose:       () => void,
+ *   stages:        string[],
+ *   stageLabels:   Object,
+ *   positions:     string[],
+ *   pipelineLabel: string,
  * }} props
  */
 export function AddCompanyModal({
@@ -26,6 +27,7 @@ export function AddCompanyModal({
   stages,
   stageLabels,
   positions,
+  pipelineLabel,
 }) {
   const [submitted, setSubmitted] = useState(false);
 
@@ -50,7 +52,14 @@ export function AddCompanyModal({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <h3 className="text-xl font-bold text-gray-800 mb-4">Add Company</h3>
+        <div className="flex items-center gap-3 mb-4">
+          <h3 className="text-xl font-bold text-gray-800">Add Company</h3>
+          {pipelineLabel && (
+            <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+              {pipelineLabel}
+            </span>
+          )}
+        </div>
 
         <div className="space-y-4">
 

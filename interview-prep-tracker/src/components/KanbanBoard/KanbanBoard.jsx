@@ -9,15 +9,24 @@ import { KanbanColumn } from './KanbanColumn';
  * Dropping a card on a column calls onUpdateStage to persist the new stage.
  *
  * @param {{
- *   companies:       Object[],
- *   stages:          string[],
- *   stageLabels:     Object,
- *   onAddCompany:    () => void,
- *   onDeleteCompany: (companyId: string) => void,
- *   onUpdateStage:   (companyId: string, newStage: string) => void,
+ *   companies:        Object[],
+ *   stages:           string[],
+ *   stageLabels:      Object,
+ *   activePipeline:   string,
+ *   pipelines:        string[],
+ *   pipelineLabels:   Record<string, string>,
+ *   pipelineCounts:   Record<string, number>,
+ *   onPipelineChange: (pipeline: string) => void,
+ *   onAddCompany:     () => void,
+ *   onDeleteCompany:  (companyId: string) => void,
+ *   onUpdateStage:    (companyId: string, newStage: string) => void,
  * }} props
  */
-export function KanbanBoard({ companies, stages, stageLabels, onAddCompany, onDeleteCompany, onUpdateStage }) {
+export function KanbanBoard({
+  companies, stages, stageLabels,
+  activePipeline, pipelines, pipelineLabels, pipelineCounts, onPipelineChange,
+  onAddCompany, onDeleteCompany, onUpdateStage,
+}) {
   const [draggingId, setDraggingId] = useState(null);
 
   function handleDragStart(e, companyId) {
@@ -34,6 +43,26 @@ export function KanbanBoard({ companies, stages, stageLabels, onAddCompany, onDe
     <div className="space-y-4">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-bold text-gray-800">Pipeline</h2>
+        <div className="flex items-center gap-2">
+          {pipelines.map((p) => (
+            <button
+              key={p}
+              onClick={() => onPipelineChange(p)}
+              className={`px-4 py-1.5 rounded-full text-sm font-medium transition ${
+                p === activePipeline
+                  ? 'bg-purple-600 text-white shadow-sm'
+                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              {pipelineLabels[p]}
+              <span className={`ml-1.5 text-xs ${
+                p === activePipeline ? 'text-purple-200' : 'text-gray-400'
+              }`}>
+                {pipelineCounts[p] ?? 0}
+              </span>
+            </button>
+          ))}
+        </div>
         <button
           onClick={onAddCompany}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"

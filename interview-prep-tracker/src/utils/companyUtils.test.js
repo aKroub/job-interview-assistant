@@ -49,33 +49,39 @@ function makeInterview(overrides = {}) {
 
 describe('createCompany', () => {
   it('builds a company object with the supplied draft fields', () => {
-    const draft = { name: 'Google', position: 'SWE', stage: 'applied' };
+    const draft = { name: 'Google', position: 'SWE', stage: 'applied', pipeline: 'tel-aviv' };
     const company = createCompany(draft, () => 42);
 
     expect(company.name).toBe('Google');
     expect(company.position).toBe('SWE');
     expect(company.stage).toBe('applied');
+    expect(company.pipeline).toBe('tel-aviv');
   });
 
   it('assigns a string id from the idFn return value', () => {
-    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested' }, () => 999);
+    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested', pipeline: 'us' }, () => 999);
     expect(company.id).toBe('999');
   });
 
   it('initialises interviews as an empty array', () => {
-    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested' }, () => 1);
+    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested', pipeline: 'tel-aviv' }, () => 1);
     expect(company.interviews).toEqual([]);
   });
 
   it('initialises notes as an empty string', () => {
-    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested' }, () => 1);
+    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested', pipeline: 'tel-aviv' }, () => 1);
     expect(company.notes).toBe('');
   });
 
   it('sets createdAt to an ISO string', () => {
-    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested' }, () => 1);
+    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested', pipeline: 'tel-aviv' }, () => 1);
     expect(() => new Date(company.createdAt)).not.toThrow();
     expect(company.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
+  it('includes the pipeline field from the draft', () => {
+    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested', pipeline: 'us' }, () => 1);
+    expect(company.pipeline).toBe('us');
   });
 });
 

@@ -8,9 +8,9 @@
 /**
  * Builds a complete company object from a user-supplied draft.
  *
- * @param {{ name: string, position: string, stage: string }} draft
+ * @param {{ name: string, position: string, stage: string, pipeline: string }} draft
  * @param {() => number} [idFn=Date.now] - injectable ID generator (use in tests to get deterministic IDs)
- * @returns {Object} Full company object with id, interviews, notes, createdAt
+ * @returns {Object} Full company object with id, pipeline, interviews, notes, createdAt
  */
 export function createCompany(draft, idFn = Date.now) {
   return {
@@ -18,6 +18,7 @@ export function createCompany(draft, idFn = Date.now) {
     name:       draft.name,
     position:   draft.position,
     stage:      draft.stage,
+    pipeline:   draft.pipeline,
     interviews: [],
     notes:      '',
     createdAt:  new Date().toISOString(),

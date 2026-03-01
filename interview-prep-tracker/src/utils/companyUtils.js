@@ -243,6 +243,27 @@ export function matchSuggestionToInterview(companies, suggestion) {
 }
 
 /**
+ * Finds the first company whose name fuzzy-matches the given name.
+ *
+ * Uses the same normalisation and substring logic as
+ * {@link matchSuggestionToInterview} so that all suggestion actions
+ * (add, cancel, update) resolve company names consistently.
+ *
+ * @param {Object[]} companies
+ * @param {string}   name
+ * @returns {Object | null}
+ */
+export function findCompanyByFuzzyName(companies, name) {
+  const target = normalizeForMatch(name);
+  if (!target) return null;
+
+  const exact = companies.find((c) => normalizeForMatch(c.name) === target);
+  if (exact) return exact;
+
+  return companies.find((c) => namesMatch(normalizeForMatch(c.name), target)) || null;
+}
+
+/**
  * Returns a new companies array with one interview's fields updated.
  *
  * @param {Object[]} companies

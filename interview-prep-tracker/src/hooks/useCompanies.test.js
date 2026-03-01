@@ -13,7 +13,7 @@ function setup() {
   return { result, storage };
 }
 
-const DRAFT = { name: 'Google', position: 'SWE', stage: 'applied', pipeline: 'tel-aviv' };
+const DRAFT = { name: 'Google', position: 'SWE', stage: 'applied', pipeline: ['tel-aviv'] };
 const INTERVIEW = { type: 'Phone Screen', date: '2024-07-01', time: '10:00', status: 'scheduled' };
 
 // ---------------------------------------------------------------------------

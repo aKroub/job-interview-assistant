@@ -191,3 +191,93 @@ export function deriveInterviewStatus(interview, now = new Date()) {
     : `${interview.date}T23:59`;
   return new Date(dateTimeStr) < now ? 'passed' : 'scheduled';
 }
+
+/**
+ * Finds the interview in the user's tracker that best matches a suggestion.
+ *
+ * Matches by normalised company name + date (exact match). When multiple
+ * interviews share the same date, the one with the closest time wins.
+ *
+ * @param {Object[]} companies
+ * @param {{ companyName: string, date: string, time: string }} suggestion
+ * @returns {{ companyId: string, interviewId: string } | null}
+ */
+export function matchSuggestionToInterview(companies, suggestion) {
+  const targetName = normalizeForMatch(suggestion.companyName || '');
+  const targetDate = suggestion.date || '';
+
+  if (!targetName || !targetDate) return null;
+
+  let best = null;
+  let bestTimeDiff = Infinity;
+
+  for (const company of companies) {
+    if (normalizeForMatch(company.name) !== targetName) continue;
+
+    for (const interview of company.interviews) {
+      if (interview.date !== targetDate) continue;
+      if (interview.status === 'cancelled') continue;
+
+      const timeDiff = suggestion.time && interview.time
+        ? Math.abs(timeToMinutes(suggestion.time) - timeToMinutes(interview.time))
+        : 0;
+
+      if (!best || timeDiff < bestTimeDiff) {
+        best = { companyId: company.id, interviewId: interview.id };
+        bestTimeDiff = timeDiff;
+      }
+    }
+  }
+
+  return best;
+}
+
+/**
+ * Returns a new companies array with one interview's fields updated.
+ *
+ * @param {Object[]} companies
+ * @param {string}   companyId
+ * @param {string}   interviewId
+ * @param {Object}   updates - fields to merge (e.g. { date, time, duration })
+ * @returns {Object[]}
+ */
+export function applyInterviewUpdate(companies, companyId, interviewId, updates) {
+  return companies.map((c) =>
+    c.id === companyId
+      ? {
+          ...c,
+          interviews: c.interviews.map((i) =>
+            i.id === interviewId ? { ...i, ...updates } : i
+          ),
+        }
+      : c
+  );
+}
+
+/**
+ * Normalises a company name for fuzzy matching: lowercase, strip
+ * whitespace, punctuation, and common suffixes (ltd, inc, etc.).
+ *
+ * @param {string} name
+ * @returns {string}
+ */
+function normalizeForMatch(name) {
+  if (!name) return '';
+  return name
+    .toLowerCase()
+    .replace(/[.\-_,!'"()]/g, '')
+    .replace(/\b(ltd|inc|corp|llc|gmbh|co)\b/g, '')
+    .replace(/\s+/g, '')
+    .trim();
+}
+
+/**
+ * Converts "HH:mm" to total minutes since midnight.
+ *
+ * @param {string} time - "HH:mm" format
+ * @returns {number}
+ */
+function timeToMinutes(time) {
+  const [h, m] = time.split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+}

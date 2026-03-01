@@ -1,17 +1,62 @@
 import React from 'react';
-import { Calendar, Mail, Building2, X, CalendarPlus } from 'lucide-react';
+import { Calendar, Mail, Building2, X, CalendarPlus, XCircle, CalendarClock } from 'lucide-react';
 import { TYPE_CONFIG } from '../../constants/interviewTypes';
+
+/**
+ * Per-action visual configuration for suggestion cards.
+ *
+ * Each action ('add', 'cancel', 'update') maps to a set of Tailwind classes,
+ * a button label, an icon, and a button colour. The lookup defaults to 'add'
+ * when the suggestion has no action field (backward compat).
+ */
+const ACTION_CONFIG = {
+  add: {
+    bg: 'bg-white',
+    border: 'border-purple-200',
+    hoverBorder: 'hover:border-purple-400',
+    snippetBorder: 'border-purple-200',
+    ButtonIcon: CalendarPlus,
+    buttonLabel: 'Schedule',
+    buttonColour: 'text-purple-600',
+    ariaVerb: 'Schedule',
+  },
+  cancel: {
+    bg: 'bg-red-50',
+    border: 'border-red-200',
+    hoverBorder: 'hover:border-red-400',
+    snippetBorder: 'border-red-200',
+    ButtonIcon: XCircle,
+    buttonLabel: 'Cancel Interview',
+    buttonColour: 'text-red-600',
+    ariaVerb: 'Cancel',
+  },
+  update: {
+    bg: 'bg-blue-50',
+    border: 'border-blue-200',
+    hoverBorder: 'hover:border-blue-400',
+    snippetBorder: 'border-blue-200',
+    ButtonIcon: CalendarClock,
+    buttonLabel: 'Update Interview',
+    buttonColour: 'text-blue-600',
+    ariaVerb: 'Update',
+  },
+};
 
 /**
  * A single interview suggestion card.
  *
  * Displays the detected company, interview type, date/time, subject line,
- * and email snippet. Clicking the card (or the "Schedule" button) triggers
+ * and email snippet. Clicking the card (or the action button) triggers
  * onAccept; the dismiss × button removes the suggestion.
  *
- * Email-only suggestions (source: 'gmail') render with an amber theme and
- * a "Not on your calendar" badge so the user knows the event was detected
- * from email only and has not been added to their calendar yet.
+ * The card theme varies by `suggestion.action`:
+ *  - 'add' (default): purple theme with "Schedule" button
+ *  - 'cancel': red theme with "Cancel Interview" button
+ *  - 'update': blue theme with "Update Interview" button
+ *
+ * Email-only suggestions (source: 'gmail') override to amber theme only
+ * when the action is 'add'. Cancel/update email-only cards keep their
+ * action-specific theme to preserve the visual signal.
  *
  * @param {{
  *   suggestion:  Object,
@@ -21,7 +66,15 @@ import { TYPE_CONFIG } from '../../constants/interviewTypes';
  */
 export function SuggestionCard({ suggestion, onDismiss, onAccept }) {
   const { Icon, colour } = TYPE_CONFIG[suggestion.type] ?? { Icon: Calendar, colour: 'text-gray-600' };
+  const action = suggestion.action || 'add';
+  const config = ACTION_CONFIG[action] || ACTION_CONFIG.add;
   const isEmailOnly = suggestion.source === 'gmail';
+  const useAmberTheme = isEmailOnly && action === 'add';
+
+  const cardBg = useAmberTheme ? 'bg-amber-50' : config.bg;
+  const cardBorder = useAmberTheme ? 'border-amber-200' : config.border;
+  const cardHover = useAmberTheme ? 'hover:border-amber-400' : config.hoverBorder;
+  const snippetBorderClass = useAmberTheme ? 'border-amber-200' : config.snippetBorder;
 
   function handleCardClick() {
     onAccept(suggestion);
@@ -34,12 +87,12 @@ export function SuggestionCard({ suggestion, onDismiss, onAccept }) {
 
   return (
     <div
-      className={`${isEmailOnly ? 'bg-amber-50 border-amber-200 hover:border-amber-400' : 'bg-white border-purple-200 hover:border-purple-400'} border rounded-lg p-4 shadow-sm flex flex-col gap-2 cursor-pointer hover:shadow-md transition`}
+      className={`${cardBg} ${cardBorder} ${cardHover} border rounded-lg p-4 shadow-sm flex flex-col gap-2 cursor-pointer hover:shadow-md transition`}
       onClick={handleCardClick}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleCardClick(); }}
-      aria-label={`Schedule ${suggestion.companyName} interview`}
+      aria-label={`${config.ariaVerb} ${suggestion.companyName} interview`}
     >
 
       {/* Header: company + type + dismiss */}
@@ -75,7 +128,7 @@ export function SuggestionCard({ suggestion, onDismiss, onAccept }) {
       )}
 
       {/* Email-only badge */}
-      {isEmailOnly && (
+      {isEmailOnly && action === 'add' && (
         <div className="flex items-center gap-1 text-xs text-amber-600 bg-amber-50 rounded px-2 py-0.5 w-fit">
           <Mail size={12} className="shrink-0" />
           <span>Not on your calendar</span>
@@ -92,19 +145,19 @@ export function SuggestionCard({ suggestion, onDismiss, onAccept }) {
 
       {/* Email snippet */}
       {suggestion.emailSnippet && (
-        <p className={`text-xs text-gray-500 line-clamp-2 border-l-2 ${isEmailOnly ? 'border-amber-200' : 'border-purple-200'} pl-2`}>
+        <p className={`text-xs text-gray-500 line-clamp-2 border-l-2 ${snippetBorderClass} pl-2`}>
           {suggestion.emailSnippet}
         </p>
       )}
 
-      {/* Footer: confidence + schedule button */}
+      {/* Footer: confidence + action button */}
       <div className="flex items-center justify-between mt-1">
         <span className="text-xs text-gray-400">
           {Number.isFinite(suggestion.confidence) ? Math.round(suggestion.confidence * 100) : 0}% confidence
         </span>
-        <span className="flex items-center gap-1 text-xs font-medium text-purple-600">
-          <CalendarPlus size={13} />
-          Schedule
+        <span className={`flex items-center gap-1 text-xs font-medium ${config.buttonColour}`}>
+          <config.ButtonIcon size={13} />
+          {config.buttonLabel}
         </span>
       </div>
     </div>

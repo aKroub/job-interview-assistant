@@ -6,6 +6,7 @@ import {
   applyADeleteInterview,
   applyDelete,
   applyInterviewStatusUpdate,
+  applyInterviewUpdate,
   applyStageUpdate,
   createCompany,
   migrateCompanies,
@@ -96,6 +97,10 @@ export function useCompanies(storage = localStorageService) {
     persist(applyInterviewStatusUpdate(companies, companyId, interviewId, status));
   }
 
+  function updateInterview(companyId, interviewId, updates) {
+    persist(applyInterviewUpdate(companies, companyId, interviewId, updates));
+  }
+
   /**
    * Replaces all companies with a cloud-loaded array.
    * Validates each entry before accepting. Migrates legacy entries that are
@@ -118,6 +123,7 @@ export function useCompanies(storage = localStorageService) {
     addInterview,
     deleteInterview,
     updateInterviewStatus,
+    updateInterview,
     replaceCompanies,
   };
 }

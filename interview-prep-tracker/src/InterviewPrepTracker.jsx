@@ -14,7 +14,7 @@ import { DEFAULT_PIPELINE, PIPELINES, PIPELINE_LABELS } from './constants/pipeli
 import { POSITIONS } from './constants/positions';
 import { ACTIVE_STAGES, CLOSED_STAGE, STAGES, STAGE_LABELS } from './constants/stages';
 import { useInterviewTracker } from './hooks/useInterviewTracker';
-import { isInPipeline } from './utils/companyUtils';
+import { isInPipeline, matchSuggestionToInterview } from './utils/companyUtils';
 
 const EMPTY_DRAFT = { name: '', position: '', stage: STAGES[0], pipeline: [DEFAULT_PIPELINE] };
 
@@ -43,6 +43,7 @@ const InterviewPrepTracker = () => {
     addInterview,
     deleteInterview,
     updateInterviewStatus,
+    updateInterview,
     markQuestionSeen,
     resetCompanyQuestionsFor,
     getAvailableQuestionsFor,
@@ -85,6 +86,37 @@ const InterviewPrepTracker = () => {
   }
 
   function handleAcceptSuggestion(suggestion) {
+    const action = suggestion.action || 'add';
+
+    if (action === 'cancel') {
+      const matched = matchSuggestionToInterview(companies, suggestion);
+      if (matched) {
+        updateInterviewStatus(matched.companyId, matched.interviewId, 'cancelled');
+      }
+      dismissSuggestion(suggestion);
+      return;
+    }
+
+    if (action === 'update') {
+      const matched = matchSuggestionToInterview(companies, suggestion);
+      if (!matched) {
+        dismissSuggestion(suggestion);
+        return;
+      }
+      const values = {
+        companyId: matched.companyId,
+        type:      suggestion.type || '',
+        date:      suggestion.date || '',
+        time:      suggestion.time || '',
+      };
+      if (suggestion.duration) {
+        values.duration = suggestion.duration;
+      }
+      setSuggestionDraft({ suggestion, initialValues: values, matchedInterview: matched });
+      return;
+    }
+
+    // Default: action === 'add'
     const match = companies.find(
       (c) => c.name.toLowerCase() === suggestion.companyName.toLowerCase()
     );
@@ -101,7 +133,17 @@ const InterviewPrepTracker = () => {
   }
 
   function handleScheduleFromSuggestion(companyId, interview) {
-    addInterview(companyId, interview);
+    if (suggestionDraft?.matchedInterview) {
+      const { companyId: matchedCompanyId, interviewId } = suggestionDraft.matchedInterview;
+      updateInterview(matchedCompanyId, interviewId, {
+        date: interview.date,
+        time: interview.time,
+        ...(interview.duration != null ? { duration: interview.duration } : {}),
+        ...(interview.type ? { type: interview.type } : {}),
+      });
+    } else {
+      addInterview(companyId, interview);
+    }
     if (suggestionDraft?.suggestion) {
       dismissSuggestion(suggestionDraft.suggestion);
     }

@@ -2,19 +2,16 @@ import {
   applyAddInterview,
   applyDelete,
   applyInterviewStatusUpdate,
+  applyInterviewUpdate,
   applyStageUpdate,
   createCompany,
+  deriveInterviewStatus,
   flattenAndSortInterviews,
   isInPipeline,
   isMultiPipeline,
+  matchSuggestionToInterview,
   migrateCompanies,
 } from './companyUtils';
-
-// ---------------------------------------------------------------------------
-// deriveInterviewStatus
-// ---------------------------------------------------------------------------
-
-import { deriveInterviewStatus } from './companyUtils';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -404,5 +401,180 @@ describe('deriveInterviewStatus', () => {
     const interview = { date: '2025-01-01', time: '10:00', status: 'completed' };
     expect(deriveInterviewStatus(interview, FUTURE)).toBe('completed');
     expect(deriveInterviewStatus(interview, PAST)).toBe('completed');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// matchSuggestionToInterview
+// ---------------------------------------------------------------------------
+
+describe('matchSuggestionToInterview', () => {
+  it('matches by company name and date', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        name: 'Google',
+        interviews: [makeInterview({ id: 'i1', date: '2025-01-20' })],
+      }),
+    ];
+    const suggestion = { companyName: 'Google', date: '2025-01-20', time: '14:00' };
+
+    const result = matchSuggestionToInterview(companies, suggestion);
+    expect(result).toEqual({ companyId: 'c1', interviewId: 'i1' });
+  });
+
+  it('matches case-insensitively', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        name: 'GOOGLE',
+        interviews: [makeInterview({ id: 'i1', date: '2025-01-20' })],
+      }),
+    ];
+    const suggestion = { companyName: 'google', date: '2025-01-20', time: '' };
+
+    const result = matchSuggestionToInterview(companies, suggestion);
+    expect(result).toEqual({ companyId: 'c1', interviewId: 'i1' });
+  });
+
+  it('returns null when no company matches', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        name: 'Google',
+        interviews: [makeInterview({ id: 'i1', date: '2025-01-20' })],
+      }),
+    ];
+    const suggestion = { companyName: 'Meta', date: '2025-01-20', time: '' };
+
+    expect(matchSuggestionToInterview(companies, suggestion)).toBeNull();
+  });
+
+  it('returns null when date does not match', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        name: 'Google',
+        interviews: [makeInterview({ id: 'i1', date: '2025-01-20' })],
+      }),
+    ];
+    const suggestion = { companyName: 'Google', date: '2025-02-15', time: '' };
+
+    expect(matchSuggestionToInterview(companies, suggestion)).toBeNull();
+  });
+
+  it('returns null when suggestion has no company name', () => {
+    const companies = [
+      makeCompany({ id: 'c1', name: 'Google', interviews: [makeInterview()] }),
+    ];
+    expect(matchSuggestionToInterview(companies, { companyName: '', date: '2024-06-01' })).toBeNull();
+  });
+
+  it('returns null when suggestion has no date', () => {
+    const companies = [
+      makeCompany({ id: 'c1', name: 'Google', interviews: [makeInterview()] }),
+    ];
+    expect(matchSuggestionToInterview(companies, { companyName: 'Google', date: '' })).toBeNull();
+  });
+
+  it('returns null for empty companies array', () => {
+    expect(matchSuggestionToInterview([], { companyName: 'Google', date: '2025-01-20' })).toBeNull();
+  });
+
+  it('skips cancelled interviews', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        name: 'Google',
+        interviews: [makeInterview({ id: 'i1', date: '2025-01-20', status: 'cancelled' })],
+      }),
+    ];
+    const suggestion = { companyName: 'Google', date: '2025-01-20', time: '' };
+
+    expect(matchSuggestionToInterview(companies, suggestion)).toBeNull();
+  });
+
+  it('prefers the interview with the closest time when multiple match the same date', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        name: 'Google',
+        interviews: [
+          makeInterview({ id: 'i1', date: '2025-01-20', time: '10:00' }),
+          makeInterview({ id: 'i2', date: '2025-01-20', time: '14:30' }),
+        ],
+      }),
+    ];
+    const suggestion = { companyName: 'Google', date: '2025-01-20', time: '14:00' };
+
+    const result = matchSuggestionToInterview(companies, suggestion);
+    expect(result).toEqual({ companyId: 'c1', interviewId: 'i2' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyInterviewUpdate
+// ---------------------------------------------------------------------------
+
+describe('applyInterviewUpdate', () => {
+  it('updates the specified fields on the matching interview', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        interviews: [makeInterview({ id: 'i1', date: '2025-01-20', time: '10:00' })],
+      }),
+    ];
+    const result = applyInterviewUpdate(companies, 'c1', 'i1', { date: '2025-01-25', time: '14:00' });
+
+    expect(result[0].interviews[0].date).toBe('2025-01-25');
+    expect(result[0].interviews[0].time).toBe('14:00');
+  });
+
+  it('does not mutate the original data', () => {
+    const interview = makeInterview({ id: 'i1', date: '2025-01-20' });
+    const companies = [makeCompany({ id: 'c1', interviews: [interview] })];
+
+    applyInterviewUpdate(companies, 'c1', 'i1', { date: '2025-02-01' });
+
+    expect(companies[0].interviews[0].date).toBe('2025-01-20');
+  });
+
+  it('leaves other interviews unchanged', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        interviews: [
+          makeInterview({ id: 'i1', date: '2025-01-20' }),
+          makeInterview({ id: 'i2', date: '2025-01-25' }),
+        ],
+      }),
+    ];
+    const result = applyInterviewUpdate(companies, 'c1', 'i1', { date: '2025-02-01' });
+
+    expect(result[0].interviews[1].date).toBe('2025-01-25');
+  });
+
+  it('leaves other companies unchanged', () => {
+    const companies = [
+      makeCompany({ id: 'c1', interviews: [makeInterview({ id: 'i1' })] }),
+      makeCompany({ id: 'c2', interviews: [makeInterview({ id: 'i2', date: '2025-03-01' })] }),
+    ];
+    const result = applyInterviewUpdate(companies, 'c1', 'i1', { date: '2025-02-01' });
+
+    expect(result[1].interviews[0].date).toBe('2025-03-01');
+  });
+
+  it('preserves fields not included in updates', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        interviews: [makeInterview({ id: 'i1', type: 'Phone Screen', date: '2025-01-20', time: '10:00', status: 'scheduled' })],
+      }),
+    ];
+    const result = applyInterviewUpdate(companies, 'c1', 'i1', { date: '2025-02-01' });
+
+    expect(result[0].interviews[0].type).toBe('Phone Screen');
+    expect(result[0].interviews[0].time).toBe('10:00');
+    expect(result[0].interviews[0].status).toBe('scheduled');
   });
 });

@@ -307,6 +307,19 @@ export function scoreEmailForInterview(subject, body, senderEmail) {
     matchedKeywords.push('date-time-mention');
   }
 
+  // Bonus: email contains a cancel or update phrase — these are strong
+  // signals that the email is interview-related (a cancellation or
+  // reschedule notification). Without this, GCal cancellation emails like
+  // "Cancelled event: Interview with Torq" score only 0.15 (weak "interview"
+  // keyword + date/time) and are dropped by the minScore threshold.
+  if (CANCEL_PHRASES.some((p) => combined.includes(p))) {
+    score += 0.2;
+    matchedKeywords.push('cancel-phrase');
+  } else if (UPDATE_PHRASES.some((p) => combined.includes(p))) {
+    score += 0.2;
+    matchedKeywords.push('update-phrase');
+  }
+
   // Cap at 1.0
   return { score: Math.min(score, 1.0), matchedKeywords };
 }

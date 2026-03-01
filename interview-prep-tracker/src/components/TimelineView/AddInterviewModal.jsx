@@ -12,40 +12,87 @@ const EMPTY_INTERVIEW = {
   status:    'scheduled',
 };
 
+/** Options for the manual status dropdown (excludes derived 'passed'). */
+const STATUS_OPTIONS = [
+  { value: 'scheduled', label: 'Scheduled' },
+  { value: 'completed', label: 'Completed' },
+  { value: 'cancelled', label: 'Cancelled' },
+];
+
 /**
- * Single-step modal for scheduling an interview.
+ * Modal for scheduling a new interview or editing an existing one.
  *
- * All fields — company, type, date, time, duration — are visible
- * immediately when the modal opens.  Validation errors appear only
- * after the first submit attempt, matching the AddCompanyModal pattern.
+ * **Add mode** (default): All fields — company, type, date, time, duration —
+ * are visible immediately. Validation errors appear only after the first
+ * submit attempt.
+ *
+ * **Edit mode** (when `interview` prop is provided): Company is shown as
+ * read-only text, a status dropdown is added, and the submit button reads
+ * "Save Changes". On submit, calls `onEdit` instead of `onAdd`.
  *
  * @param {{
  *   companies:      Object[],
  *   interviewTypes: string[],
  *   onAdd:          (companyId: string, interview: Object) => void,
  *   onClose:        () => void,
- *   initialValues:  Object | null,
+ *   initialValues?: Object | null,
+ *   interview?:     Object | null,
+ *   onEdit?:        (companyId: string, interviewId: string, updates: Object) => void,
  * }} props
  */
-export function AddInterviewModal({ companies, interviewTypes, onAdd, onClose, initialValues = null }) {
-  const [interview, setInterview] = useState(initialValues
-    ? { ...EMPTY_INTERVIEW, ...initialValues }
-    : EMPTY_INTERVIEW
-  );
+export function AddInterviewModal({
+  companies,
+  interviewTypes,
+  onAdd,
+  onClose,
+  initialValues = null,
+  interview: editingInterview = null,
+  onEdit,
+}) {
+  const isEditMode = editingInterview !== null;
+
+  const [formData, setFormData] = useState(() => {
+    if (isEditMode) {
+      return {
+        companyId: editingInterview.companyId,
+        type:      editingInterview.type || '',
+        date:      editingInterview.date || '',
+        time:      editingInterview.time || '',
+        duration:  editingInterview.duration || 60,
+        status:    editingInterview.status || 'scheduled',
+      };
+    }
+    return initialValues
+      ? { ...EMPTY_INTERVIEW, ...initialValues }
+      : EMPTY_INTERVIEW;
+  });
   const [submitted, setSubmitted] = useState(false);
 
   const errors = {
-    companyId: !interview.companyId ? 'Please select a company'    : null,
-    type:      !interview.type      ? 'Interview type is required' : null,
-    date:      !interview.date      ? 'Date is required'           : null,
-    time:      !interview.time      ? 'Time is required'           : null,
+    companyId: !isEditMode && !formData.companyId ? 'Please select a company'    : null,
+    type:      !formData.type                     ? 'Interview type is required' : null,
+    date:      !formData.date                     ? 'Date is required'           : null,
+    time:      !formData.time                     ? 'Time is required'           : null,
   };
   const isValid = !errors.companyId && !errors.type && !errors.date && !errors.time;
 
   function handleSubmit() {
     setSubmitted(true);
     if (!isValid) return;
-    const { companyId, ...interviewData } = interview;
+
+    if (isEditMode) {
+      onEdit(editingInterview.companyId, editingInterview.id, {
+        type:     formData.type,
+        date:     formData.date,
+        time:     formData.time,
+        duration: formData.duration,
+        status:   formData.status,
+      });
+      onClose();
+      return;
+    }
+
+    const { companyId, ...interviewData } = formData;
     onAdd(companyId, interviewData);
     onClose();
   }
@@ -55,7 +102,7 @@ export function AddInterviewModal({ companies, interviewTypes, onAdd, onClose, i
   }
 
   function update(field, value) {
-    setInterview((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   }
 
   return (
@@ -65,35 +112,46 @@ export function AddInterviewModal({ companies, interviewTypes, onAdd, onClose, i
       data-testid="modal-overlay"
     >
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <h3 className="text-xl font-bold text-gray-800 mb-4">Schedule Interview</h3>
+        <h3 className="text-xl font-bold text-gray-800 mb-4">
+          {isEditMode ? 'Edit Interview' : 'Schedule Interview'}
+        </h3>
 
         <div className="space-y-4">
 
-          {/* Company — required */}
-          <div>
-            <FieldLabel htmlFor="modal-company" required>Company</FieldLabel>
-            <select
-              id="modal-company"
-              value={interview.companyId}
-              onChange={(e) => update('companyId', e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            >
-              <option value="">Select a company…</option>
-              {companies.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name} — {c.position}
-                </option>
-              ))}
-            </select>
-            <FormError message={submitted ? errors.companyId : null} />
-          </div>
+          {/* Company — required in add mode, read-only in edit mode */}
+          {isEditMode ? (
+            <div>
+              <FieldLabel>Company</FieldLabel>
+              <p className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700" data-testid="edit-company-display">
+                {editingInterview.companyName}{editingInterview.position ? ` — ${editingInterview.position}` : ''}
+              </p>
+            </div>
+          ) : (
+            <div>
+              <FieldLabel htmlFor="modal-company" required>Company</FieldLabel>
+              <select
+                id="modal-company"
+                value={formData.companyId}
+                onChange={(e) => update('companyId', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="">Select a company…</option>
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} — {c.position}
+                  </option>
+                ))}
+              </select>
+              <FormError message={submitted ? errors.companyId : null} />
+            </div>
+          )}
 
           {/* Type — required */}
           <div>
             <FieldLabel htmlFor="modal-type" required>Type</FieldLabel>
             <select
               id="modal-type"
-              value={interview.type}
+              value={formData.type}
               onChange={(e) => update('type', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             >
@@ -111,7 +169,7 @@ export function AddInterviewModal({ companies, interviewTypes, onAdd, onClose, i
             <input
               id="modal-date"
               type="date"
-              value={interview.date}
+              value={formData.date}
               onChange={(e) => update('date', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
@@ -124,7 +182,7 @@ export function AddInterviewModal({ companies, interviewTypes, onAdd, onClose, i
             <input
               id="modal-time"
               type="time"
-              value={interview.time}
+              value={formData.time}
               onChange={(e) => update('time', e.target.value)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
@@ -136,7 +194,7 @@ export function AddInterviewModal({ companies, interviewTypes, onAdd, onClose, i
             <FieldLabel htmlFor="modal-duration">Duration</FieldLabel>
             <select
               id="modal-duration"
-              value={interview.duration}
+              value={formData.duration}
               onChange={(e) => update('duration', Number(e.target.value))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             >
@@ -146,6 +204,23 @@ export function AddInterviewModal({ companies, interviewTypes, onAdd, onClose, i
             </select>
           </div>
 
+          {/* Status — only in edit mode */}
+          {isEditMode && (
+            <div>
+              <FieldLabel htmlFor="modal-status">Status</FieldLabel>
+              <select
+                id="modal-status"
+                value={formData.status}
+                onChange={(e) => update('status', e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                {STATUS_OPTIONS.map(({ value, label }) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
         </div>
 
         <div className="flex gap-3 mt-6">
@@ -153,7 +228,7 @@ export function AddInterviewModal({ companies, interviewTypes, onAdd, onClose, i
             onClick={handleSubmit}
             className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
           >
-            Schedule
+            {isEditMode ? 'Save Changes' : 'Schedule'}
           </button>
           <button
             onClick={onClose}

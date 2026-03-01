@@ -22,10 +22,17 @@ function makeInterview(overrides = {}) {
 }
 
 function setup(interviewOverrides = {}, handlers = {}) {
-  const interview      = makeInterview(interviewOverrides);
-  const onUpdateStatus = handlers.onUpdateStatus ?? jest.fn();
-  render(<InterviewCard interview={interview} onUpdateStatus={onUpdateStatus} />);
-  return { interview, onUpdateStatus };
+  const interview         = makeInterview(interviewOverrides);
+  const onDeleteInterview = handlers.onDeleteInterview ?? jest.fn();
+  const onEdit            = handlers.onEdit ?? jest.fn();
+  render(
+    <InterviewCard
+      interview={interview}
+      onDeleteInterview={onDeleteInterview}
+      onEdit={onEdit}
+    />
+  );
+  return { interview, onDeleteInterview, onEdit };
 }
 
 // ---------------------------------------------------------------------------
@@ -48,14 +55,14 @@ describe('InterviewCard — rendering', () => {
     expect(screen.getByText('Phone Interview')).toBeInTheDocument();
   });
 
-  it('renders the pencil edit button by default', () => {
+  it('renders the edit button', () => {
     setup();
-    expect(screen.getByLabelText(/edit status/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/edit acme corp interview/i)).toBeInTheDocument();
   });
 
-  it('does not show the status dropdown by default', () => {
+  it('renders the delete button', () => {
     setup();
-    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/delete interview/i)).toBeInTheDocument();
   });
 });
 
@@ -107,37 +114,34 @@ describe('InterviewCard — derived status badge', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Pencil edit — status dropdown
+// Edit button
 // ---------------------------------------------------------------------------
 
-describe('InterviewCard — pencil edit', () => {
-  it('clicking pencil reveals the status dropdown', () => {
-    setup();
-    userEvent.click(screen.getByLabelText(/edit status/i));
-    expect(screen.getByRole('combobox')).toBeInTheDocument();
+describe('InterviewCard — edit button', () => {
+  it('calls onEdit with the interview object when clicked', () => {
+    const { interview, onEdit } = setup();
+    userEvent.click(screen.getByLabelText(/edit acme corp interview/i));
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    expect(onEdit).toHaveBeenCalledWith(interview);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Delete button
+// ---------------------------------------------------------------------------
+
+describe('InterviewCard — delete button', () => {
+  it('calls onDeleteInterview after confirmation', () => {
+    window.confirm = jest.fn(() => true);
+    const { onDeleteInterview } = setup();
+    userEvent.click(screen.getByLabelText(/delete interview/i));
+    expect(onDeleteInterview).toHaveBeenCalledWith('c1', 'i1');
   });
 
-  it('dropdown value reflects the persisted status', () => {
-    setup({ status: 'completed' });
-    userEvent.click(screen.getByLabelText(/edit status/i));
-    expect(screen.getByRole('combobox').value).toBe('completed');
-  });
-
-  it('shows scheduled, completed, and cancelled options', () => {
-    setup();
-    userEvent.click(screen.getByLabelText(/edit status/i));
-    const options = screen.getAllByRole('option').map((o) => o.value);
-    expect(options).toContain('scheduled');
-    expect(options).toContain('completed');
-    expect(options).toContain('cancelled');
-  });
-
-  it('calls onUpdateStatus and hides dropdown on change', () => {
-    const { onUpdateStatus } = setup({ status: 'scheduled' });
-    userEvent.click(screen.getByLabelText(/edit status/i));
-    userEvent.selectOptions(screen.getByRole('combobox'), 'completed');
-    expect(onUpdateStatus).toHaveBeenCalledWith('c1', 'i1', 'completed');
-    // Dropdown should be hidden again after selection
-    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+  it('does not call onDeleteInterview when confirmation is cancelled', () => {
+    window.confirm = jest.fn(() => false);
+    const { onDeleteInterview } = setup();
+    userEvent.click(screen.getByLabelText(/delete interview/i));
+    expect(onDeleteInterview).not.toHaveBeenCalled();
   });
 });

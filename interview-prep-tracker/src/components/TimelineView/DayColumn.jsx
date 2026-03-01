@@ -10,13 +10,14 @@ import { InterviewCard } from './InterviewCard';
  * purple accent.
  *
  * @param {{
- *   date:           Date,
- *   interviews:     Object[],
- *   isToday:        boolean,
- *   onUpdateStatus: (companyId: string, interviewId: string, status: string) => void,
+ *   date:               Date,
+ *   interviews:         Object[],
+ *   isToday:            boolean,
+ *   onDeleteInterview:  (companyId: string, interviewId: string) => void,
+ *   onEdit:             (interview: Object) => void,
  * }} props
  */
-export function DayColumn({ date, interviews, isToday, onDeleteInterview, onUpdateStatus }) {
+export function DayColumn({ date, interviews, isToday, onDeleteInterview, onEdit }) {
   const headerLabel = formatDayHeader(date);
 
   const columnClasses = isToday
@@ -46,14 +47,14 @@ export function DayColumn({ date, interviews, isToday, onDeleteInterview, onUpda
         ) : (
           interviews
             // Sort copies the array and compares the time values
-            .slice() 
+            .slice()
             .sort((a, b) => (a.time > b.time ? 1 : -1))
             .map((interview) => (
               <InterviewCard
                 key={interview.id}
                 interview={interview}
                 onDeleteInterview={onDeleteInterview}
-                onUpdateStatus={onUpdateStatus}
+                onEdit={onEdit}
               />
             ))
         )}

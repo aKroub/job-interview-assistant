@@ -37,19 +37,21 @@ function makeInterview(overrides = {}) {
 }
 
 function setup({ companies = [], handlers = {} } = {}) {
-  const onAddInterview          = handlers.onAddInterview          ?? jest.fn();
-  const onUpdateInterviewStatus = handlers.onUpdateInterviewStatus ?? jest.fn();
+  const onAddInterview    = handlers.onAddInterview    ?? jest.fn();
+  const onDeleteInterview = handlers.onDeleteInterview ?? jest.fn();
+  const onUpdateInterview = handlers.onUpdateInterview ?? jest.fn();
 
   render(
     <CalendarView
       companies={companies}
       interviewTypes={INTERVIEW_TYPES}
       onAddInterview={onAddInterview}
-      onUpdateInterviewStatus={onUpdateInterviewStatus}
+      onDeleteInterview={onDeleteInterview}
+      onUpdateInterview={onUpdateInterview}
     />
   );
 
-  return { onAddInterview, onUpdateInterviewStatus };
+  return { onAddInterview, onDeleteInterview, onUpdateInterview };
 }
 
 // ---------------------------------------------------------------------------

@@ -219,7 +219,7 @@ const InterviewPrepTracker = () => {
               interviewTypes={INTERVIEW_TYPES}
               onAddInterview={addInterview}
               onDeleteInterview={deleteInterview}
-              onUpdateInterviewStatus={updateInterviewStatus}
+              onUpdateInterview={updateInterview}
             />
           )}
           {activeTab === 'prep' && (

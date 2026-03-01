@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { KanbanBoard } from './KanbanBoard';
 import { ACTIVE_STAGES, CLOSED_STAGE, STAGE_LABELS } from '../../constants/stages';
@@ -145,10 +145,21 @@ describe('KanbanBoard — closed row', () => {
     expect(screen.getByText(/no closed processes yet/i)).toBeInTheDocument();
   });
 
+  it('hides closed cards again after re-collapsing', async () => {
+    const companies = [
+      { id: 'c1', name: 'OldCo', position: 'SWE', stage: 'rejected', interviews: [] },
+    ];
+    setup({ companies });
+    const toggle = screen.getByRole('button', { expanded: false });
+    await userEvent.click(toggle);
+    expect(screen.getByText('OldCo')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { expanded: true }));
+    expect(screen.queryByText('OldCo')).not.toBeInTheDocument();
+  });
+
   it('renders count of zero when no closed companies exist', () => {
     setup();
     const closedButton = screen.getByRole('button', { expanded: false });
-    const countSpan = closedButton.querySelector('.text-xs.text-gray-400');
-    expect(countSpan.textContent).toContain('(0)');
+    expect(within(closedButton).getByText('(0)')).toBeInTheDocument();
   });
 });

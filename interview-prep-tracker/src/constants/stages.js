@@ -5,20 +5,20 @@
 export const STAGES = ['interested', 'applied', 'phone', 'technical', 'hr', 'offer', 'rejected'];
 
 /**
- * The active progression stages shown as Kanban columns (left-to-right flow).
- * Excludes terminal stages like "closed" which are displayed separately.
- *
- * @type {string[]}
- */
-export const ACTIVE_STAGES = STAGES.filter((s) => s !== 'rejected');
-
-/**
  * The terminal stage key for processes that are no longer active.
  * Displayed in a separate collapsible row below the active Kanban columns.
  *
  * @type {string}
  */
 export const CLOSED_STAGE = 'rejected';
+
+/**
+ * The active progression stages shown as Kanban columns (left-to-right flow).
+ * Excludes terminal stages like "closed" which are displayed separately.
+ *
+ * @type {string[]}
+ */
+export const ACTIVE_STAGES = STAGES.filter((s) => s !== CLOSED_STAGE);
 
 /**
  * Human-readable labels for each stage key.

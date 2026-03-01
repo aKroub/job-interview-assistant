@@ -34,6 +34,7 @@ export function KanbanBoard({
   const [closedExpanded, setClosedExpanded] = useState(false);
   const [isClosedDragOver, setIsClosedDragOver] = useState(false);
 
+  const activeCompanies = companies.filter((c) => c.stage !== closedStage);
   const closedCompanies = companies.filter((c) => c.stage === closedStage);
 
   function handleDragStart(e, companyId) {
@@ -44,15 +45,18 @@ export function KanbanBoard({
 
   function handleDragEnd() {
     setDraggingId(null);
+    setIsClosedDragOver(false);
   }
 
   function handleClosedDragOver(e) {
     e.preventDefault();
-    setIsClosedDragOver(true);
+    if (!isClosedDragOver) setIsClosedDragOver(true);
   }
 
-  function handleClosedDragLeave() {
-    setIsClosedDragOver(false);
+  function handleClosedDragLeave(e) {
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      setIsClosedDragOver(false);
+    }
   }
 
   function handleClosedDrop(e) {
@@ -110,7 +114,7 @@ export function KanbanBoard({
             key={stage}
             stage={stage}
             label={stageLabels[stage]}
-            companies={companies}
+            companies={activeCompanies}
             onDelete={onDeleteCompany}
             onUpdateStage={onUpdateStage}
             onDragStart={handleDragStart}

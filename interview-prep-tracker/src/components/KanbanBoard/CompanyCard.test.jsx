@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CompanyCard } from './CompanyCard';
+import { PIPELINE_LABELS } from '../../constants/pipelines';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -13,12 +14,13 @@ function makeCompany(overrides = {}) {
     name:       'Acme Corp',
     position:   'Senior Software Engineer',
     stage:      'applied',
+    pipeline:   ['tel-aviv'],
     interviews: [],
     ...overrides,
   };
 }
 
-function setup(companyOverrides = {}, handlers = {}) {
+function setup(companyOverrides = {}, handlers = {}, { pipelineLabels = PIPELINE_LABELS } = {}) {
   const company    = makeCompany(companyOverrides);
   const onDelete   = handlers.onDelete   ?? jest.fn();
   const onDragStart = handlers.onDragStart ?? jest.fn();
@@ -30,6 +32,7 @@ function setup(companyOverrides = {}, handlers = {}) {
       onDelete={onDelete}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
+      pipelineLabels={pipelineLabels}
     />
   );
 
@@ -100,5 +103,34 @@ describe('CompanyCard — callbacks', () => {
     const { onDelete } = setup();
     userEvent.click(screen.getByRole('button', { name: /delete acme corp/i }));
     expect(onDelete).toHaveBeenCalledWith('c1');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Pipeline badges
+// ---------------------------------------------------------------------------
+
+describe('CompanyCard — pipeline badges', () => {
+  it('shows pipeline badges when the company belongs to multiple pipelines', () => {
+    setup({ pipeline: ['tel-aviv', 'us'] });
+    expect(screen.getByText('Tel Aviv')).toBeInTheDocument();
+    expect(screen.getByText('US')).toBeInTheDocument();
+  });
+
+  it('does not show pipeline badges for a single-pipeline company', () => {
+    setup({ pipeline: ['tel-aviv'] });
+    expect(screen.queryByText('Tel Aviv')).not.toBeInTheDocument();
+    expect(screen.queryByText('US')).not.toBeInTheDocument();
+  });
+
+  it('does not show pipeline badges when pipelineLabels is not provided', () => {
+    setup({ pipeline: ['tel-aviv', 'us'] }, {}, { pipelineLabels: null });
+    expect(screen.queryByText('Tel Aviv')).not.toBeInTheDocument();
+  });
+
+  it('falls back to the raw pipeline ID when label is missing', () => {
+    setup({ pipeline: ['tel-aviv', 'custom'] }, {}, { pipelineLabels: { 'tel-aviv': 'Tel Aviv' } });
+    expect(screen.getByText('Tel Aviv')).toBeInTheDocument();
+    expect(screen.getByText('custom')).toBeInTheDocument();
   });
 });

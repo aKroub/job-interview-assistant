@@ -119,6 +119,7 @@ export function KanbanBoard({
             onUpdateStage={onUpdateStage}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
+            pipelineLabels={pipelineLabels}
           />
         ))}
       </div>
@@ -165,6 +166,7 @@ export function KanbanBoard({
                   onDelete={onDeleteCompany}
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
+                  pipelineLabels={pipelineLabels}
                 />
               </div>
             ))}

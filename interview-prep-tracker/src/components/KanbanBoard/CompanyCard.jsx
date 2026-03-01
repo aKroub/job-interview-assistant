@@ -1,5 +1,6 @@
 import React from 'react';
 import { Calendar, X } from 'lucide-react';
+import { isMultiPipeline } from '../../utils/companyUtils';
 
 /**
  * A single company card within a Kanban column.
@@ -7,14 +8,19 @@ import { Calendar, X } from 'lucide-react';
  * Draggable — the user drags this card to a different column to change stage.
  * The stage dropdown has been removed; stage changes happen exclusively via DnD.
  *
+ * When a company belongs to multiple pipelines, small pipeline badges are shown
+ * beneath the position text so the user can see at a glance where else this
+ * company appears.
+ *
  * @param {{
- *   company:       Object,
- *   onDelete:      (companyId: string) => void,
- *   onDragStart:   (e: DragEvent, companyId: string) => void,
- *   onDragEnd:     (e: DragEvent) => void,
+ *   company:        Object,
+ *   onDelete:       (companyId: string) => void,
+ *   onDragStart:    (e: DragEvent, companyId: string) => void,
+ *   onDragEnd:      (e: DragEvent) => void,
+ *   pipelineLabels: Record<string, string>,
  * }} props
  */
-export function CompanyCard({ company, onDelete, onDragStart, onDragEnd }) {
+export function CompanyCard({ company, onDelete, onDragStart, onDragEnd, pipelineLabels }) {
   return (
     <div
       draggable
@@ -35,6 +41,19 @@ export function CompanyCard({ company, onDelete, onDragStart, onDragEnd }) {
           <X size={16} />
         </button>
       </div>
+
+      {pipelineLabels && isMultiPipeline(company) && (
+        <div className="flex flex-wrap gap-1 mt-1">
+          {company.pipeline.map((p) => (
+            <span
+              key={p}
+              className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-purple-50 text-purple-600"
+            >
+              {pipelineLabels[p] || p}
+            </span>
+          ))}
+        </div>
+      )}
 
       {company.interviews.length > 0 && (
         <div className="text-xs text-gray-500 flex items-center gap-1 mt-2">

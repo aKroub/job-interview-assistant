@@ -13,7 +13,7 @@ function setup() {
   return { result, storage };
 }
 
-const DRAFT = { name: 'Google', position: 'SWE', stage: 'applied', pipeline: 'tel-aviv' };
+const DRAFT = { name: 'Google', position: 'SWE', stage: 'applied', pipeline: ['tel-aviv'] };
 const INTERVIEW = { type: 'Phone Screen', date: '2024-07-01', time: '10:00', status: 'scheduled' };
 
 // ---------------------------------------------------------------------------
@@ -230,7 +230,16 @@ describe('useCompanies — pipeline migration', () => {
     storage.setItem('companies', JSON.stringify(legacy));
 
     const { result } = renderHook(() => useCompanies(storage));
-    expect(result.current.companies[0].pipeline).toBe('tel-aviv');
+    expect(result.current.companies[0].pipeline).toEqual(['tel-aviv']);
+  });
+
+  it('migrates scalar string pipeline to array', () => {
+    const storage = createMemoryStorage();
+    const legacy = [{ id: '1', name: 'Old Co', position: 'SWE', stage: 'applied', pipeline: 'us', interviews: [] }];
+    storage.setItem('companies', JSON.stringify(legacy));
+
+    const { result } = renderHook(() => useCompanies(storage));
+    expect(result.current.companies[0].pipeline).toEqual(['us']);
   });
 
   it('persists the migrated data back to storage', () => {
@@ -240,12 +249,12 @@ describe('useCompanies — pipeline migration', () => {
 
     renderHook(() => useCompanies(storage));
     const stored = JSON.parse(storage.getItem('companies'));
-    expect(stored[0].pipeline).toBe('tel-aviv');
+    expect(stored[0].pipeline).toEqual(['tel-aviv']);
   });
 
-  it('does not re-write storage when all companies already have pipeline', () => {
+  it('does not re-write storage when all companies already have array pipeline', () => {
     const storage = createMemoryStorage();
-    const modern = [{ id: '1', name: 'New Co', position: 'SWE', stage: 'applied', pipeline: 'us', interviews: [] }];
+    const modern = [{ id: '1', name: 'New Co', position: 'SWE', stage: 'applied', pipeline: ['us'], interviews: [] }];
     const json = JSON.stringify(modern);
     storage.setItem('companies', json);
 
@@ -260,8 +269,8 @@ describe('useCompanies — pipeline migration', () => {
     const cloudData = [{ id: '1', name: 'Cloud Co', position: 'SWE', stage: 'phone', interviews: [] }];
 
     act(() => { result.current.replaceCompanies(cloudData); });
-    expect(result.current.companies[0].pipeline).toBe('tel-aviv');
+    expect(result.current.companies[0].pipeline).toEqual(['tel-aviv']);
     const stored = JSON.parse(storage.getItem('companies'));
-    expect(stored[0].pipeline).toBe('tel-aviv');
+    expect(stored[0].pipeline).toEqual(['tel-aviv']);
   });
 });

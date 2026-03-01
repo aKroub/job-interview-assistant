@@ -6,9 +6,35 @@
  */
 
 /**
+ * Returns true if the company belongs to the given pipeline.
+ *
+ * Handles both the current array format (`['tel-aviv', 'us']`) and the
+ * legacy scalar format (`'tel-aviv'`) for pre-migration data in-flight.
+ *
+ * @param {Object} company
+ * @param {string} pipelineId
+ * @returns {boolean}
+ */
+export function isInPipeline(company, pipelineId) {
+  return Array.isArray(company.pipeline)
+    ? company.pipeline.includes(pipelineId)
+    : company.pipeline === pipelineId;
+}
+
+/**
+ * Returns true if the company belongs to more than one pipeline.
+ *
+ * @param {Object} company
+ * @returns {boolean}
+ */
+export function isMultiPipeline(company) {
+  return Array.isArray(company.pipeline) && company.pipeline.length > 1;
+}
+
+/**
  * Builds a complete company object from a user-supplied draft.
  *
- * @param {{ name: string, position: string, stage: string, pipeline: string }} draft
+ * @param {{ name: string, position: string, stage: string, pipeline: string[] }} draft
  * @param {() => number} [idFn=Date.now] - injectable ID generator (use in tests to get deterministic IDs)
  * @returns {Object} Full company object with id, pipeline, interviews, notes, createdAt
  */
@@ -26,11 +52,12 @@ export function createCompany(draft, idFn = Date.now) {
 }
 
 /**
- * Returns a new companies array with missing `pipeline` fields backfilled.
+ * Returns a new companies array with `pipeline` fields normalised to arrays.
  *
- * Companies created before the pipeline feature won't have a `pipeline` field.
- * This function adds the default pipeline to those entries so storage stays
- * normalised after the first load.
+ * Handles three legacy formats:
+ *  1. `pipeline` is undefined/falsy → `[defaultPipeline]`
+ *  2. `pipeline` is a scalar string → `[pipeline]`
+ *  3. `pipeline` is already an array → no change
  *
  * Returns the original array reference when no migration is needed (avoids
  * unnecessary re-renders and storage writes).
@@ -40,11 +67,13 @@ export function createCompany(draft, idFn = Date.now) {
  * @returns {Object[]}
  */
 export function migrateCompanies(companies, defaultPipeline) {
-  const needsMigration = companies.some((c) => !c.pipeline);
+  const needsMigration = companies.some((c) => !Array.isArray(c.pipeline));
   if (!needsMigration) return companies;
-  return companies.map((c) =>
-    c.pipeline ? c : { ...c, pipeline: defaultPipeline }
-  );
+  return companies.map((c) => {
+    if (Array.isArray(c.pipeline)) return c;
+    if (typeof c.pipeline === 'string' && c.pipeline) return { ...c, pipeline: [c.pipeline] };
+    return { ...c, pipeline: [defaultPipeline] };
+  });
 }
 
 /**

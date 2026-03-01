@@ -14,8 +14,9 @@ import { DEFAULT_PIPELINE, PIPELINES, PIPELINE_LABELS } from './constants/pipeli
 import { POSITIONS } from './constants/positions';
 import { ACTIVE_STAGES, CLOSED_STAGE, STAGES, STAGE_LABELS } from './constants/stages';
 import { useInterviewTracker } from './hooks/useInterviewTracker';
+import { isInPipeline } from './utils/companyUtils';
 
-const EMPTY_DRAFT = { name: '', position: '', stage: STAGES[0], pipeline: DEFAULT_PIPELINE };
+const EMPTY_DRAFT = { name: '', position: '', stage: STAGES[0], pipeline: [DEFAULT_PIPELINE] };
 
 /**
  * Root application component — the thin orchestrating shell.
@@ -68,18 +69,18 @@ const InterviewPrepTracker = () => {
   }
 
   function handleOpenModal() {
-    setCompanyDraft({ ...EMPTY_DRAFT, pipeline: activePipeline });
+    setCompanyDraft({ ...EMPTY_DRAFT, pipeline: [activePipeline] });
     setShowModal(true);
   }
 
   const pipelineCompanies = companies.filter(
-    (c) => (c.pipeline || DEFAULT_PIPELINE) === activePipeline
+    (c) => isInPipeline(c, activePipeline)
   );
 
   const pipelineCounts = {};
   for (const p of PIPELINES) {
     pipelineCounts[p] = companies.filter(
-      (c) => (c.pipeline || DEFAULT_PIPELINE) === p
+      (c) => isInPipeline(c, p)
     ).length;
   }
 
@@ -205,7 +206,8 @@ const InterviewPrepTracker = () => {
             stages={ACTIVE_STAGES}
             stageLabels={STAGE_LABELS}
             positions={POSITIONS}
-            pipelineLabel={PIPELINE_LABELS[activePipeline]}
+            pipelines={PIPELINES}
+            pipelineLabels={PIPELINE_LABELS}
           />
         )}
 

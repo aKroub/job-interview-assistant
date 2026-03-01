@@ -484,11 +484,11 @@ describe('H4 — performance with large inputs', () => {
       });
     }
 
-    const start = performance.now();
+    const start = Date.now();
     for (const email of emails) {
       scoreEmailForInterview(email.subject, email.body, email.sender);
     }
-    const elapsed = performance.now() - start;
+    const elapsed = Date.now() - start;
 
     expect(elapsed).toBeLessThan(500);
   });
@@ -498,28 +498,20 @@ describe('H4 — performance with large inputs', () => {
     const longBody = 'This is a long email with lots of content. '.repeat(1200) +
       'Your interview has been cancelled due to scheduling conflicts.';
 
-    const start = performance.now();
+    const start = Date.now();
     const { score, matchedKeywords } = scoreEmailForInterview(
       'Interview Update',
       longBody,
       'hr@company.com'
     );
-    const elapsed = performance.now() - start;
+    const elapsed = Date.now() - start;
 
     expect(elapsed).toBeLessThan(50);
     // The cancel phrase is detected even at the end of a 50KB body
     expect(matchedKeywords).toContain('cancel-phrase');
-    // BUG FOUND: With only "interview" (weak = 0.05) + cancel-phrase (0.2) = 0.25,
-    // the email does NOT clear the 0.3 minScore threshold. This means that a
-    // cancellation email with a generic subject like "Interview Update" and no
-    // date/time pattern in the body will be dropped by gmailService.
-    // The fix would need to either:
-    // (a) increase the cancel-phrase bonus to 0.25, or
-    // (b) count cancel/update phrases as a floor rather than a bonus, or
-    // (c) lower the minScore for emails with cancel/update intent.
-    // For now, document the actual score.
-    expect(score).toBe(0.25);
-    expect(score).toBeLessThan(0.3);
+    // The cancel-phrase bonus uses Math.max(score + 0.2, 0.3) as a floor,
+    // so even without date/time patterns, the score clears the 0.3 threshold.
+    expect(score).toBeGreaterThanOrEqual(0.3);
   });
 
   it('detectEmailIntent handles 1000 emails in under 500ms', () => {
@@ -535,9 +527,9 @@ describe('H4 — performance with large inputs', () => {
       });
     }
 
-    const start = performance.now();
+    const start = Date.now();
     const results = emails.map((e) => detectEmailIntent(e.subject, e.body));
-    const elapsed = performance.now() - start;
+    const elapsed = Date.now() - start;
 
     expect(elapsed).toBeLessThan(500);
     // Sanity check distribution

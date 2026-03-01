@@ -103,7 +103,7 @@ describe('H3 — GCal cancellation email must survive the full pipeline', () => 
         ],
         mimeType: 'text/plain',
         body: {
-          data: Buffer.from(GCAL_CANCEL_BODY).toString('base64'),
+          data: Buffer.from(GCAL_CANCEL_BODY).toString('base64url'),
         },
       },
       snippet: GCAL_CANCEL_BODY,

@@ -46,6 +46,9 @@ export function createGmailService(authClient, options = {}) {
       'interview cancelled',
       'interview canceled',
       'interview rescheduled',
+      'cancelled event',
+      'canceled event',
+      'updated invitation',
     ];
     const keywordQuery = keywords.map((kw) => `"${kw}"`).join(' OR ');
     return `(${keywordQuery}) newer_than:${days}d`;

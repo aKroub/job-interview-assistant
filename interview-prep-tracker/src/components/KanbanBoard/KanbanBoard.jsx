@@ -1,17 +1,20 @@
 import React, { useState } from 'react';
-import { Plus } from 'lucide-react';
+import { Archive, ChevronDown, ChevronRight, Plus } from 'lucide-react';
 import { KanbanColumn } from './KanbanColumn';
+import { CompanyCard } from './CompanyCard';
 
 /**
  * Pipeline view rendered as a Kanban board with drag-and-drop stage movement.
  *
- * Owns the ephemeral drag state (which company is being dragged).
- * Dropping a card on a column calls onUpdateStage to persist the new stage.
+ * Active stages render as a 6-column grid (left-to-right progression).
+ * The closed stage renders as a separate collapsible row below, since it
+ * represents an exit from the pipeline rather than the next step.
  *
  * @param {{
  *   companies:        Object[],
  *   stages:           string[],
  *   stageLabels:      Object,
+ *   closedStage:      string,
  *   activePipeline:   string,
  *   pipelines:        string[],
  *   pipelineLabels:   Record<string, string>,
@@ -23,11 +26,15 @@ import { KanbanColumn } from './KanbanColumn';
  * }} props
  */
 export function KanbanBoard({
-  companies, stages, stageLabels,
+  companies, stages, stageLabels, closedStage,
   activePipeline, pipelines, pipelineLabels, pipelineCounts, onPipelineChange,
   onAddCompany, onDeleteCompany, onUpdateStage,
 }) {
   const [draggingId, setDraggingId] = useState(null);
+  const [closedExpanded, setClosedExpanded] = useState(false);
+  const [isClosedDragOver, setIsClosedDragOver] = useState(false);
+
+  const closedCompanies = companies.filter((c) => c.stage === closedStage);
 
   function handleDragStart(e, companyId) {
     setDraggingId(companyId);
@@ -37,6 +44,24 @@ export function KanbanBoard({
 
   function handleDragEnd() {
     setDraggingId(null);
+  }
+
+  function handleClosedDragOver(e) {
+    e.preventDefault();
+    setIsClosedDragOver(true);
+  }
+
+  function handleClosedDragLeave() {
+    setIsClosedDragOver(false);
+  }
+
+  function handleClosedDrop(e) {
+    e.preventDefault();
+    setIsClosedDragOver(false);
+    const companyId = e.dataTransfer.getData('companyId');
+    if (companyId) {
+      onUpdateStage(companyId, closedStage);
+    }
   }
 
   return (
@@ -78,6 +103,7 @@ export function KanbanBoard({
         </p>
       )}
 
+      {/* Active stages grid */}
       <div className="grid grid-cols-6 gap-4">
         {stages.map((stage) => (
           <KanbanColumn
@@ -91,6 +117,55 @@ export function KanbanBoard({
             onDragEnd={handleDragEnd}
           />
         ))}
+      </div>
+
+      {/* Closed row — collapsible bottom section */}
+      <div
+        onDragOver={handleClosedDragOver}
+        onDragLeave={handleClosedDragLeave}
+        onDrop={handleClosedDrop}
+        className={`rounded-lg p-4 transition-colors ${
+          isClosedDragOver
+            ? 'bg-purple-50 border-2 border-purple-400 border-dashed'
+            : 'bg-gray-100 border-2 border-transparent'
+        }`}
+      >
+        <button
+          onClick={() => setClosedExpanded((v) => !v)}
+          className="flex items-center gap-2 w-full text-left"
+          aria-expanded={closedExpanded}
+          aria-controls="closed-companies"
+        >
+          <Archive size={16} className="text-gray-500" aria-hidden="true" />
+          <span className="font-semibold text-gray-700 text-sm uppercase tracking-wide">
+            {stageLabels[closedStage]}
+          </span>
+          <span className="text-xs text-gray-400">
+            ({closedCompanies.length})
+          </span>
+          {closedExpanded
+            ? <ChevronDown size={16} className="text-gray-400 ml-auto" aria-hidden="true" />
+            : <ChevronRight size={16} className="text-gray-400 ml-auto" aria-hidden="true" />
+          }
+        </button>
+
+        {closedExpanded && (
+          <div id="closed-companies" className="flex flex-wrap gap-3 mt-3">
+            {closedCompanies.length === 0 && (
+              <p className="text-sm text-gray-400 italic">No closed processes yet</p>
+            )}
+            {closedCompanies.map((company) => (
+              <div key={company.id} className="w-48">
+                <CompanyCard
+                  company={company}
+                  onDelete={onDeleteCompany}
+                  onDragStart={handleDragStart}
+                  onDragEnd={handleDragEnd}
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

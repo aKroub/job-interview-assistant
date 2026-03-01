@@ -12,7 +12,7 @@ import { APP_TITLE } from './constants/app';
 import { INTERVIEW_TYPES } from './constants/interviewTypes';
 import { DEFAULT_PIPELINE, PIPELINES, PIPELINE_LABELS } from './constants/pipelines';
 import { POSITIONS } from './constants/positions';
-import { STAGES, STAGE_LABELS } from './constants/stages';
+import { ACTIVE_STAGES, CLOSED_STAGE, STAGES, STAGE_LABELS } from './constants/stages';
 import { useInterviewTracker } from './hooks/useInterviewTracker';
 
 const EMPTY_DRAFT = { name: '', position: '', stage: STAGES[0], pipeline: DEFAULT_PIPELINE };
@@ -163,8 +163,9 @@ const InterviewPrepTracker = () => {
           {activeTab === 'kanban' && (
             <KanbanBoard
               companies={pipelineCompanies}
-              stages={STAGES}
+              stages={ACTIVE_STAGES}
               stageLabels={STAGE_LABELS}
+              closedStage={CLOSED_STAGE}
               activePipeline={activePipeline}
               pipelines={PIPELINES}
               pipelineLabels={PIPELINE_LABELS}
@@ -201,7 +202,7 @@ const InterviewPrepTracker = () => {
             onDraftChange={setCompanyDraft}
             onAdd={handleAddCompany}
             onClose={() => setShowModal(false)}
-            stages={STAGES}
+            stages={ACTIVE_STAGES}
             stageLabels={STAGE_LABELS}
             positions={POSITIONS}
             pipelineLabel={PIPELINE_LABELS[activePipeline]}

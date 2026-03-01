@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AddCompanyModal } from './AddCompanyModal';
-import { STAGES, STAGE_LABELS } from '../../constants/stages';
+import { ACTIVE_STAGES, STAGE_LABELS } from '../../constants/stages';
 import { POSITIONS } from '../../constants/positions';
 
 // ---------------------------------------------------------------------------
@@ -25,7 +25,7 @@ function setup(draftOverrides = {}, handlers = {}, { pipelineLabel = 'Tel Aviv' 
       onDraftChange={onDraftChange}
       onAdd={onAdd}
       onClose={onClose}
-      stages={STAGES}
+      stages={ACTIVE_STAGES}
       stageLabels={STAGE_LABELS}
       positions={POSITIONS}
       pipelineLabel={pipelineLabel}
@@ -64,11 +64,13 @@ describe('AddCompanyModal — rendering', () => {
     });
   });
 
-  it('renders all stage options from the STAGES constant', () => {
+  it('renders all active stage options (Closed excluded)', () => {
     setup();
-    STAGES.forEach((s) => {
+    ACTIVE_STAGES.forEach((s) => {
       expect(screen.getByRole('option', { name: STAGE_LABELS[s] })).toBeInTheDocument();
     });
+    // "Closed" should not appear in the dropdown
+    expect(screen.queryByRole('option', { name: /closed/i })).not.toBeInTheDocument();
   });
 
   it('renders Add Company and Cancel buttons', () => {

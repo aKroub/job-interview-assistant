@@ -14,7 +14,7 @@ import { DEFAULT_PIPELINE, PIPELINES, PIPELINE_LABELS } from './constants/pipeli
 import { POSITIONS } from './constants/positions';
 import { ACTIVE_STAGES, CLOSED_STAGE, STAGES, STAGE_LABELS } from './constants/stages';
 import { useInterviewTracker } from './hooks/useInterviewTracker';
-import { isInPipeline, matchSuggestionToInterview } from './utils/companyUtils';
+import { findCompanyByFuzzyName, isInPipeline, matchSuggestionToInterview } from './utils/companyUtils';
 
 const EMPTY_DRAFT = { name: '', position: '', stage: STAGES[0], pipeline: [DEFAULT_PIPELINE] };
 
@@ -90,19 +90,15 @@ const InterviewPrepTracker = () => {
 
     if (action === 'cancel') {
       const matched = matchSuggestionToInterview(companies, suggestion);
-      if (matched) {
-        updateInterviewStatus(matched.companyId, matched.interviewId, 'cancelled');
-      }
+      if (!matched) return;
+      updateInterviewStatus(matched.companyId, matched.interviewId, 'cancelled');
       dismissSuggestion(suggestion);
       return;
     }
 
     if (action === 'update') {
       const matched = matchSuggestionToInterview(companies, suggestion);
-      if (!matched) {
-        dismissSuggestion(suggestion);
-        return;
-      }
+      if (!matched) return;
       const values = {
         companyId: matched.companyId,
         type:      suggestion.type || '',
@@ -117,9 +113,7 @@ const InterviewPrepTracker = () => {
     }
 
     // Default: action === 'add'
-    const match = companies.find(
-      (c) => c.name.toLowerCase() === suggestion.companyName.toLowerCase()
-    );
+    const match = findCompanyByFuzzyName(companies, suggestion.companyName);
     const values = {
       companyId: match?.id || '',
       type:      suggestion.type || '',

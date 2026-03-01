@@ -6,6 +6,7 @@ import {
   applyStageUpdate,
   createCompany,
   deriveInterviewStatus,
+  findCompanyByFuzzyName,
   flattenAndSortInterviews,
   isInPipeline,
   isMultiPipeline,
@@ -509,6 +510,118 @@ describe('matchSuggestionToInterview', () => {
 
     const result = matchSuggestionToInterview(companies, suggestion);
     expect(result).toEqual({ companyId: 'c1', interviewId: 'i2' });
+  });
+
+  it('matches by substring when suggestion name is shorter than tracker name', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        name: 'Check Point Software Technologies',
+        interviews: [makeInterview({ id: 'i1', date: '2025-01-20' })],
+      }),
+    ];
+    const suggestion = { companyName: 'checkpoint', date: '2025-01-20', time: '14:00' };
+
+    expect(matchSuggestionToInterview(companies, suggestion)).toEqual({ companyId: 'c1', interviewId: 'i1' });
+  });
+
+  it('matches by substring when tracker name is shorter than suggestion name', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        name: 'Meta',
+        interviews: [makeInterview({ id: 'i1', date: '2025-01-20' })],
+      }),
+    ];
+    const suggestion = { companyName: 'Meta Platforms', date: '2025-01-20', time: '14:00' };
+
+    expect(matchSuggestionToInterview(companies, suggestion)).toEqual({ companyId: 'c1', interviewId: 'i1' });
+  });
+
+  it('prefers exact match over substring match', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        name: 'Check Point Software Technologies',
+        interviews: [makeInterview({ id: 'i1', date: '2025-01-20', time: '10:00' })],
+      }),
+      makeCompany({
+        id: 'c2',
+        name: 'Check Point',
+        interviews: [makeInterview({ id: 'i2', date: '2025-01-20', time: '15:00' })],
+      }),
+    ];
+    const suggestion = { companyName: 'Check Point', date: '2025-01-20', time: '14:00' };
+
+    // c2 is an exact match after normalization — should win even though c1 has a closer time
+    expect(matchSuggestionToInterview(companies, suggestion)).toEqual({ companyId: 'c2', interviewId: 'i2' });
+  });
+
+  it('does not substring-match when shorter name is under 3 characters', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        name: 'Meta',
+        interviews: [makeInterview({ id: 'i1', date: '2025-01-20' })],
+      }),
+    ];
+    // "at" is contained in "meta" but is too short to be a reliable match
+    const suggestion = { companyName: 'AT', date: '2025-01-20', time: '14:00' };
+
+    expect(matchSuggestionToInterview(companies, suggestion)).toBeNull();
+  });
+
+  it('picks closest time among two substring matches', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        name: 'Check Point SW',
+        interviews: [makeInterview({ id: 'i1', date: '2025-01-20', time: '10:00' })],
+      }),
+      makeCompany({
+        id: 'c2',
+        name: 'Check Point Technologies',
+        interviews: [makeInterview({ id: 'i2', date: '2025-01-20', time: '14:30' })],
+      }),
+    ];
+    // "checkpoint" is a substring of both normalised names; pick closest time
+    const suggestion = { companyName: 'checkpoint', date: '2025-01-20', time: '14:00' };
+
+    expect(matchSuggestionToInterview(companies, suggestion)).toEqual({ companyId: 'c2', interviewId: 'i2' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// findCompanyByFuzzyName
+// ---------------------------------------------------------------------------
+
+describe('findCompanyByFuzzyName', () => {
+  it('returns the company on exact normalised match', () => {
+    const companies = [makeCompany({ id: 'c1', name: 'Google' })];
+    expect(findCompanyByFuzzyName(companies, 'google')).toBe(companies[0]);
+  });
+
+  it('returns the company on substring match (domain-style name)', () => {
+    const companies = [makeCompany({ id: 'c1', name: 'Check Point Software Technologies' })];
+    expect(findCompanyByFuzzyName(companies, 'checkpoint')).toBe(companies[0]);
+  });
+
+  it('prefers exact match over substring match', () => {
+    const companies = [
+      makeCompany({ id: 'c1', name: 'Check Point Software Technologies' }),
+      makeCompany({ id: 'c2', name: 'Check Point' }),
+    ];
+    expect(findCompanyByFuzzyName(companies, 'Check Point')).toBe(companies[1]);
+  });
+
+  it('returns null when no company matches', () => {
+    const companies = [makeCompany({ id: 'c1', name: 'Google' })];
+    expect(findCompanyByFuzzyName(companies, 'Meta')).toBeNull();
+  });
+
+  it('returns null for empty name', () => {
+    const companies = [makeCompany({ id: 'c1', name: 'Google' })];
+    expect(findCompanyByFuzzyName(companies, '')).toBeNull();
   });
 });
 

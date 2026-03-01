@@ -10,11 +10,12 @@ import { AddInterviewModal } from './components/TimelineView/AddInterviewModal';
 import { TimelineView } from './components/TimelineView/TimelineView';
 import { APP_TITLE } from './constants/app';
 import { INTERVIEW_TYPES } from './constants/interviewTypes';
+import { DEFAULT_PIPELINE, PIPELINES, PIPELINE_LABELS } from './constants/pipelines';
 import { POSITIONS } from './constants/positions';
 import { STAGES, STAGE_LABELS } from './constants/stages';
 import { useInterviewTracker } from './hooks/useInterviewTracker';
 
-const EMPTY_DRAFT = { name: '', position: '', stage: STAGES[0] };
+const EMPTY_DRAFT = { name: '', position: '', stage: STAGES[0], pipeline: DEFAULT_PIPELINE };
 
 /**
  * Root application component — the thin orchestrating shell.
@@ -27,6 +28,7 @@ const EMPTY_DRAFT = { name: '', position: '', stage: STAGES[0] };
  */
 const InterviewPrepTracker = () => {
   const [activeTab,       setActiveTab]       = useState('kanban');
+  const [activePipeline,  setActivePipeline]  = useState(DEFAULT_PIPELINE);
   const [showModal,       setShowModal]       = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [companyDraft,    setCompanyDraft]    = useState(EMPTY_DRAFT);
@@ -66,8 +68,19 @@ const InterviewPrepTracker = () => {
   }
 
   function handleOpenModal() {
-    setCompanyDraft(EMPTY_DRAFT);
+    setCompanyDraft({ ...EMPTY_DRAFT, pipeline: activePipeline });
     setShowModal(true);
+  }
+
+  const pipelineCompanies = companies.filter(
+    (c) => (c.pipeline || DEFAULT_PIPELINE) === activePipeline
+  );
+
+  const pipelineCounts = {};
+  for (const p of PIPELINES) {
+    pipelineCounts[p] = companies.filter(
+      (c) => (c.pipeline || DEFAULT_PIPELINE) === p
+    ).length;
   }
 
   function handleAcceptSuggestion(suggestion) {
@@ -149,9 +162,14 @@ const InterviewPrepTracker = () => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           {activeTab === 'kanban' && (
             <KanbanBoard
-              companies={companies}
+              companies={pipelineCompanies}
               stages={STAGES}
               stageLabels={STAGE_LABELS}
+              activePipeline={activePipeline}
+              pipelines={PIPELINES}
+              pipelineLabels={PIPELINE_LABELS}
+              pipelineCounts={pipelineCounts}
+              onPipelineChange={setActivePipeline}
               onAddCompany={handleOpenModal}
               onDeleteCompany={deleteCompany}
               onUpdateStage={updateCompanyStage}
@@ -186,6 +204,7 @@ const InterviewPrepTracker = () => {
             stages={STAGES}
             stageLabels={STAGE_LABELS}
             positions={POSITIONS}
+            pipelineLabel={PIPELINE_LABELS[activePipeline]}
           />
         )}
 

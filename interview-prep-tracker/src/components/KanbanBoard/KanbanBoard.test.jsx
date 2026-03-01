@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { KanbanBoard } from './KanbanBoard';
 import { STAGES, STAGE_LABELS } from '../../constants/stages';
+import { PIPELINES, PIPELINE_LABELS } from '../../constants/pipelines';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -12,19 +13,25 @@ function setup({ companies = [], handlers = {} } = {}) {
   const onAddCompany    = handlers.onAddCompany    ?? jest.fn();
   const onDeleteCompany = handlers.onDeleteCompany ?? jest.fn();
   const onUpdateStage   = handlers.onUpdateStage   ?? jest.fn();
+  const onPipelineChange = handlers.onPipelineChange ?? jest.fn();
 
   render(
     <KanbanBoard
       companies={companies}
       stages={STAGES}
       stageLabels={STAGE_LABELS}
+      activePipeline="tel-aviv"
+      pipelines={PIPELINES}
+      pipelineLabels={PIPELINE_LABELS}
+      pipelineCounts={{ 'tel-aviv': companies.length, 'us': 0 }}
+      onPipelineChange={onPipelineChange}
       onAddCompany={onAddCompany}
       onDeleteCompany={onDeleteCompany}
       onUpdateStage={onUpdateStage}
     />
   );
 
-  return { onAddCompany, onDeleteCompany, onUpdateStage };
+  return { onAddCompany, onDeleteCompany, onUpdateStage, onPipelineChange };
 }
 
 // ---------------------------------------------------------------------------
@@ -70,10 +77,33 @@ describe('KanbanBoard — rendering', () => {
 // Interactions
 // ---------------------------------------------------------------------------
 
+describe('KanbanBoard — pipeline tabs', () => {
+  it('renders a tab for each pipeline', () => {
+    setup();
+    expect(screen.getByText('Tel Aviv')).toBeInTheDocument();
+    expect(screen.getByText('US')).toBeInTheDocument();
+  });
+
+  it('calls onPipelineChange when a pipeline tab is clicked', async () => {
+    const { onPipelineChange } = setup();
+    await userEvent.click(screen.getByText('US'));
+    expect(onPipelineChange).toHaveBeenCalledWith('us');
+  });
+
+  it('renders pipeline counts next to labels', () => {
+    const companies = [
+      { id: 'c1', name: 'Google', position: 'SWE', stage: 'applied', interviews: [] },
+    ];
+    setup({ companies });
+    expect(screen.getByText('1')).toBeInTheDocument();
+    expect(screen.getByText('0')).toBeInTheDocument();
+  });
+});
+
 describe('KanbanBoard — interactions', () => {
   it('calls onAddCompany when Add Company button is clicked', async () => {
     const { onAddCompany } = setup();
-    userEvent.click(screen.getByRole('button', { name: /add company/i }));
+    await userEvent.click(screen.getByRole('button', { name: /add company/i }));
     expect(onAddCompany).toHaveBeenCalledTimes(1);
   });
 });

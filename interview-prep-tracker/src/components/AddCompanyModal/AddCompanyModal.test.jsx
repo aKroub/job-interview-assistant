@@ -13,7 +13,7 @@ function makeDraft(overrides = {}) {
   return { name: '', position: '', stage: 'applied', ...overrides };
 }
 
-function setup(draftOverrides = {}, handlers = {}) {
+function setup(draftOverrides = {}, handlers = {}, { pipelineLabel = 'Tel Aviv' } = {}) {
   const draft = makeDraft(draftOverrides);
   const onDraftChange = handlers.onDraftChange ?? jest.fn();
   const onAdd        = handlers.onAdd        ?? jest.fn();
@@ -28,6 +28,7 @@ function setup(draftOverrides = {}, handlers = {}) {
       stages={STAGES}
       stageLabels={STAGE_LABELS}
       positions={POSITIONS}
+      pipelineLabel={pipelineLabel}
     />
   );
 
@@ -74,6 +75,11 @@ describe('AddCompanyModal — rendering', () => {
     setup();
     expect(screen.getByRole('button', { name: /add company/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /cancel/i })).toBeInTheDocument();
+  });
+
+  it('renders the pipeline label badge', () => {
+    setup({}, {}, { pipelineLabel: 'US' });
+    expect(screen.getByText('US')).toBeInTheDocument();
   });
 });
 

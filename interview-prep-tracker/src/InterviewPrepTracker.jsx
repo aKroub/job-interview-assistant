@@ -99,16 +99,23 @@ const InterviewPrepTracker = () => {
     if (action === 'update') {
       const matched = matchSuggestionToInterview(companies, suggestion);
       if (!matched) return;
-      const values = {
-        companyId: matched.companyId,
-        type:      suggestion.type || '',
-        date:      suggestion.date || '',
-        time:      suggestion.time || '',
+      const company   = companies.find((c) => c.id === matched.companyId);
+      const interview = company?.interviews.find((i) => i.id === matched.interviewId);
+      if (!company || !interview) return;
+
+      // Build a full interview object with the suggestion's proposed changes
+      // pre-applied, so the edit modal opens with the new values ready to save.
+      const editInterview = {
+        ...interview,
+        companyId:   company.id,
+        companyName: company.name,
+        position:    company.position,
+        ...(suggestion.type     ? { type: suggestion.type }         : {}),
+        ...(suggestion.date     ? { date: suggestion.date }         : {}),
+        ...(suggestion.time     ? { time: suggestion.time }         : {}),
+        ...(suggestion.duration ? { duration: suggestion.duration } : {}),
       };
-      if (suggestion.duration) {
-        values.duration = suggestion.duration;
-      }
-      setSuggestionDraft({ suggestion, initialValues: values, matchedInterview: matched });
+      setSuggestionDraft({ suggestion, editInterview });
       return;
     }
 
@@ -127,17 +134,15 @@ const InterviewPrepTracker = () => {
   }
 
   function handleScheduleFromSuggestion(companyId, interview) {
-    if (suggestionDraft?.matchedInterview) {
-      const { companyId: matchedCompanyId, interviewId } = suggestionDraft.matchedInterview;
-      updateInterview(matchedCompanyId, interviewId, {
-        date: interview.date,
-        time: interview.time,
-        ...(interview.duration != null ? { duration: interview.duration } : {}),
-        ...(interview.type ? { type: interview.type } : {}),
-      });
-    } else {
-      addInterview(companyId, interview);
+    addInterview(companyId, interview);
+    if (suggestionDraft?.suggestion) {
+      dismissSuggestion(suggestionDraft.suggestion);
     }
+    setSuggestionDraft(null);
+  }
+
+  function handleEditFromSuggestion(companyId, interviewId, updates) {
+    updateInterview(companyId, interviewId, updates);
     if (suggestionDraft?.suggestion) {
       dismissSuggestion(suggestionDraft.suggestion);
     }
@@ -219,7 +224,7 @@ const InterviewPrepTracker = () => {
               interviewTypes={INTERVIEW_TYPES}
               onAddInterview={addInterview}
               onDeleteInterview={deleteInterview}
-              onUpdateInterviewStatus={updateInterviewStatus}
+              onUpdateInterview={updateInterview}
             />
           )}
           {activeTab === 'prep' && (
@@ -247,8 +252,17 @@ const InterviewPrepTracker = () => {
           />
         )}
 
-        {/* Schedule interview from suggestion */}
-        {suggestionDraft && (
+        {/* Interview modal from suggestion — edit mode for updates, add mode for new */}
+        {suggestionDraft?.editInterview && (
+          <AddInterviewModal
+            companies={companies}
+            interviewTypes={INTERVIEW_TYPES}
+            interview={suggestionDraft.editInterview}
+            onEdit={handleEditFromSuggestion}
+            onClose={() => setSuggestionDraft(null)}
+          />
+        )}
+        {suggestionDraft && !suggestionDraft.editInterview && (
           <AddInterviewModal
             companies={companies}
             interviewTypes={INTERVIEW_TYPES}

@@ -16,18 +16,21 @@ import { WeekHeader } from './WeekHeader';
  * Weekly calendar view that displays interviews in a Sun–Sat day-column grid.
  *
  * Owns ephemeral UI state (which week is displayed, whether the add-interview
- * modal is open). All persisted data and callbacks arrive via props.
+ * modal is open, which interview is being edited). All persisted data and
+ * callbacks arrive via props.
  *
  * @param {{
- *   companies:               Object[],
- *   interviewTypes:          string[],
- *   onAddInterview:          (companyId: string, interview: Object) => void,
- *   onUpdateInterviewStatus: (companyId: string, interviewId: string, status: string) => void,
+ *   companies:            Object[],
+ *   interviewTypes:       string[],
+ *   onAddInterview:       (companyId: string, interview: Object) => void,
+ *   onDeleteInterview:    (companyId: string, interviewId: string) => void,
+ *   onUpdateInterview:    (companyId: string, interviewId: string, updates: Object) => void,
  * }} props
  */
-export function CalendarView({ companies, interviewTypes, onAddInterview, onDeleteInterview, onUpdateInterviewStatus }) {
-  const [currentWeekStart, setCurrentWeekStart] = useState(() => getWeekStart(new Date()));
-  const [showAddModal,     setShowAddModal]     = useState(false);
+export function CalendarView({ companies, interviewTypes, onAddInterview, onDeleteInterview, onUpdateInterview }) {
+  const [currentWeekStart,  setCurrentWeekStart]  = useState(() => getWeekStart(new Date()));
+  const [showAddModal,      setShowAddModal]      = useState(false);
+  const [editingInterview,  setEditingInterview]   = useState(null);
 
   const allInterviews  = flattenAndSortInterviews(companies);
   const weekDays       = getWeekDays(currentWeekStart);
@@ -45,6 +48,11 @@ export function CalendarView({ companies, interviewTypes, onAddInterview, onDele
   const handleToday = useCallback(() => {
     setCurrentWeekStart(getWeekStart(new Date()));
   }, []);
+
+  function handleEditSave(companyId, interviewId, updates) {
+    onUpdateInterview(companyId, interviewId, updates);
+    setEditingInterview(null);
+  }
 
   return (
     <div>
@@ -71,7 +79,7 @@ export function CalendarView({ companies, interviewTypes, onAddInterview, onDele
               interviews={interviews}
               isToday={isSameDay(day, today)}
               onDeleteInterview={onDeleteInterview}
-              onUpdateStatus={onUpdateInterviewStatus}
+              onEdit={setEditingInterview}
             />
           );
         })}
@@ -84,6 +92,17 @@ export function CalendarView({ companies, interviewTypes, onAddInterview, onDele
           interviewTypes={interviewTypes}
           onAdd={onAddInterview}
           onClose={() => setShowAddModal(false)}
+        />
+      )}
+
+      {/* Edit interview modal */}
+      {editingInterview && (
+        <AddInterviewModal
+          companies={companies}
+          interviewTypes={interviewTypes}
+          onClose={() => setEditingInterview(null)}
+          interview={editingInterview}
+          onEdit={handleEditSave}
         />
       )}
     </div>

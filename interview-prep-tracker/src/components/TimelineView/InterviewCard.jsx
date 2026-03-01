@@ -1,5 +1,5 @@
 import { Building2, Clock, Pencil, Trash2 } from 'lucide-react';
-import React, { useState } from 'react';
+import React from 'react';
 import { TYPE_CONFIG } from '../../constants/interviewTypes';
 import { deriveInterviewStatus } from '../../utils/companyUtils';
 
@@ -11,37 +11,25 @@ const STATUS_STYLES = {
   cancelled: 'bg-red-50    border-red-300    text-red-700',
 };
 
-/** Options for the manual status dropdown (excludes derived 'passed'). */
-const STATUS_OPTIONS = [
-  { value: 'scheduled', label: 'Scheduled' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'cancelled', label: 'Cancelled' },
-];
-
 /**
  * Compact interview card for use inside a calendar day column.
  *
  * Displays time + duration, company name, interview type, and a derived
- * status badge. A pencil icon toggles the status dropdown for editing.
+ * status badge. A pencil icon opens the full edit modal via the onEdit
+ * callback.
  *
  * @param {{
- *   interview:      Object,
- *   onUpdateStatus: (companyId: string, interviewId: string, status: string) => void,
+ *   interview:          Object,
+ *   onDeleteInterview:  (companyId: string, interviewId: string) => void,
+ *   onEdit:             (interview: Object) => void,
  * }} props
  */
-export function InterviewCard({ interview, onDeleteInterview, onUpdateStatus }) {
-  const [editing, setEditing] = useState(false);
-
+export function InterviewCard({ interview, onDeleteInterview, onEdit }) {
   const displayStatus = deriveInterviewStatus(interview);
   const statusStyle   = STATUS_STYLES[displayStatus] ?? STATUS_STYLES.scheduled;
 
   const typeConfig = TYPE_CONFIG[interview.type] || { Icon: Building2 };
   const InterviewIcon = typeConfig.Icon
-
-  function handleStatusChange(e) {
-    onUpdateStatus(interview.companyId, interview.id, e.target.value);
-    setEditing(false);
-  }
 
   function handleDelete() {
     if (window.confirm(`Are you sure you want to delete the ${interview.companyName} interview?`)) {
@@ -52,21 +40,31 @@ export function InterviewCard({ interview, onDeleteInterview, onUpdateStatus }) 
   return (
     <div className="relative bg-white rounded-md border border-gray-200 p-2 shadow-sm hover:shadow transition">
 
-      <button
-        onClick={handleDelete}
-        className="absolute top-1.5 right-1.5 p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-600 transition" // opacity-0 group-hover:opacity-100"
-        aria-label="Delete interview"
-      >
-        <Trash2 size={12} />
-      </button>
+      {/* Action buttons — top-right */}
+      <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5">
+        <button
+          onClick={() => onEdit(interview)}
+          className="p-1 rounded hover:bg-purple-50 text-gray-300 hover:text-purple-600 transition"
+          aria-label={`Edit ${interview.companyName} interview`}
+        >
+          <Pencil size={12} />
+        </button>
+        <button
+          onClick={handleDelete}
+          className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-600 transition"
+          aria-label="Delete interview"
+        >
+          <Trash2 size={12} />
+        </button>
+      </div>
 
       {/* Time + duration */}
       {interview.time && (
-        <div className="flex items-center gap-1 text-sm font-semibold text-gray-800 mb-1 pr-5">
+        <div className="flex items-center gap-1 text-sm font-semibold text-gray-800 mb-1 pr-12">
           <Clock size={12} className="text-gray-500" />
           <span>{interview.time}</span>
           {interview.duration && (
-            <span className="text-xs font-normal text-gray-400">
+            <span className="text-xs font-normal text-gray-400 whitespace-nowrap">
               ({interview.duration} min)
             </span>
           )}
@@ -74,7 +72,7 @@ export function InterviewCard({ interview, onDeleteInterview, onUpdateStatus }) 
       )}
 
       {/* Company name */}
-      <div className="flex items-center gap-1 mb-1 pr-5">
+      <div className="flex items-center gap-1 mb-1 pr-12">
         <InterviewIcon size={12} className="text-purple-500 shrink-0" />
         <span className="text-xs font-medium text-gray-800 truncate">
           {interview.companyName}
@@ -86,35 +84,11 @@ export function InterviewCard({ interview, onDeleteInterview, onUpdateStatus }) 
         <p className="text-xs text-gray-500 mb-1 truncate">{interview.type}</p>
       )}
 
-      {/* Status badge + pencil edit toggle */}
-      <div className="flex items-center justify-between gap-1">
-        {editing ? (
-          <select
-            value={interview.status}
-            onChange={handleStatusChange}
-            onBlur={() => setEditing(false)}
-            autoFocus
-            className="px-1 py-0.5 text-xs border border-gray-300 rounded text-gray-600 w-full"
-            aria-label={`Update status for ${interview.companyName} interview`}
-          >
-            {STATUS_OPTIONS.map(({ value, label }) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
-        ) : (
-          <>
-            <span className={`px-1.5 py-0.5 text-xs rounded border font-medium capitalize ${statusStyle}`}>
-              {displayStatus}
-            </span>
-            <button
-              onClick={() => setEditing(true)}
-              className="p-0.5 rounded hover:bg-gray-100 transition text-gray-400 hover:text-gray-600"
-              aria-label={`Edit status for ${interview.companyName} interview`}
-            >
-              <Pencil size={12} />
-            </button>
-          </>
-        )}
+      {/* Status badge */}
+      <div className="flex items-center gap-1">
+        <span className={`px-1.5 py-0.5 text-xs rounded border font-medium capitalize ${statusStyle}`}>
+          {displayStatus}
+        </span>
       </div>
     </div>
   );

@@ -20,20 +20,22 @@ function makeInterview(overrides = {}) {
   };
 }
 
-function setup({ date, interviews = [], isToday = false, onUpdateStatus } = {}) {
-  const handler = onUpdateStatus ?? jest.fn();
-  const dateObj = date ?? new Date(2026, 1, 18); // Wednesday Feb 18
+function setup({ date, interviews = [], isToday = false, onEdit, onDeleteInterview } = {}) {
+  const editHandler   = onEdit            ?? jest.fn();
+  const deleteHandler = onDeleteInterview  ?? jest.fn();
+  const dateObj       = date ?? new Date(2026, 1, 18); // Wednesday Feb 18
 
   render(
     <DayColumn
       date={dateObj}
       interviews={interviews}
       isToday={isToday}
-      onUpdateStatus={handler}
+      onDeleteInterview={deleteHandler}
+      onEdit={editHandler}
     />
   );
 
-  return { onUpdateStatus: handler };
+  return { onEdit: editHandler, onDeleteInterview: deleteHandler };
 }
 
 // ---------------------------------------------------------------------------

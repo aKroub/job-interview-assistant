@@ -133,6 +133,38 @@ describe('useCompanies — updateInterviewStatus', () => {
 });
 
 // ---------------------------------------------------------------------------
+// updateInterview
+// ---------------------------------------------------------------------------
+
+describe('useCompanies — updateInterview', () => {
+  it('updates the specified fields on the matching interview', () => {
+    const { result } = setup();
+    act(() => { result.current.addCompany(DRAFT); });
+    const companyId = result.current.companies[0].id;
+
+    act(() => { result.current.addInterview(companyId, INTERVIEW); });
+    const interviewId = result.current.companies[0].interviews[0].id;
+
+    act(() => { result.current.updateInterview(companyId, interviewId, { date: '2025-02-01', time: '15:00' }); });
+    expect(result.current.companies[0].interviews[0].date).toBe('2025-02-01');
+    expect(result.current.companies[0].interviews[0].time).toBe('15:00');
+  });
+
+  it('persists the updated interview to storage', () => {
+    const { result, storage } = setup();
+    act(() => { result.current.addCompany(DRAFT); });
+    const companyId = result.current.companies[0].id;
+
+    act(() => { result.current.addInterview(companyId, INTERVIEW); });
+    const interviewId = result.current.companies[0].interviews[0].id;
+
+    act(() => { result.current.updateInterview(companyId, interviewId, { date: '2025-02-01' }); });
+    const stored = JSON.parse(storage.getItem('companies'));
+    expect(stored[0].interviews[0].date).toBe('2025-02-01');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // isValidCompany — pure validator
 // ---------------------------------------------------------------------------
 

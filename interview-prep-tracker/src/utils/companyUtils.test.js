@@ -5,6 +5,7 @@ import {
   applyStageUpdate,
   createCompany,
   flattenAndSortInterviews,
+  migrateCompanies,
 } from './companyUtils';
 
 // ---------------------------------------------------------------------------
@@ -82,6 +83,53 @@ describe('createCompany', () => {
   it('includes the pipeline field from the draft', () => {
     const company = createCompany({ name: 'X', position: 'Y', stage: 'interested', pipeline: 'us' }, () => 1);
     expect(company.pipeline).toBe('us');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// migrateCompanies
+// ---------------------------------------------------------------------------
+
+describe('migrateCompanies', () => {
+  it('adds the default pipeline to companies missing the field', () => {
+    const companies = [makeCompany({ id: '1' })];
+    const result = migrateCompanies(companies, 'tel-aviv');
+    expect(result[0].pipeline).toBe('tel-aviv');
+  });
+
+  it('does not overwrite an existing pipeline value', () => {
+    const companies = [makeCompany({ id: '1', pipeline: 'us' })];
+    const result = migrateCompanies(companies, 'tel-aviv');
+    expect(result[0].pipeline).toBe('us');
+  });
+
+  it('returns the original array reference when no migration is needed', () => {
+    const companies = [makeCompany({ id: '1', pipeline: 'us' })];
+    const result = migrateCompanies(companies, 'tel-aviv');
+    expect(result).toBe(companies);
+  });
+
+  it('does not mutate the original company objects', () => {
+    const original = makeCompany({ id: '1' });
+    const companies = [original];
+    migrateCompanies(companies, 'tel-aviv');
+    expect(original.pipeline).toBeUndefined();
+  });
+
+  it('handles a mix of migrated and non-migrated companies', () => {
+    const companies = [
+      makeCompany({ id: '1', pipeline: 'us' }),
+      makeCompany({ id: '2' }),
+    ];
+    const result = migrateCompanies(companies, 'tel-aviv');
+    expect(result[0].pipeline).toBe('us');
+    expect(result[1].pipeline).toBe('tel-aviv');
+  });
+
+  it('returns the original array reference for an empty array', () => {
+    const companies = [];
+    const result = migrateCompanies(companies, 'tel-aviv');
+    expect(result).toBe(companies);
   });
 });
 

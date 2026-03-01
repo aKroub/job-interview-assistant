@@ -26,6 +26,28 @@ export function createCompany(draft, idFn = Date.now) {
 }
 
 /**
+ * Returns a new companies array with missing `pipeline` fields backfilled.
+ *
+ * Companies created before the pipeline feature won't have a `pipeline` field.
+ * This function adds the default pipeline to those entries so storage stays
+ * normalised after the first load.
+ *
+ * Returns the original array reference when no migration is needed (avoids
+ * unnecessary re-renders and storage writes).
+ *
+ * @param {Object[]} companies
+ * @param {string}   defaultPipeline - the pipeline value to assign when missing
+ * @returns {Object[]}
+ */
+export function migrateCompanies(companies, defaultPipeline) {
+  const needsMigration = companies.some((c) => !c.pipeline);
+  if (!needsMigration) return companies;
+  return companies.map((c) =>
+    c.pipeline ? c : { ...c, pipeline: defaultPipeline }
+  );
+}
+
+/**
  * Returns a new companies array with one company's stage updated.
  *
  * @param {Object[]} companies

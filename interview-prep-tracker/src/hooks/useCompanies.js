@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { localStorageService } from '../services/storageService';
+import { DEFAULT_PIPELINE } from '../constants/pipelines';
 import {
   applyAddInterview,
   applyADeleteInterview,
@@ -7,6 +8,7 @@ import {
   applyInterviewStatusUpdate,
   applyStageUpdate,
   createCompany,
+  migrateCompanies,
 } from '../utils/companyUtils';
 
 const STORAGE_KEY = 'companies';
@@ -44,14 +46,18 @@ export function isValidCompany(value) {
 export function useCompanies(storage = localStorageService) {
   const [companies, setCompanies] = useState([]);
 
-  // Load persisted companies on first mount
+  // Load persisted companies on first mount, migrating legacy data if needed
   useEffect(() => {
     try {
       const raw = storage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.every(isValidCompany)) {
-          setCompanies(parsed);
+          const migrated = migrateCompanies(parsed, DEFAULT_PIPELINE);
+          setCompanies(migrated);
+          if (migrated !== parsed) {
+            storage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+          }
         }
         // If shape is invalid, silently discard and start fresh
       }
@@ -92,7 +98,8 @@ export function useCompanies(storage = localStorageService) {
 
   /**
    * Replaces all companies with a cloud-loaded array.
-   * Validates each entry before accepting. Persists to storage.
+   * Validates each entry before accepting. Migrates legacy entries that are
+   * missing the `pipeline` field, then persists to storage.
    *
    * @param {Object[]} companiesArray - the full companies array from cloud backup
    */
@@ -100,7 +107,7 @@ export function useCompanies(storage = localStorageService) {
     if (!Array.isArray(companiesArray) || !companiesArray.every(isValidCompany)) {
       return;
     }
-    persist(companiesArray);
+    persist(migrateCompanies(companiesArray, DEFAULT_PIPELINE));
   }
 
   return {

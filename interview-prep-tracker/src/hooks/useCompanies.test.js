@@ -218,3 +218,50 @@ describe('useCompanies — storage resilience', () => {
     expect(result.current.companies).toHaveLength(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// useCompanies — pipeline migration on load
+// ---------------------------------------------------------------------------
+
+describe('useCompanies — pipeline migration', () => {
+  it('backfills pipeline on legacy companies loaded from storage', () => {
+    const storage = createMemoryStorage();
+    const legacy = [{ id: '1', name: 'Old Co', position: 'SWE', stage: 'applied', interviews: [] }];
+    storage.setItem('companies', JSON.stringify(legacy));
+
+    const { result } = renderHook(() => useCompanies(storage));
+    expect(result.current.companies[0].pipeline).toBe('tel-aviv');
+  });
+
+  it('persists the migrated data back to storage', () => {
+    const storage = createMemoryStorage();
+    const legacy = [{ id: '1', name: 'Old Co', position: 'SWE', stage: 'applied', interviews: [] }];
+    storage.setItem('companies', JSON.stringify(legacy));
+
+    renderHook(() => useCompanies(storage));
+    const stored = JSON.parse(storage.getItem('companies'));
+    expect(stored[0].pipeline).toBe('tel-aviv');
+  });
+
+  it('does not re-write storage when all companies already have pipeline', () => {
+    const storage = createMemoryStorage();
+    const modern = [{ id: '1', name: 'New Co', position: 'SWE', stage: 'applied', pipeline: 'us', interviews: [] }];
+    const json = JSON.stringify(modern);
+    storage.setItem('companies', json);
+
+    renderHook(() => useCompanies(storage));
+    // Storage value should be identical — no unnecessary write
+    expect(storage.getItem('companies')).toBe(json);
+  });
+
+  it('backfills pipeline on legacy companies loaded via replaceCompanies (cloud restore)', () => {
+    const storage = createMemoryStorage();
+    const { result } = renderHook(() => useCompanies(storage));
+    const cloudData = [{ id: '1', name: 'Cloud Co', position: 'SWE', stage: 'phone', interviews: [] }];
+
+    act(() => { result.current.replaceCompanies(cloudData); });
+    expect(result.current.companies[0].pipeline).toBe('tel-aviv');
+    const stored = JSON.parse(storage.getItem('companies'));
+    expect(stored[0].pipeline).toBe('tel-aviv');
+  });
+});

@@ -63,6 +63,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
    * @returns {Promise<Array<{
    *   id: string,
    *   source: 'gmail+calendar' | 'gmail' | 'calendar',
+   *   action: 'add' | 'cancel' | 'update',
    *   confidence: number,
    *   companyName: string,
    *   companyDomain: string,
@@ -122,7 +123,10 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
           // is dismissed — prevents it from appearing as calendar-only later.
           matchedEventIds.add(event.eventId);
 
-          const suggestionId = `suggestion_${email.messageId}_${event.eventId}`;
+          // Determine the action from email intent and calendar status
+          const action = deriveAction(email.intent, event.calendarStatus);
+          const actionPrefix = action === 'add' ? '' : `${action}_`;
+          const suggestionId = `suggestion_${actionPrefix}${email.messageId}_${event.eventId}`;
 
           // Skip if this suggestion or any of its components was dismissed
           if (dismissed.ids.has(suggestionId) ||
@@ -132,12 +136,12 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
           }
 
           if (!bestMatch || confidence > bestMatch.confidence) {
-            bestMatch = { event, confidence, suggestionId };
+            bestMatch = { event, confidence, suggestionId, action };
           }
         }
 
         if (bestMatch) {
-          const { event, confidence, suggestionId } = bestMatch;
+          const { event, confidence, suggestionId, action } = bestMatch;
 
           // Use the calendar event's date/time (more reliable than email extraction)
           const date = event.date || email.extractedDate || '';
@@ -154,6 +158,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
           suggestions.push({
             id: suggestionId,
             source: 'gmail+calendar',
+            action,
             confidence,
             companyName: capitalise(email.companyName || event.companyName || ''),
             companyDomain: email.senderDomain || '',
@@ -186,13 +191,16 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
       if (usedMessageIds.has(email.messageId)) continue;
       if (email.score < EMAIL_ONLY_MIN_SCORE) continue;
 
-      const suggestionId = `suggestion_gmail_${email.messageId}`;
+      const emailAction = email.intent || 'add';
+      const emailActionPrefix = emailAction === 'add' ? '' : `${emailAction}_`;
+      const suggestionId = `suggestion_${emailActionPrefix}gmail_${email.messageId}`;
       if (dismissed.ids.has(suggestionId)) continue;
       if (isDismissedComponent(dismissed, email.messageId, '')) continue;
 
       suggestions.push({
         id: suggestionId,
         source: 'gmail',
+        action: emailAction,
         confidence: email.score * EMAIL_ONLY_CONFIDENCE_FACTOR,
         companyName: capitalise(email.companyName || ''),
         companyDomain: email.senderDomain || '',
@@ -216,13 +224,16 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
       if (usedEventIds.has(event.eventId) || matchedEventIds.has(event.eventId)) continue;
       if (event.score < CALENDAR_ONLY_MIN_SCORE) continue;
 
-      const suggestionId = `suggestion_calendar_${event.eventId}`;
+      const calAction = event.calendarStatus === 'cancelled' ? 'cancel' : 'add';
+      const calActionPrefix = calAction === 'add' ? '' : `${calAction}_`;
+      const suggestionId = `suggestion_${calActionPrefix}calendar_${event.eventId}`;
       if (dismissed.ids.has(suggestionId)) continue;
       if (isDismissedComponent(dismissed, '', event.eventId)) continue;
 
       suggestions.push({
         id: suggestionId,
         source: 'calendar',
+        action: calAction,
         confidence: event.score * CALENDAR_ONLY_CONFIDENCE_FACTOR,
         companyName: capitalise(event.companyName || ''),
         companyDomain: '',
@@ -379,18 +390,23 @@ function computeDurationMinutes(startIso, endIso) {
   return Math.round((endMs - startMs) / 60000);
 }
 
+/** Action priority for sorting: cancel is most urgent, then update, then add. */
+const ACTION_PRIORITY = { cancel: 0, update: 1, add: 2 };
+
 /**
- * Compares two suggestions for sorting: soonest interview date first.
+ * Compares two suggestions for sorting: soonest interview date first,
+ * with action urgency as a tiebreaker (cancel > update > add).
  *
  * - Primary: date ascending (soonest first). No-date suggestions sink to the bottom.
  * - Secondary: time ascending when dates are equal.
- * - Tertiary: confidence descending as tiebreaker.
+ * - Tertiary: action priority (cancel > update > add).
+ * - Quaternary: confidence descending as final tiebreaker.
  *
  * YYYY-MM-DD and HH:mm formats sort correctly with lexicographic comparison,
  * so no Date parsing is needed.
  *
- * @param {{ date: string, time: string, confidence: number }} a
- * @param {{ date: string, time: string, confidence: number }} b
+ * @param {{ date: string, time: string, action: string, confidence: number }} a
+ * @param {{ date: string, time: string, action: string, confidence: number }} b
  * @returns {number} negative if a comes first, positive if b comes first
  */
 function compareSuggestionsByDate(a, b) {
@@ -415,7 +431,12 @@ function compareSuggestionsByDate(a, b) {
     return a.time < b.time ? -1 : 1;
   }
 
-  // Same date and time (or both missing time) — tiebreak by confidence
+  // Same date and time — action urgency (cancel > update > add)
+  const aPriority = ACTION_PRIORITY[a.action] ?? 2;
+  const bPriority = ACTION_PRIORITY[b.action] ?? 2;
+  if (aPriority !== bPriority) return aPriority - bPriority;
+
+  // Final tiebreak by confidence
   return b.confidence - a.confidence;
 }
 
@@ -435,6 +456,28 @@ function isDismissedComponent(dismissed, emailId, calendarId) {
   if (emailId && dismissed.emailIds.has(emailId)) return true;
   if (calendarId && dismissed.calendarIds.has(calendarId)) return true;
   return false;
+}
+
+/**
+ * Derives the suggestion action from email intent and calendar status.
+ *
+ * Priority: cancel > update > add.
+ * If the email says "cancel" OR the calendar event is cancelled → 'cancel'.
+ * If the email says "update" → 'update'.
+ * Otherwise → 'add'.
+ *
+ * @param {string} [emailIntent='add'] - from detectEmailIntent()
+ * @param {string} [calendarStatus='confirmed'] - from calendarService
+ * @returns {'add' | 'cancel' | 'update'}
+ */
+function deriveAction(emailIntent, calendarStatus) {
+  if (emailIntent === 'cancel' || calendarStatus === 'cancelled') {
+    return 'cancel';
+  }
+  if (emailIntent === 'update') {
+    return 'update';
+  }
+  return 'add';
 }
 
 /**

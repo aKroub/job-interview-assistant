@@ -164,6 +164,111 @@ describe('SuggestionCard — email-only suggestions', () => {
   });
 });
 
+describe('SuggestionCard — cancel action', () => {
+  function makeCancelSuggestion(overrides = {}) {
+    return makeSuggestion({
+      id: 'suggestion_cancel_msg1_evt1',
+      action: 'cancel',
+      ...overrides,
+    });
+  }
+
+  it('renders red theme for cancel action', () => {
+    render(<SuggestionCard suggestion={makeCancelSuggestion()} onDismiss={noop} onAccept={noop} />);
+    const card = screen.getByRole('button', { name: /cancel google interview/i });
+    expect(card.className).toContain('bg-red-50');
+    expect(card.className).toContain('border-red-200');
+  });
+
+  it('renders "Cancel Interview" button label', () => {
+    render(<SuggestionCard suggestion={makeCancelSuggestion()} onDismiss={noop} onAccept={noop} />);
+    expect(screen.getByText('Cancel Interview')).toBeInTheDocument();
+  });
+
+  it('has aria-label with "Cancel" verb', () => {
+    render(<SuggestionCard suggestion={makeCancelSuggestion()} onDismiss={noop} onAccept={noop} />);
+    expect(screen.getByRole('button', { name: /cancel google interview/i })).toBeInTheDocument();
+  });
+
+  it('applies red border to snippet', () => {
+    render(<SuggestionCard suggestion={makeCancelSuggestion()} onDismiss={noop} onAccept={noop} />);
+    const snippet = screen.getByText('We would like to invite you for a technical interview.');
+    expect(snippet.className).toContain('border-red-200');
+  });
+});
+
+describe('SuggestionCard — update action', () => {
+  function makeUpdateSuggestion(overrides = {}) {
+    return makeSuggestion({
+      id: 'suggestion_update_msg1_evt1',
+      action: 'update',
+      ...overrides,
+    });
+  }
+
+  it('renders blue theme for update action', () => {
+    render(<SuggestionCard suggestion={makeUpdateSuggestion()} onDismiss={noop} onAccept={noop} />);
+    const card = screen.getByRole('button', { name: /update google interview/i });
+    expect(card.className).toContain('bg-blue-50');
+    expect(card.className).toContain('border-blue-200');
+  });
+
+  it('renders "Update Interview" button label', () => {
+    render(<SuggestionCard suggestion={makeUpdateSuggestion()} onDismiss={noop} onAccept={noop} />);
+    expect(screen.getByText('Update Interview')).toBeInTheDocument();
+  });
+
+  it('has aria-label with "Update" verb', () => {
+    render(<SuggestionCard suggestion={makeUpdateSuggestion()} onDismiss={noop} onAccept={noop} />);
+    expect(screen.getByRole('button', { name: /update google interview/i })).toBeInTheDocument();
+  });
+
+  it('applies blue border to snippet', () => {
+    render(<SuggestionCard suggestion={makeUpdateSuggestion()} onDismiss={noop} onAccept={noop} />);
+    const snippet = screen.getByText('We would like to invite you for a technical interview.');
+    expect(snippet.className).toContain('border-blue-200');
+  });
+});
+
+describe('SuggestionCard — backward compat (no action field)', () => {
+  it('defaults to "Schedule" label when action is missing', () => {
+    const suggestion = makeSuggestion();
+    delete suggestion.action;
+    render(<SuggestionCard suggestion={suggestion} onDismiss={noop} onAccept={noop} />);
+    expect(screen.getByText('Schedule')).toBeInTheDocument();
+  });
+
+  it('defaults to purple theme when action is missing', () => {
+    const suggestion = makeSuggestion();
+    delete suggestion.action;
+    render(<SuggestionCard suggestion={suggestion} onDismiss={noop} onAccept={noop} />);
+    const card = screen.getByRole('button', { name: /schedule google interview/i });
+    expect(card.className).toContain('border-purple-200');
+  });
+});
+
+describe('SuggestionCard — email-only cancel does NOT show amber', () => {
+  it('uses red theme for email-only cancel (not amber)', () => {
+    const suggestion = makeSuggestion({
+      source: 'gmail',
+      action: 'cancel',
+    });
+    render(<SuggestionCard suggestion={suggestion} onDismiss={noop} onAccept={noop} />);
+    const card = screen.getByRole('button', { name: /cancel google interview/i });
+    expect(card.className).toContain('bg-red-50');
+    expect(card.className).not.toContain('bg-amber-50');
+  });
+
+  it('does NOT show "Not on your calendar" badge for email-only cancel', () => {
+    const suggestion = makeSuggestion({
+      source: 'gmail',
+      action: 'cancel',
+    });
+    render(<SuggestionCard suggestion={suggestion} onDismiss={noop} onAccept={noop} />);
+    expect(screen.queryByText('Not on your calendar')).not.toBeInTheDocument();
+  });
+});
+
 describe('SuggestionCard — callbacks', () => {
   it('calls onDismiss with the full suggestion object when dismiss is clicked', async () => {
     const suggestion = makeSuggestion();

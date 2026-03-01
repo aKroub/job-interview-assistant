@@ -346,6 +346,81 @@ describe('createGmailService', () => {
       await expect(service.scanForInterviews()).rejects.toThrow('Gmail access denied');
     });
 
+    it('includes intent "add" for a standard interview invitation', async () => {
+      const messages = [
+        makeMessage({
+          id: 'msg1',
+          subject: 'Interview Invitation - Software Engineer',
+          from: 'HR <hr@google.com>',
+          snippet: 'We would like to invite you for a technical interview',
+        }),
+      ];
+      const gmailApi = createMockGmailApi(messages);
+      const service = createGmailService({}, { gmailApi, minScore: 0.1 });
+
+      const results = await service.scanForInterviews();
+
+      expect(results.length).toBe(1);
+      expect(results[0].intent).toBe('add');
+    });
+
+    it('includes intent "cancel" for a cancellation email', async () => {
+      const messages = [
+        makeMessage({
+          id: 'msg1',
+          subject: 'Interview Invitation Cancelled - Software Engineer',
+          from: 'Recruiter <recruiter@greenhouse.io>',
+          snippet: 'Unfortunately, your technical interview has been cancelled.',
+          body: 'We regret to inform you that the technical interview has been cancelled due to a change in hiring plans.',
+        }),
+      ];
+      const gmailApi = createMockGmailApi(messages);
+      const service = createGmailService({}, { gmailApi, minScore: 0.1 });
+
+      const results = await service.scanForInterviews();
+
+      expect(results.length).toBe(1);
+      expect(results[0].intent).toBe('cancel');
+    });
+
+    it('includes intent "update" for a reschedule email', async () => {
+      const messages = [
+        makeMessage({
+          id: 'msg1',
+          subject: 'Interview rescheduled',
+          from: 'HR <hr@google.com>',
+          snippet: 'Your interview has been rescheduled to January 25.',
+          body: 'Your technical interview has been rescheduled to January 25, 2025 at 3:00 PM.',
+        }),
+      ];
+      const gmailApi = createMockGmailApi(messages);
+      const service = createGmailService({}, { gmailApi, minScore: 0.1 });
+
+      const results = await service.scanForInterviews();
+
+      expect(results.length).toBe(1);
+      expect(results[0].intent).toBe('update');
+    });
+
+    it('detects intent from body when snippet is truncated', async () => {
+      const messages = [
+        makeMessage({
+          id: 'msg1',
+          subject: 'Interview Status Update',
+          from: 'recruiter@company.com',
+          snippet: 'We wanted to reach out regarding your recent application and the interview process',
+          body: 'We wanted to reach out regarding your recent application. We regret to inform you that the position has been filled.',
+        }),
+      ];
+      const gmailApi = createMockGmailApi(messages);
+      const service = createGmailService({}, { gmailApi, minScore: 0.1 });
+
+      const results = await service.scanForInterviews();
+
+      expect(results.length).toBe(1);
+      expect(results[0].intent).toBe('cancel');
+    });
+
     it('handles individual message fetch failures gracefully', async () => {
       const mockApi = {
         users: {

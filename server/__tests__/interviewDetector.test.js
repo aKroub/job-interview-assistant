@@ -61,6 +61,7 @@ function makeEmailResult(overrides = {}) {
     extractedDate: '2025-01-20',
     extractedTime: '14:00',
     extractedDuration: null,
+    intent: 'add',
     ...overrides,
   };
 }
@@ -81,6 +82,7 @@ function makeCalendarResult(overrides = {}) {
     hasVideoLink: false,
     location: '',
     companyName: '',
+    calendarStatus: 'confirmed',
     ...overrides,
   };
 }
@@ -1144,6 +1146,289 @@ describe('createInterviewDetector', () => {
       const [s] = await detector.detect();
       // 0 is falsy → falls back to calendar duration (45 min)
       expect(s.duration).toBe(45);
+    });
+  });
+
+  describe('detect — action tagging', () => {
+    it('defaults to action "add" for standard interview suggestions', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult()]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.action).toBe('add');
+    });
+
+    it('sets action "cancel" when email intent is cancel (cross-ref)', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ intent: 'cancel' })]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.action).toBe('cancel');
+    });
+
+    it('sets action "cancel" when calendar status is cancelled (cross-ref)', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult()]),
+        calendarService: mockCalendar([makeCalendarResult({
+          calendarStatus: 'cancelled',
+          score: 0.8,
+        })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.action).toBe('cancel');
+    });
+
+    it('sets action "cancel" when both email and calendar signal cancel', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ intent: 'cancel' })]),
+        calendarService: mockCalendar([makeCalendarResult({
+          calendarStatus: 'cancelled',
+          score: 0.8,
+        })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.action).toBe('cancel');
+    });
+
+    it('sets action "update" when email intent is update (cross-ref)', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ intent: 'update' })]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.action).toBe('update');
+    });
+
+    it('cancel overrides update when email says update but calendar is cancelled', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ intent: 'update' })]),
+        calendarService: mockCalendar([makeCalendarResult({
+          calendarStatus: 'cancelled',
+          score: 0.8,
+        })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      // Cancel takes priority over update
+      expect(s.action).toBe('cancel');
+    });
+
+    it('email-only: action follows email intent "cancel"', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ score: 0.8, intent: 'cancel' })]),
+        calendarService: mockCalendar([]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.source).toBe('gmail');
+      expect(s.action).toBe('cancel');
+    });
+
+    it('email-only: action follows email intent "update"', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ score: 0.8, intent: 'update' })]),
+        calendarService: mockCalendar([]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.source).toBe('gmail');
+      expect(s.action).toBe('update');
+    });
+
+    it('calendar-only: action is "cancel" when calendarStatus is cancelled', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([]),
+        calendarService: mockCalendar([makeCalendarResult({
+          score: 0.8,
+          calendarStatus: 'cancelled',
+        })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.source).toBe('calendar');
+      expect(s.action).toBe('cancel');
+    });
+
+    it('calendar-only: action defaults to "add" when calendarStatus is confirmed', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([]),
+        calendarService: mockCalendar([makeCalendarResult({ score: 0.7 })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.source).toBe('calendar');
+      expect(s.action).toBe('add');
+    });
+  });
+
+  describe('detect — action-prefixed suggestion IDs', () => {
+    it('cross-ref add suggestion has no action prefix in ID', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult()]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.id).toBe('suggestion_msg1_evt1');
+    });
+
+    it('cross-ref cancel suggestion has "cancel_" prefix in ID', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ intent: 'cancel' })]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.id).toBe('suggestion_cancel_msg1_evt1');
+    });
+
+    it('cross-ref update suggestion has "update_" prefix in ID', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ intent: 'update' })]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.id).toBe('suggestion_update_msg1_evt1');
+    });
+
+    it('email-only cancel suggestion has "cancel_" prefix in ID', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ score: 0.8, intent: 'cancel' })]),
+        calendarService: mockCalendar([]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.id).toBe('suggestion_cancel_gmail_msg1');
+    });
+
+    it('email-only update suggestion has "update_" prefix in ID', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ score: 0.8, intent: 'update' })]),
+        calendarService: mockCalendar([]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.id).toBe('suggestion_update_gmail_msg1');
+    });
+
+    it('calendar-only cancel suggestion has "cancel_" prefix in ID', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([]),
+        calendarService: mockCalendar([makeCalendarResult({
+          score: 0.8,
+          calendarStatus: 'cancelled',
+        })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.id).toBe('suggestion_cancel_calendar_evt1');
+    });
+
+    it('dismissed add suggestion does not block cancel suggestion for same email+event', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ intent: 'cancel' })]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        // The "add" variant was previously dismissed
+        tokenStore: mockTokenStore(['suggestion_msg1_evt1']),
+        idFn: fixedId,
+      });
+
+      const suggestions = await detector.detect();
+      // Cancel suggestion has a different ID (suggestion_cancel_msg1_evt1)
+      // so it should NOT be dismissed
+      expect(suggestions.length).toBe(1);
+      expect(suggestions[0].action).toBe('cancel');
+      expect(suggestions[0].id).toBe('suggestion_cancel_msg1_evt1');
+    });
+  });
+
+  describe('detect — action sort priority', () => {
+    it('sorts cancel before update before add at same date+time', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([
+          makeEmailResult({ messageId: 'msg1', senderDomain: 'a.com', intent: 'add', extractedDate: '2025-01-20', extractedTime: '14:00' }),
+          makeEmailResult({ messageId: 'msg2', senderDomain: 'b.com', intent: 'cancel', extractedDate: '2025-01-20', extractedTime: '14:00' }),
+          makeEmailResult({ messageId: 'msg3', senderDomain: 'c.com', intent: 'update', extractedDate: '2025-01-20', extractedTime: '14:00' }),
+        ]),
+        calendarService: mockCalendar([
+          makeCalendarResult({ eventId: 'evt1', organizerEmail: 'hr@a.com', date: '2025-01-20', time: '14:00', startDateTime: '2025-01-20T14:00:00Z', endDateTime: '2025-01-20T15:00:00Z' }),
+          makeCalendarResult({ eventId: 'evt2', organizerEmail: 'hr@b.com', date: '2025-01-20', time: '14:00', startDateTime: '2025-01-20T14:00:00Z', endDateTime: '2025-01-20T15:00:00Z' }),
+          makeCalendarResult({ eventId: 'evt3', organizerEmail: 'hr@c.com', date: '2025-01-20', time: '14:00', startDateTime: '2025-01-20T14:00:00Z', endDateTime: '2025-01-20T15:00:00Z' }),
+        ]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const suggestions = await detector.detect();
+
+      expect(suggestions.length).toBe(3);
+      expect(suggestions[0].action).toBe('cancel');
+      expect(suggestions[1].action).toBe('update');
+      expect(suggestions[2].action).toBe('add');
+    });
+
+    it('date still takes priority over action', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([
+          makeEmailResult({ messageId: 'msg1', senderDomain: 'a.com', intent: 'add', extractedDate: '2025-01-18' }),
+          makeEmailResult({ messageId: 'msg2', senderDomain: 'b.com', intent: 'cancel', extractedDate: '2025-01-25' }),
+        ]),
+        calendarService: mockCalendar([
+          makeCalendarResult({ eventId: 'evt1', organizerEmail: 'hr@a.com', date: '2025-01-18', time: '10:00', startDateTime: '2025-01-18T10:00:00Z', endDateTime: '2025-01-18T11:00:00Z' }),
+          makeCalendarResult({ eventId: 'evt2', organizerEmail: 'hr@b.com', date: '2025-01-25', time: '10:00', startDateTime: '2025-01-25T10:00:00Z', endDateTime: '2025-01-25T11:00:00Z' }),
+        ]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const suggestions = await detector.detect();
+
+      expect(suggestions.length).toBe(2);
+      // Earlier date comes first even though it's an "add" vs "cancel"
+      expect(suggestions[0].date).toBe('2025-01-18');
+      expect(suggestions[0].action).toBe('add');
+      expect(suggestions[1].date).toBe('2025-01-25');
+      expect(suggestions[1].action).toBe('cancel');
     });
   });
 });

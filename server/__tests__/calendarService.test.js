@@ -314,5 +314,152 @@ describe('createCalendarService', () => {
       expect(results.length).toBe(1);
       expect(results[0].companyName).toBe('');
     });
+
+    it('includes calendarStatus "confirmed" for active events', async () => {
+      const events = [
+        makeEvent({
+          summary: 'Technical Interview',
+          organizerEmail: 'recruiter@company.com',
+        }),
+      ];
+      const calendarApi = createMockCalendarApi(events);
+      const service = createCalendarService({}, {
+        calendarApi,
+        nowFn: fixedNow,
+        minScore: 0.1,
+        getUserEmail: async () => 'me@gmail.com',
+      });
+
+      const results = await service.scanForInterviews();
+
+      expect(results.length).toBe(1);
+      expect(results[0].calendarStatus).toBe('confirmed');
+    });
+
+    it('includes cancelled events with calendarStatus "cancelled"', async () => {
+      const events = [
+        {
+          ...makeEvent({
+            id: 'cancelled1',
+            summary: 'Interview with Torq',
+            startDateTime: '2025-01-20T14:00:00Z',
+            endDateTime: '2025-01-20T15:00:00Z',
+          }),
+          status: 'cancelled',
+        },
+      ];
+      const calendarApi = createMockCalendarApi(events);
+      const service = createCalendarService({}, {
+        calendarApi,
+        nowFn: fixedNow,
+        minScore: 0.1,
+        getUserEmail: async () => 'me@gmail.com',
+      });
+
+      const results = await service.scanForInterviews();
+
+      expect(results.length).toBe(1);
+      expect(results[0].eventId).toBe('cancelled1');
+      expect(results[0].calendarStatus).toBe('cancelled');
+      expect(results[0].date).toBe('2025-01-20');
+      expect(results[0].reasons).toContain('cancelled-event');
+    });
+
+    it('skips cancelled events without a start date', async () => {
+      const events = [
+        {
+          id: 'no-start',
+          summary: 'Interview with Torq',
+          organizer: { email: 'recruiter@torq.io' },
+          start: {},
+          end: {},
+          status: 'cancelled',
+        },
+      ];
+      const calendarApi = createMockCalendarApi(events);
+      const service = createCalendarService({}, {
+        calendarApi,
+        nowFn: fixedNow,
+        minScore: 0.1,
+        getUserEmail: async () => 'me@gmail.com',
+      });
+
+      const results = await service.scanForInterviews();
+      expect(results).toEqual([]);
+    });
+
+    it('skips cancelled events without interview keywords', async () => {
+      const events = [
+        {
+          ...makeEvent({
+            id: 'cancelled-no-kw',
+            summary: 'Team lunch',
+            startDateTime: '2025-01-20T12:00:00Z',
+            endDateTime: '2025-01-20T13:00:00Z',
+          }),
+          status: 'cancelled',
+        },
+      ];
+      const calendarApi = createMockCalendarApi(events);
+      const service = createCalendarService({}, {
+        calendarApi,
+        nowFn: fixedNow,
+        minScore: 0.1,
+        getUserEmail: async () => 'me@gmail.com',
+      });
+
+      const results = await service.scanForInterviews();
+      expect(results).toEqual([]);
+    });
+
+    it('passes showDeleted: true to the Calendar API', async () => {
+      let capturedParams;
+      const calendarApi = {
+        events: {
+          list: async (params) => {
+            capturedParams = params;
+            return { data: { items: [] } };
+          },
+        },
+      };
+
+      const service = createCalendarService({}, { calendarApi, nowFn: fixedNow });
+      await service.scanForInterviews();
+
+      expect(capturedParams.showDeleted).toBe(true);
+    });
+
+    it('returns both active and cancelled events in one scan', async () => {
+      const events = [
+        makeEvent({
+          id: 'active1',
+          summary: 'Technical Interview',
+          organizerEmail: 'recruiter@company.com',
+        }),
+        {
+          ...makeEvent({
+            id: 'cancelled1',
+            summary: 'Interview with Google',
+            startDateTime: '2025-01-22T10:00:00Z',
+            endDateTime: '2025-01-22T11:00:00Z',
+          }),
+          status: 'cancelled',
+        },
+      ];
+      const calendarApi = createMockCalendarApi(events);
+      const service = createCalendarService({}, {
+        calendarApi,
+        nowFn: fixedNow,
+        minScore: 0.1,
+        getUserEmail: async () => 'me@gmail.com',
+      });
+
+      const results = await service.scanForInterviews();
+
+      expect(results.length).toBe(2);
+      const statuses = results.map((r) => r.calendarStatus);
+      expect(statuses).toContain('confirmed');
+      expect(statuses).toContain('cancelled');
+    });
   });
 });

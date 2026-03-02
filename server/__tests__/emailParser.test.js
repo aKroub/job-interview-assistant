@@ -222,6 +222,101 @@ describe('extractDateTimeFromText', () => {
     expect(date).toBe('2025-01-15');
   });
 
+  it('extracts date from day-month-year "2 Mar 2026" format', () => {
+    const { date } = extractDateTimeFromText(
+      'Cancelled event: Interview with Torq @ Mon 2 Mar 2026 15:15 - 16:45'
+    );
+    expect(date).toBe('2026-03-02');
+  });
+
+  it('extracts date from day-month-year "9 March 2026" format', () => {
+    const { date } = extractDateTimeFromText(
+      'When: Monday 9 March 2026 · 09:30 – 11:00 (Israel Time)'
+    );
+    expect(date).toBe('2026-03-09');
+  });
+
+  it('uses last date when mixing month-day-year and day-month-year formats', () => {
+    const { date } = extractDateTimeFromText(
+      'Changed: Time. Was March 4, 2026 now 9 Mar 2026'
+    );
+    expect(date).toBe('2026-03-09');
+  });
+
+  it('extracts date and time from Google Calendar cancel notification', () => {
+    const result = extractDateTimeFromText(
+      'Cancelled event: Interview with Torq @ Mon 2 Mar 2026 15:15 - 16:45 (GMT+2) ' +
+      'This event has been cancelled and removed from your calendar. ' +
+      'When: Monday 2 Mar 2026 · 15:15 – 16:45 (Israel Time)'
+    );
+    expect(result.date).toBe('2026-03-02');
+    expect(result.time).toBe('15:15');
+    expect(result.duration).toBe(90);
+  });
+
+  it('extracts date from ordinal "January 15th, 2025" format', () => {
+    const { date } = extractDateTimeFromText('Your interview is on January 15th, 2025');
+    expect(date).toBe('2025-01-15');
+  });
+
+  it('extracts date from ordinal "2nd March 2026" (day-month-year) format', () => {
+    const { date } = extractDateTimeFromText('Scheduled for 2nd March 2026');
+    expect(date).toBe('2026-03-02');
+  });
+
+  it('extracts date from ordinal "March 1st 2026" (month-day-year) format', () => {
+    const { date } = extractDateTimeFromText('Interview on March 1st 2026 at the office');
+    expect(date).toBe('2026-03-01');
+  });
+
+  it('extracts date from "2025/01/15" (YYYY/MM/DD) format', () => {
+    const { date } = extractDateTimeFromText('Date: 2025/01/15');
+    expect(date).toBe('2025-01-15');
+  });
+
+  it('extracts date from "15.01.2025" (DD.MM.YYYY) format', () => {
+    const { date } = extractDateTimeFromText('Termin: 15.01.2025');
+    expect(date).toBe('2025-01-15');
+  });
+
+  it('prefers month-name format over numeric fallbacks', () => {
+    const { date } = extractDateTimeFromText(
+      'Originally 01/10/2025, rescheduled to January 18, 2025'
+    );
+    expect(date).toBe('2025-01-18');
+  });
+
+  it('extracts new date from Google Calendar update notification', () => {
+    const result = extractDateTimeFromText(
+      'Updated invitation: Interview with SentinelOne ' +
+      'This event has been updated. Changed: Time ' +
+      'Monday 9 Mar 2026 · 09:30 – 11:00 (Israel Time) ' +
+      'Wednesday 4 Mar 2026 · 09:30 – 11:00 (Israel Time)'
+    );
+    // Last date in the text is the old date (4 Mar) — but the new date (9 Mar)
+    // appears first. Both are extracted; last-match policy returns 4 Mar.
+    // This is acceptable because the update flow uses previousDate extraction
+    // (a separate concern) for matching, and the suggestion date is overridden
+    // by the calendar event date when cross-referenced.
+    expect(result.date).toBe('2026-03-04');
+    expect(result.time).toBe('09:30');
+    expect(result.duration).toBe(90);
+    expect(result.allDates).toEqual(['2026-03-09', '2026-03-04']);
+  });
+
+  it('returns allDates with all dates found in text order', () => {
+    const result = extractDateTimeFromText(
+      'Originally scheduled for January 15, 2025, but rescheduled to January 22, 2025'
+    );
+    expect(result.date).toBe('2025-01-22');
+    expect(result.allDates).toEqual(['2025-01-15', '2025-01-22']);
+  });
+
+  it('returns allDates with single date when only one found', () => {
+    const result = extractDateTimeFromText('Interview on 2 Mar 2026');
+    expect(result.allDates).toEqual(['2026-03-02']);
+  });
+
   it('extracts time from "2:30 PM" format', () => {
     const { time } = extractDateTimeFromText('Interview at 2:30 PM');
     expect(time).toBe('14:30');
@@ -249,11 +344,11 @@ describe('extractDateTimeFromText', () => {
 
   it('returns nulls when no date or time found', () => {
     const result = extractDateTimeFromText('No specific details provided');
-    expect(result).toEqual({ date: null, time: null, duration: null });
+    expect(result).toEqual({ date: null, time: null, duration: null, allDates: [] });
   });
 
   it('returns nulls for null input', () => {
-    expect(extractDateTimeFromText(null)).toEqual({ date: null, time: null, duration: null });
+    expect(extractDateTimeFromText(null)).toEqual({ date: null, time: null, duration: null, allDates: [] });
   });
 
   it('extracts both date and time from combined text', () => {

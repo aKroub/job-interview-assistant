@@ -130,7 +130,7 @@ export function createGmailService(authClient, options = {}) {
       // both missed durations and lower cross-reference confidence.
       const bodyText = extractPlainTextBody(message);
       const dateTimeSource = bodyText ? `${subject} ${bodyText}` : combinedText;
-      const { date, time, duration } = extractDateTimeFromText(dateTimeSource);
+      const { date, time, duration, allDates } = extractDateTimeFromText(dateTimeSource);
 
       // Classify the email's purpose — invitation, cancellation, or reschedule
       const intent = detectEmailIntent(subject, bodyText || snippet);
@@ -149,6 +149,7 @@ export function createGmailService(authClient, options = {}) {
           extractedDate: date,
           extractedTime: time,
           extractedDuration: duration,
+          extractedAllDates: allDates,
           intent,
           bodyText: bodyText || '',
         });

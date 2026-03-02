@@ -61,6 +61,8 @@ function makeEmailResult(overrides = {}) {
     extractedDate: '2025-01-20',
     extractedTime: '14:00',
     extractedDuration: null,
+    extractedAllDates: [],
+    bodyText: '',
     intent: 'add',
     ...overrides,
   };
@@ -1285,6 +1287,175 @@ describe('createInterviewDetector', () => {
       const [s] = await detector.detect();
       expect(s.source).toBe('calendar');
       expect(s.action).toBe('add');
+    });
+  });
+
+  describe('detect — previousDate derivation', () => {
+    it('cross-ref add suggestion has empty previousDate', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult()]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.action).toBe('add');
+      expect(s.previousDate).toBe('');
+    });
+
+    it('cross-ref cancel carries previousDate from extractedDate', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({
+          intent: 'cancel',
+          extractedDate: '2025-01-20',
+          extractedAllDates: ['2025-01-20'],
+        })]),
+        calendarService: mockCalendar([makeCalendarResult({
+          calendarStatus: 'cancelled',
+          date: '2025-01-20',
+        })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.action).toBe('cancel');
+      expect(s.previousDate).toBe('2025-01-20');
+    });
+
+    it('cross-ref update with two dates derives previousDate from allDates', async () => {
+      // SentinelOne scenario: email has new date (Mar 9) and old date (Mar 4).
+      // Calendar event reflects the NEW date. previousDate should be the OLD date.
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({
+          intent: 'update',
+          extractedDate: '2026-03-04',
+          extractedAllDates: ['2026-03-09', '2026-03-04'],
+        })]),
+        calendarService: mockCalendar([makeCalendarResult({
+          date: '2026-03-09',
+          time: '14:00',
+          startDateTime: '2026-03-09T14:00:00Z',
+          endDateTime: '2026-03-09T15:00:00Z',
+        })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.action).toBe('update');
+      expect(s.date).toBe('2026-03-09');
+      expect(s.previousDate).toBe('2026-03-04');
+    });
+
+    it('cross-ref update falls back to extractedDate when allDates is empty', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({
+          intent: 'update',
+          extractedDate: '2025-01-20',
+          extractedAllDates: [],
+        })]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.action).toBe('update');
+      expect(s.previousDate).toBe('2025-01-20');
+    });
+
+    it('email-only update with multiple dates swaps date and previousDate', async () => {
+      // Email has new date first, old date last. Suggestion date should be the
+      // new date; previousDate should be the old date.
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({
+          score: 0.8,
+          intent: 'update',
+          extractedDate: '2026-03-04',
+          extractedAllDates: ['2026-03-09', '2026-03-04'],
+        })]),
+        calendarService: mockCalendar([]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.source).toBe('gmail');
+      expect(s.action).toBe('update');
+      expect(s.date).toBe('2026-03-09');
+      expect(s.previousDate).toBe('2026-03-04');
+    });
+
+    it('email-only cancel with single date sets previousDate to extractedDate', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({
+          score: 0.8,
+          intent: 'cancel',
+          extractedDate: '2026-03-02',
+          extractedAllDates: ['2026-03-02'],
+        })]),
+        calendarService: mockCalendar([]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.source).toBe('gmail');
+      expect(s.action).toBe('cancel');
+      expect(s.previousDate).toBe('2026-03-02');
+    });
+
+    it('email-only add suggestion has empty previousDate', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ score: 0.8 })]),
+        calendarService: mockCalendar([]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.source).toBe('gmail');
+      expect(s.action).toBe('add');
+      expect(s.previousDate).toBe('');
+    });
+
+    it('calendar-only suggestion always has empty previousDate', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([]),
+        calendarService: mockCalendar([makeCalendarResult({
+          score: 0.8,
+          calendarStatus: 'cancelled',
+        })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.source).toBe('calendar');
+      expect(s.action).toBe('cancel');
+      expect(s.previousDate).toBe('');
+    });
+
+    it('email-only update with single date uses extractedDate for both', async () => {
+      // Only one date in the email — it's both the current and previous date
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({
+          score: 0.8,
+          intent: 'update',
+          extractedDate: '2026-03-04',
+          extractedAllDates: ['2026-03-04'],
+        })]),
+        calendarService: mockCalendar([]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.source).toBe('gmail');
+      expect(s.date).toBe('2026-03-04');
+      expect(s.previousDate).toBe('2026-03-04');
     });
   });
 

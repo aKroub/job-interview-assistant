@@ -67,4 +67,31 @@ describe('loadConfig', () => {
     expect(config.port).toBe(3001);
     expect(config.pollIntervalMs).toBe(300_000);
   });
+
+  // LLM extraction config
+  it('defaults llmDryMode to true when LLM_DRY_MODE is not set', () => {
+    const config = loadConfig(makeEnv(), '/dev/null');
+    expect(config.llmDryMode).toBe(true);
+    expect(config.anthropicApiKey).toBe('');
+    expect(config.llmModel).toBe('claude-haiku-4-5');
+  });
+
+  it('sets llmDryMode to false when LLM_DRY_MODE=false and API key present', () => {
+    const config = loadConfig(makeEnv({
+      LLM_DRY_MODE: 'false',
+      ANTHROPIC_API_KEY: 'sk-ant-test-key',
+    }), '/dev/null');
+    expect(config.llmDryMode).toBe(false);
+    expect(config.anthropicApiKey).toBe('sk-ant-test-key');
+  });
+
+  it('falls back to dry mode when LLM_DRY_MODE=false but no API key', () => {
+    const config = loadConfig(makeEnv({ LLM_DRY_MODE: 'false' }), '/dev/null');
+    expect(config.llmDryMode).toBe(true);
+  });
+
+  it('uses custom LLM_MODEL when provided', () => {
+    const config = loadConfig(makeEnv({ LLM_MODEL: 'claude-sonnet-4-6' }), '/dev/null');
+    expect(config.llmModel).toBe('claude-sonnet-4-6');
+  });
 });

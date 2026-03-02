@@ -9,7 +9,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  *
  * @param {Object} [env=process.env] - injectable env source for testing
  * @param {string} [envPath] - optional path to .env file (defaults to server/.env)
- * @returns {{ clientId: string, clientSecret: string, port: number, pollIntervalMs: number, emailLookbackDays: number, calendarLookaheadDays: number, redirectUri: string }}
+ * @returns {{ clientId: string, clientSecret: string, port: number, pollIntervalMs: number, emailLookbackDays: number, calendarLookaheadDays: number, redirectUri: string, anthropicApiKey: string, llmDryMode: boolean, llmModel: string }}
  * @throws {Error} if required env vars are missing
  */
 export function loadConfig(env = process.env, envPath) {
@@ -36,6 +36,19 @@ export function loadConfig(env = process.env, envPath) {
   const calendarLookaheadDays = parseInt(env.CALENDAR_LOOKAHEAD_DAYS, 10) || 30;
   const redirectUri         = `http://localhost:${port}/api/auth/callback`;
 
+  // LLM extraction config (optional — dry mode works without an API key)
+  const anthropicApiKey = env.ANTHROPIC_API_KEY || '';
+  const llmDryMode      = env.LLM_DRY_MODE !== 'false';  // default true
+  const llmModel        = env.LLM_MODEL || 'claude-haiku-4-5';
+
+  // Safety: if wet mode requested but no API key, warn and stay in dry mode
+  if (!llmDryMode && !anthropicApiKey) {
+    console.warn(
+      '[config] LLM_DRY_MODE=false but ANTHROPIC_API_KEY is missing — falling back to dry mode.'
+    );
+  }
+  const effectiveLlmDryMode = (!llmDryMode && !anthropicApiKey) ? true : llmDryMode;
+
   return {
     clientId,
     clientSecret,
@@ -44,5 +57,8 @@ export function loadConfig(env = process.env, envPath) {
     emailLookbackDays,
     calendarLookaheadDays,
     redirectUri,
+    anthropicApiKey,
+    llmDryMode: effectiveLlmDryMode,
+    llmModel,
   };
 }

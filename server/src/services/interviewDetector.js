@@ -116,6 +116,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
    *   date: string,
    *   time: string,
    *   duration: number | null,
+   *   previousDate: string,
    *   subject: string,
    *   emailSnippet: string,
    *   calendarEventId: string,
@@ -204,6 +205,15 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
           const calendarDuration = computeDurationMinutes(event.startDateTime, event.endDateTime);
           const duration = email.extractedDuration || calendarDuration;
 
+          // For update/cancel actions, derive the previous (original) date from
+          // the email. Google Calendar update/cancel notifications contain both the
+          // new date (first in text) and the old date (last in text, = extractedDate).
+          // The suggestion's `date` is the NEW value; `previousDate` is the OLD value
+          // that matches the interview already in the tracker.
+          const previousDate = (action === 'update' || action === 'cancel')
+            ? derivePreviousDate(email, event)
+            : '';
+
           suggestions.push({
             id: suggestionId,
             source: 'gmail+calendar',
@@ -215,6 +225,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
             date,
             time,
             duration,
+            previousDate,
             subject: email.subject || event.summary || '',
             emailSnippet: email.snippet || '',
             calendarEventId: event.eventId,
@@ -246,6 +257,18 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
       if (dismissed.ids.has(suggestionId)) continue;
       if (isDismissedComponent(dismissed, email.messageId, '')) continue;
 
+      // For email-only update suggestions, extractedDate is the OLD date (last
+      // match in text). The NEW date is allDates[0] (first match). Swap them so
+      // the suggestion shows the new date and carries the old date for matching.
+      const allDates = email.extractedAllDates || [];
+      const hasMultipleDates = allDates.length >= 2;
+      const emailDate = (emailAction === 'update' && hasMultipleDates)
+        ? allDates[0]
+        : (email.extractedDate || '');
+      const emailPreviousDate = (emailAction === 'update' || emailAction === 'cancel')
+        ? (hasMultipleDates ? allDates[allDates.length - 1] : (email.extractedDate || ''))
+        : '';
+
       suggestions.push({
         id: suggestionId,
         source: 'gmail',
@@ -254,9 +277,10 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
         companyName: capitalise(email.companyName || ''),
         companyDomain: email.senderDomain || '',
         type: guessInterviewTypeFromEmail(email),
-        date: email.extractedDate || '',
+        date: emailDate,
         time: email.extractedTime || '',
         duration: email.extractedDuration || null,
+        previousDate: emailPreviousDate,
         subject: email.subject || '',
         emailSnippet: email.snippet || '',
         calendarEventId: '',
@@ -290,6 +314,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
         date: event.date || '',
         time: event.time || '',
         duration: computeDurationMinutes(event.startDateTime, event.endDateTime),
+        previousDate: '',
         subject: event.summary || '',
         emailSnippet: '',
         calendarEventId: event.eventId,
@@ -551,6 +576,41 @@ function deriveAction(emailIntent, calendarStatus) {
     return 'update';
   }
   return 'add';
+}
+
+/**
+ * Derives the previous (original) date for an update/cancel suggestion.
+ *
+ * For cross-referenced suggestions the calendar event holds the NEW date
+ * (Google Calendar API reflects the updated event), while the email body
+ * contains both old and new dates. The email's `extractedDate` (last-match
+ * policy in extractDateTimeFromText) returns the OLD date.
+ *
+ * When the email's old date differs from the calendar event's date, the old
+ * date is the one the tracker has — exactly what the frontend needs for matching.
+ * When dates match (e.g. cancellation without reschedule), previousDate equals
+ * the suggestion date, which is fine — matching still works.
+ *
+ * @param {Object} email - gmail scan result
+ * @param {Object} event - calendar scan result
+ * @returns {string} YYYY-MM-DD or empty string
+ */
+function derivePreviousDate(email, event) {
+  // For update emails with multiple dates: the last date (extractedDate) is the
+  // old value; the first date (allDates[0]) is the new value.
+  const allDates = email.extractedAllDates || [];
+
+  // If the email has multiple dates and the calendar event provides the new date,
+  // the old date is the one that DIFFERS from the event date.
+  if (allDates.length >= 2 && event.date) {
+    // Return the date that is NOT the event's date (= the old one)
+    const eventDate = event.date;
+    const oldDate = allDates.find((d) => d !== eventDate);
+    if (oldDate) return oldDate;
+  }
+
+  // Single date or no calendar event — the extracted date IS the event's date
+  return email.extractedDate || '';
 }
 
 /**

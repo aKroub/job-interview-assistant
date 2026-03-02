@@ -85,12 +85,39 @@ const InterviewPrepTracker = () => {
     ).length;
   }
 
+  /**
+   * Matches a suggestion to a tracked interview using all available signals.
+   *
+   * Priority order:
+   * 1. Exact match by name + suggestion date (works when date hasn't changed)
+   * 2. Exact match by name + previousDate (works when date HAS changed — the
+   *    tracker still holds the old date, and previousDate carries it)
+   * 3. Relaxed match by name only with closest date tiebreaker (last resort)
+   */
+  function matchSuggestionToTracked(suggestion) {
+    // 1. Try strict match with the suggestion's current date
+    const strict = matchSuggestionToInterview(companies, suggestion);
+    if (strict) return strict;
+
+    // 2. Try strict match with the previous (original) date — handles
+    //    update/cancel emails where the date changed
+    if (suggestion.previousDate && suggestion.previousDate !== suggestion.date) {
+      const withPrevDate = matchSuggestionToInterview(companies, {
+        ...suggestion,
+        date: suggestion.previousDate,
+      });
+      if (withPrevDate) return withPrevDate;
+    }
+
+    // 3. Relaxed match by company name only
+    return matchByNameOnly(companies, suggestion);
+  }
+
   function handleAcceptSuggestion(suggestion) {
     const action = suggestion.action || 'add';
 
     if (action === 'cancel') {
-      const matched = matchSuggestionToInterview(companies, suggestion)
-        || matchByNameOnly(companies, suggestion);
+      const matched = matchSuggestionToTracked(suggestion);
       if (matched) {
         updateInterviewStatus(matched.companyId, matched.interviewId, 'cancelled');
         dismissSuggestion(suggestion);
@@ -101,12 +128,7 @@ const InterviewPrepTracker = () => {
     }
 
     if (action === 'update') {
-      // Strict match first (name + date), then relaxed match (name only,
-      // closest date). The relaxed match handles the common case where
-      // an "update" email changes the interview date — the tracker still
-      // holds the old date, so strict matching fails.
-      const matched = matchSuggestionToInterview(companies, suggestion)
-        || matchByNameOnly(companies, suggestion);
+      const matched = matchSuggestionToTracked(suggestion);
       if (matched) {
         const company   = companies.find((c) => c.id === matched.companyId);
         const interview = company?.interviews.find((i) => i.id === matched.interviewId);

@@ -404,14 +404,18 @@ function detectTimeRange(fullText, firstMatch, secondMatch) {
  * returns the LAST time and duration = null.
  *
  * @param {string} text - combined subject + body text
- * @returns {{ date: string | null, time: string | null, duration: number | null }}
+ * @returns {{ date: string | null, time: string | null, duration: number | null, allDates: string[] }}
+ *   - date: the LAST date found (for rescheduling emails, this is the old/original date)
+ *   - allDates: ALL dates found in text order (first → last), useful for update emails
+ *     where the first date is the new value and the last is the old value
  */
 export function extractDateTimeFromText(text) {
-  if (!text || typeof text !== 'string') return { date: null, time: null, duration: null };
+  if (!text || typeof text !== 'string') return { date: null, time: null, duration: null, allDates: [] };
 
   let date = null;
   let time = null;
   let duration = null;
+  const allDates = [];
 
   // Month name → zero-based index lookup (avoids timezone issues with Date constructor)
   const MONTH_MAP = {
@@ -421,38 +425,90 @@ export function extractDateTimeFromText(text) {
     october: '10', oct: '10', november: '11', nov: '11', december: '12', dec: '12',
   };
 
-  // Match patterns like "January 15, 2025" or "Jan 15 2025" — use LAST match
-  const monthNamePattern = /\b(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+(\d{1,2}),?\s*(\d{4})\b/gi;
-  const monthMatches = Array.from(text.matchAll(monthNamePattern));
-  if (monthMatches.length > 0) {
-    const lastMatch = monthMatches[monthMatches.length - 1];
-    const mm = MONTH_MAP[lastMatch[1].toLowerCase()];
-    const dd = lastMatch[2].padStart(2, '0');
-    const yyyy = lastMatch[3];
+  // --- Month-name patterns (highest priority — unambiguous) ---
+
+  const MONTH_NAMES = 'january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec';
+  const ORDINAL = '(?:st|nd|rd|th)';
+
+  // "January 15, 2025", "Jan 15 2025", "March 2nd, 2026" (month-day-year)
+  const monthDayYearPattern = new RegExp(
+    `\\b(${MONTH_NAMES})\\s+(\\d{1,2})${ORDINAL}?,?\\s*(\\d{4})\\b`, 'gi'
+  );
+
+  // "2 Mar 2026", "15th January 2025", "2nd March 2026" (day-month-year)
+  // Common in Google Calendar notifications for non-US locales (e.g. Israel, UK, Australia)
+  const dayMonthYearPattern = new RegExp(
+    `\\b(\\d{1,2})${ORDINAL}?\\s+(${MONTH_NAMES})\\s+(\\d{4})\\b`, 'gi'
+  );
+
+  // Combine both name-based formats and pick the LAST match by position in text
+  const mdyMatches = Array.from(text.matchAll(monthDayYearPattern))
+    .map((m) => ({ index: m.index, month: m[1], day: m[2], year: m[3] }));
+  const dmyMatches = Array.from(text.matchAll(dayMonthYearPattern))
+    .map((m) => ({ index: m.index, month: m[2], day: m[1], year: m[3] }));
+
+  const allMonthMatches = [...mdyMatches, ...dmyMatches].sort((a, b) => a.index - b.index);
+  for (const m of allMonthMatches) {
+    const mm = MONTH_MAP[m.month.toLowerCase()];
+    const dd = m.day.padStart(2, '0');
+    const yyyy = m.year;
     if (mm) {
-      date = `${yyyy}-${mm}-${dd}`;
+      const isoDate = `${yyyy}-${mm}-${dd}`;
+      allDates.push(isoDate);
+      date = isoDate; // last one wins
     }
   }
 
-  // Match patterns like "2025-01-15" — use LAST match
+  // --- Numeric patterns (fallbacks — only when no month-name date was found) ---
+
+  // "2025-01-15" (ISO 8601) — use LAST match
   if (!date) {
     const isoPattern = /\b(\d{4})-(\d{2})-(\d{2})\b/g;
-    const isoMatches = Array.from(text.matchAll(isoPattern));
-    if (isoMatches.length > 0) {
-      const lastMatch = isoMatches[isoMatches.length - 1];
-      date = lastMatch[0];
+    for (const m of text.matchAll(isoPattern)) {
+      const isoDate = m[0];
+      allDates.push(isoDate);
+      date = isoDate;
     }
   }
 
-  // Match patterns like "01/15/2025" — use LAST match
+  // "2025/01/15" (YYYY/MM/DD — common in East Asia) — use LAST match
+  if (!date) {
+    const ymdSlashPattern = /\b(\d{4})\/(\d{2})\/(\d{2})\b/g;
+    for (const m of text.matchAll(ymdSlashPattern)) {
+      const isoDate = `${m[1]}-${m[2]}-${m[3]}`;
+      allDates.push(isoDate);
+      date = isoDate;
+    }
+  }
+
+  // "01/15/2025" (MM/DD/YYYY — US slash format) — use LAST match
+  // NOTE: DD/MM/YYYY vs MM/DD/YYYY is ambiguous without locale context.
+  // We treat this as MM/DD/YYYY since the majority of email platforms
+  // serving US users use this format. Month-name patterns (unambiguous)
+  // take priority above, so this is a low-priority fallback.
   if (!date) {
     const slashPattern = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g;
-    const slashMatches = Array.from(text.matchAll(slashPattern));
-    if (slashMatches.length > 0) {
-      const lastMatch = slashMatches[slashMatches.length - 1];
-      const parsed = new Date(`${lastMatch[3]}-${lastMatch[1].padStart(2, '0')}-${lastMatch[2].padStart(2, '0')}`);
+    for (const m of text.matchAll(slashPattern)) {
+      const parsed = new Date(`${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`);
       if (!isNaN(parsed.getTime())) {
-        date = parsed.toISOString().split('T')[0];
+        const isoDate = parsed.toISOString().split('T')[0];
+        allDates.push(isoDate);
+        date = isoDate;
+      }
+    }
+  }
+
+  // "15.01.2025" (DD.MM.YYYY — common in Germany, Switzerland, Austria) — use LAST match
+  if (!date) {
+    const dotPattern = /\b(\d{1,2})\.(\d{1,2})\.(\d{4})\b/g;
+    for (const m of text.matchAll(dotPattern)) {
+      const dd = m[1].padStart(2, '0');
+      const mm = m[2].padStart(2, '0');
+      const yyyy = m[3];
+      if (parseInt(dd) <= 31 && parseInt(mm) <= 12) {
+        const isoDate = `${yyyy}-${mm}-${dd}`;
+        allDates.push(isoDate);
+        date = isoDate;
       }
     }
   }
@@ -482,7 +538,7 @@ export function extractDateTimeFromText(text) {
     time = parseTimeMatch(timeMatches[0]);
   }
 
-  return { date, time, duration };
+  return { date, time, duration, allDates };
 }
 
 /**

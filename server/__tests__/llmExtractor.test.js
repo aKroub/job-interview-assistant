@@ -66,15 +66,15 @@ describe('buildEmailPrompt', () => {
     expect(prompt).toContain('Interview with Acme Corp');
     expect(prompt).toContain('recruiter@acme.com');
     expect(prompt).toContain('invited to an interview');
-    expect(prompt).toContain('company_name');
-    expect(prompt).toContain('YYYY-MM-DD');
+    expect(prompt).toContain('Subject:');
+    expect(prompt).toContain('Body:');
   });
 
   it('truncates body to 3000 characters', () => {
     const longBody = 'x'.repeat(5000);
     const prompt = buildEmailPrompt('Subject', longBody, 'a@b.com');
-    // Body portion should be 3000 chars, not 5000
-    expect(prompt.length).toBeLessThan(3500);
+    expect(prompt).toContain('x'.repeat(3000));
+    expect(prompt).not.toContain('x'.repeat(3001));
   });
 
   it('handles empty body', () => {
@@ -99,8 +99,8 @@ describe('buildCalendarPrompt', () => {
     expect(prompt).toContain('Interview with SentinelOne');
     expect(prompt).toContain('hr@sentinelone.com');
     expect(prompt).toContain('Zoom');
-    expect(prompt).toContain('company_name');
-    expect(prompt).toContain('interview_type');
+    expect(prompt).toContain('Title:');
+    expect(prompt).toContain('Description:');
   });
 
   it('handles missing location', () => {
@@ -165,8 +165,11 @@ describe('createLlmExtractor (dry mode)', () => {
     );
 
     expect(result).not.toBeNull();
+    expect(result.dryModePrompt).toContain('[System]');
+    expect(result.dryModePrompt).toContain('[User]');
     expect(result.dryModePrompt).toContain('Interview with Acme');
     expect(result.dryModePrompt).toContain('hr@acme.com');
+    expect(result.dryModePrompt).toContain('company_name');
     expect(result.extraction).toBeNull();
     expect(mockClient.messages.create).not.toHaveBeenCalled();
   });
@@ -188,6 +191,8 @@ describe('createLlmExtractor (dry mode)', () => {
     );
 
     expect(result).not.toBeNull();
+    expect(result.dryModePrompt).toContain('[System]');
+    expect(result.dryModePrompt).toContain('[User]');
     expect(result.dryModePrompt).toContain('Technical Interview - Google');
     expect(result.extraction).toBeNull();
     expect(mockClient.messages.create).not.toHaveBeenCalled();
@@ -273,6 +278,7 @@ describe('createLlmExtractor (wet mode)', () => {
       expect.objectContaining({
         model: 'claude-haiku-4-5',
         max_tokens: 512,
+        system: expect.stringContaining('structured data extractor'),
       })
     );
   });

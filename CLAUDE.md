@@ -37,7 +37,8 @@ A React app for tracking job applications (Kanban pipeline), scheduling intervie
 |---|---|---|
 | Node.js | 20 (via nvm) | Same version as frontend |
 | Express | 4.21 | HTTP server + REST + SSE |
-| googleapis | 144 | Gmail + Calendar API client |
+| googleapis | 144 | Gmail + Calendar + Drive API client |
+| @anthropic-ai/sdk | ^0.78.0 | Claude LLM extraction of interview data (optional, dry mode by default) |
 | dotenv | 16 | Env var loading |
 | Jest | 29 | `--experimental-vm-modules` for ESM |
 | supertest | 7 | HTTP route testing |
@@ -164,10 +165,12 @@ src/
 │   ├── useCompanies.js
 │   ├── useSeenQuestions.js
 │   ├── useInterviewSuggestions.js   ← SSE + auth + suggestion state
+│   ├── useCloudSync.js              ← Google Drive backup/restore with multi-version support
 │   └── useInterviewTracker.js       ← thin composition of all three above
 │
 ├── components/         Presentational — receive props, call callbacks, own no global state
 │   ├── shared/
+│   │   ├── CloudSyncMenu.jsx    ← gear icon dropdown for Google Drive backup/restore
 │   │   ├── DifficultyBadge.jsx
 │   │   ├── TabNav.jsx
 │   │   ├── FieldLabel.jsx
@@ -200,15 +203,19 @@ server/src/
 │   ├── googleAuth.js       Google OAuth2 flow (getAuthUrl, handleCallback, isAuthenticated)
 │   ├── gmailService.js     Scans Gmail for interview-related emails
 │   ├── calendarService.js  Scans Google Calendar for interview events
-│   └── interviewDetector.js  Cross-references Gmail+Calendar; only surfaces matches from BOTH
+│   ├── interviewDetector.js  Cross-references Gmail+Calendar, enriches with LLM extraction before matching
+│   ├── llmExtractor.js     Claude-based extraction of company names, dates, and interview types from emails/events (with dry-mode privacy gate)
+│   └── driveService.js     Google Drive save/load/list for versioned app-state backups (keeps last 5)
 │
 ├── utils/              Pure functions — no Express, no globals
 │   ├── emailParser.js      Scores + parses Gmail messages
+│   ├── llmEnrichment.js    Merges LLM-extracted fields into regex results (per-field fallback)
 │   └── matchingUtils.js    Scores + cross-references calendar events with emails
 │
 ├── routes/             Express routers — thin HTTP adapters
 │   ├── auth.js             GET /api/auth/status|url|callback, POST /api/auth/disconnect
-│   └── interviews.js       GET /api/interviews/suggestions (SSE), POST /dismiss|scan
+│   ├── interviews.js       GET /api/interviews/suggestions (SSE), POST /dismiss|scan
+│   └── sync.js             GET /api/sync/status|load, POST /api/sync/save (Drive backup/restore)
 │
 └── index.js            createApp(deps) factory + server bootstrap
 ```
@@ -217,7 +224,7 @@ server/src/
 ```js
 // Good — swap in test doubles without touching globals
 createGmailService(authClient, { gmailApi: mockGmailApi })
-createInterviewDetector({ gmailService, calendarService, tokenStore, idFn })
+createInterviewDetector({ gmailService, calendarService, tokenStore, llmExtractor, idFn })
 ```
 
 ### Where does new code go?

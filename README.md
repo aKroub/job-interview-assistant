@@ -6,8 +6,8 @@ A full-stack interview preparation and job application tracking tool. A React fr
 
 ### 🎯 Pipeline Management (Kanban Board)
 - Visual kanban board to track companies through your interview pipeline
-- Seven stages: Interested → Applied → CV Screening → Technical → HR → Offer → Rejected
-- Quick stage updates via dropdown
+- Six active stages: Interested → Applied → CV Screening → Technical → HR → Offer, plus a collapsible "Closed" row below the board
+- Stage changes via drag-and-drop between columns
 - Track position titles and company names
 - Easy company deletion
 
@@ -32,6 +32,7 @@ A full-stack interview preparation and job application tracking tool. A React fr
 ### 🤖 Smart Interview Suggestions (Backend)
 - Connects to Gmail and Google Calendar via OAuth
 - Auto-detects interview invitations by cross-referencing both sources
+- Optional LLM enrichment (Claude) extracts company names, dates, times, and interview types with per-field fallback to regex
 - Real-time updates via Server-Sent Events (SSE)
 - Dismiss suggestions or trigger manual scans
 - Connection status indicator in the header
@@ -60,7 +61,8 @@ A full-stack interview preparation and job application tracking tool. A React fr
 | Tool | Version | Notes |
 |---|---|---|
 | Express | 4.21 | HTTP server + REST + SSE |
-| googleapis | 144 | Gmail + Calendar API client |
+| googleapis | 144 | Gmail + Calendar + Drive API client |
+| @anthropic-ai/sdk | ^0.78.0 | Claude LLM extraction of interview data |
 | dotenv | 16 | Env var loading |
 | Jest | 29 | `--experimental-vm-modules` for ESM |
 | supertest | 7 | HTTP route testing |
@@ -161,10 +163,12 @@ interview-prep-tracker/src/
 │   ├── useCompanies.js            # Companies + interviews state and mutations
 │   ├── useSeenQuestions.js        # Seen questions Set + selectors
 │   ├── useInterviewSuggestions.js # SSE connection + auth + suggestion state
+│   ├── useCloudSync.js            # Google Drive backup/restore with multi-version support
 │   └── useInterviewTracker.js     # Thin composition of the three hooks above
 │
 ├── components/
 │   ├── shared/
+│   │   ├── CloudSyncMenu.jsx      # Gear icon dropdown for Google Drive backup/restore
 │   │   ├── DifficultyBadge.jsx    # Reusable difficulty colour badge
 │   │   ├── FieldLabel.jsx         # Form field label component
 │   │   ├── FormError.jsx          # Error message display component
@@ -206,15 +210,19 @@ server/src/
 │   ├── googleAuth.js              # Google OAuth2 flow
 │   ├── gmailService.js            # Scans Gmail for interview-related emails
 │   ├── calendarService.js         # Scans Google Calendar for interview events
-│   └── interviewDetector.js       # Cross-references Gmail + Calendar
+│   ├── interviewDetector.js       # Cross-references Gmail + Calendar, enriches with LLM extraction
+│   ├── llmExtractor.js            # Claude-based extraction of company names, dates, and types from emails/events
+│   └── driveService.js            # Google Drive save/load/list for versioned app-state backups
 │
 ├── utils/
 │   ├── emailParser.js             # Scores + parses Gmail messages
+│   ├── llmEnrichment.js           # Merges LLM-extracted fields into regex results (per-field fallback)
 │   └── matchingUtils.js           # Scores + cross-references calendar with emails
 │
 ├── routes/
 │   ├── auth.js                    # GET /api/auth/status|url|callback, POST disconnect
-│   └── interviews.js              # GET /api/interviews/suggestions (SSE), POST dismiss|scan
+│   ├── interviews.js              # GET /api/interviews/suggestions (SSE), POST dismiss|scan
+│   └── sync.js                    # GET /api/sync/status|load, POST /api/sync/save (Drive backup)
 │
 └── index.js                       # createApp(deps) factory + server bootstrap
 ```
@@ -232,25 +240,26 @@ server/src/
 
 The test suite covers every layer across both frontend and backend:
 
-### Frontend (31 test suites)
+### Frontend (37 test suites)
 
 | Layer | Test files | What they test |
 |---|---|---|
 | Constants | `constants.test.js` | Stage keys, positions, interview types, question bank integrity |
 | Services | `storageService.test.js`, `apiService.test.js` | Storage interface, REST calls, SSE stream |
-| Utils | `companyUtils.test.js`, `questionUtils.test.js`, `calendarUtils.test.js` | Pure function unit tests (no React) |
-| Hooks | `useCompanies.test.js`, `useSeenQuestions.test.js`, `useInterviewSuggestions.test.js`, `useInterviewTracker.test.js` | Hook tests with injected in-memory storage / mock API |
-| Components | 20 test files (one per component) | Rendering, user interactions, callback wiring |
+| Utils | `companyUtils.test.js`, `questionUtils.test.js`, `calendarUtils.test.js`, `companyUtils.stress.test.js`, `cancelUpdateStress.test.js` | Pure function unit tests and stress tests (no React) |
+| Hooks | `useCompanies.test.js`, `useSeenQuestions.test.js`, `useInterviewSuggestions.test.js`, `useInterviewTracker.test.js`, `useCloudSync.test.js` | Hook tests with injected in-memory storage / mock API |
+| Components | 21 test files (one per component) including `CloudSyncMenu.test.jsx`, `KanbanBoard.stress.test.jsx`, `editInterview.stress.test.jsx` | Rendering, user interactions, callback wiring, stress tests |
 | Integration | `App.test.js` | Smoke test — app renders and default view loads |
 
-### Backend (10 test suites)
+### Backend (22 test suites)
 
 | Layer | Test files | What they test |
 |---|---|---|
 | Config | `config.test.js` | Env var loading + validation |
-| Services | `tokenStore.test.js`, `googleAuth.test.js`, `gmailService.test.js`, `calendarService.test.js`, `interviewDetector.test.js` | Business logic with injectable mocks |
-| Utils | `emailParser.test.js`, `matchingUtils.test.js` | Scoring + parsing pure functions |
-| Routes | `auth.test.js`, `interviews.test.js` | HTTP route tests via supertest |
+| Services | `tokenStore.test.js`, `googleAuth.test.js`, `gmailService.test.js`, `calendarService.test.js`, `interviewDetector.test.js`, `interviewDetector.stress.test.js`, `llmExtractor.test.js`, `llmExtractor.stress.test.js`, `driveService.test.js` | Business logic with injectable mocks |
+| Utils | `emailParser.test.js`, `matchingUtils.test.js`, `llmEnrichment.test.js`, `llmEnrichment.stress.test.js`, `phraseExpansionStress.test.js`, `gcalScoringStress.test.js`, `gcalCancellationRepro.test.js`, `cancelUpdateStress.test.js`, `cancellationEmailRepro.test.js` | Scoring, parsing, LLM enrichment, stress and regression tests |
+| Integration | `indexWiring.stress.test.js` | App factory wiring stress tests |
+| Routes | `auth.test.js`, `interviews.test.js`, `sync.test.js` | HTTP route tests via supertest |
 
 ```bash
 # Run all frontend tests
@@ -275,7 +284,7 @@ Tests never mock `localStorage` globally — they inject a `createMemoryStorage(
 4. Click **Add Company** to save
 
 ### Managing the Pipeline
-- Use the dropdown on each card to move a company to a different stage
+- Drag and drop cards between columns to move a company to a different stage
 - Click the **✕** icon to remove a company
 
 ### Scheduling Interviews

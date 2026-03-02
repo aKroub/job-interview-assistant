@@ -1953,5 +1953,46 @@ describe('createInterviewDetector', () => {
       expect(emailArray.length).toBe(1);
       expect(calendarArray.length).toBe(1);
     });
+
+    it('falls back to regex when extractFromCalendarEvent rejects (calendar-only)', async () => {
+      const extractor = mockLlmExtractor({
+        extractFromCalendarEvent: async () => { throw new Error('API timeout'); },
+      });
+
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([]),
+        calendarService: mockCalendar([makeCalendarResult({ score: 0.7, companyName: 'regex-cal' })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.companyName).toBe('Regex-cal');
+      expect(s.source).toBe('calendar');
+    });
+
+    it('falls back to regex when extractFromCalendarEvent rejects (cross-ref)', async () => {
+      const extractor = mockLlmExtractor({
+        extractFromEmail: async () => ({
+          dryModePrompt: null,
+          extraction: { company_name: 'LLM Email Corp', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        }),
+        extractFromCalendarEvent: async () => { throw new Error('API timeout'); },
+      });
+
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ companyName: 'regex-email' })]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      const [s] = await detector.detect();
+      // Email enrichment succeeds, calendar enrichment fails gracefully
+      expect(s.companyName).toBe('LLM Email Corp');
+      expect(s.source).toBe('gmail+calendar');
+    });
   });
 });

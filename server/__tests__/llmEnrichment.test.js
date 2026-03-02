@@ -189,6 +189,18 @@ describe('mergeEmailExtraction', () => {
     expect(result.extractedDuration).toBe(0);
   });
 
+  it('handles sparse extraction with missing keys (LLM omitted fields)', () => {
+    const llm = { company_name: 'Sparse Corp' };
+    const result = mergeEmailExtraction(baseEmail, llm);
+
+    expect(result.companyName).toBe('Sparse Corp');
+    expect(result.extractedDate).toBe('2026-03-10');
+    expect(result.extractedTime).toBe('14:00');
+    expect(result.extractedDuration).toBe(60);
+    expect(result.intent).toBe('add');
+    expect(result.llmInterviewType).toBeNull();
+  });
+
   it('handles partial LLM extraction (some fields non-null, others null)', () => {
     const llm = {
       company_name: 'Google LLC',

@@ -9,7 +9,8 @@
       "src": ["src/**/*.js"],
       "ignoreExports": [
         "src/index.js",
-        "src/utils/matchingUtils.js"
+        "src/utils/matchingUtils.js",
+        "src/services/llmExtractor.js"
       ]
     }]
   },

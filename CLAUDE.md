@@ -99,9 +99,9 @@ Before opening any PR, confirm every item:
 
 ---
 
-## Post-PR Review & Stress Test (mandatory)
+## Post-PR Review, Stress Test & Docs Audit (mandatory)
 
-After every PR is created and quality gates pass, run the two global skills **in order** before requesting user approval:
+After every PR is created and quality gates pass, run the three global skills **in order** before requesting user approval:
 
 ### Step 1: Code Review (`code-review` skill)
 
@@ -128,14 +128,25 @@ After the code review fixes are committed, invoke the `debug-mode` skill:
 7. Clean up the debug branch
 8. Push and re-run full quality gates
 
+### Step 3: Documentation Audit (`write-docs` skill)
+
+After code review and stress testing pass, invoke the `write-docs` skill with the `audit` operation:
+
+1. Audit all three documentation files (README.md, CLAUDE.md, SETUP.md) against the current codebase
+2. Check for gaps introduced by the PR: new files, new dependencies, changed descriptions, updated test counts, new env vars, new APIs
+3. Classify findings by severity (HIGH / MEDIUM / LOW)
+4. **Fix all findings** — commit the doc updates to the same branch (or a separate `feature/update-docs-*` branch if the PR is already open)
+5. Push and re-run quality gates
+
 ### Output
 
-Both steps produce a structured summary for the user showing:
+All three steps produce a structured summary for the user showing:
 - Code review findings (with severity) and what was fixed
 - Hypothesis table with CONFIRMED/REFUTED verdicts
+- Documentation audit findings and what was updated
 - Final test count and quality gate results
 
-Only after both steps pass cleanly should the PR be presented to the user for merge approval.
+Only after all three steps pass cleanly should the PR be presented to the user for merge approval.
 
 ---
 

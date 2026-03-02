@@ -46,6 +46,7 @@ cd ..
 1. In the left menu go to **APIs & Services → Library**
 2. Search for **Gmail API** → click it → **Enable**
 3. Search for **Google Calendar API** → click it → **Enable**
+4. Search for **Google Drive API** → click it → **Enable** (required for cloud sync backup/restore)
 
 ### 2c — Configure the OAuth consent screen
 
@@ -94,6 +95,29 @@ CALENDAR_LOOKAHEAD_DAYS=30
 
 > **`server/.env` is gitignored** — it will never be committed.
 
+### LLM Extraction (optional)
+
+The backend can use Claude to extract structured interview data (company names, dates, times, interview types) from emails and calendar events. This is opt-in — the app works without it.
+
+Add these three variables to `server/.env` to enable it:
+
+```env
+# Claude API key — get one at https://console.anthropic.com/settings/keys
+# Leave blank (or omit) to stay in dry mode: prompts are logged but no API calls are made.
+ANTHROPIC_API_KEY=
+
+# Set to "false" to enable live API calls to Claude. Default is "true" (dry mode).
+# In dry mode the app shows what prompts WOULD be sent, without calling the API.
+LLM_DRY_MODE=true
+
+# Claude model to use for extraction. Default: claude-haiku-4-5 (fastest/cheapest).
+LLM_MODEL=claude-haiku-4-5
+```
+
+- **`ANTHROPIC_API_KEY`** — optional; when absent the server runs in dry mode automatically (no API calls, no charges).
+- **`LLM_DRY_MODE`** — set to `false` only after you have added a valid API key.
+- **`LLM_MODEL`** — defaults to `claude-haiku-4-5`; any Anthropic messages-API model ID is accepted.
+
 ---
 
 ## 4 — Start the servers
@@ -138,7 +162,8 @@ nvm use 20 && npm start
 | **Interval** | Every 5 minutes (configurable via `POLL_INTERVAL_MS`) |
 | **Email lookback** | Last 1 day of Gmail (configurable via `EMAIL_LOOKBACK_DAYS`) |
 | **Calendar lookahead** | Next 30 days (configurable via `CALENDAR_LOOKAHEAD_DAYS`) |
-| **Cross-reference rule** | A suggestion is only shown when **both** Gmail and Google Calendar confirm the same event |
+| **LLM enrichment** | When `LLM_DRY_MODE=false` and an API key is set, each email/event is enriched with Claude-extracted fields before matching (per-field fallback to regex) |
+| **Cross-reference rule** | A cross-referenced suggestion requires both Gmail and Calendar confirmation; email-only and calendar-only suggestions are also surfaced with lower confidence |
 | **Tokens** | Stored at `~/.interview-tracker/tokens.json` (outside the repo, never committed) |
 | **Dismissed suggestions** | Stored at `~/.interview-tracker/dismissed.json` |
 

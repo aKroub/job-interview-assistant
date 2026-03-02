@@ -37,7 +37,8 @@ A React app for tracking job applications (Kanban pipeline), scheduling intervie
 |---|---|---|
 | Node.js | 20 (via nvm) | Same version as frontend |
 | Express | 4.21 | HTTP server + REST + SSE |
-| googleapis | 144 | Gmail + Calendar API client |
+| googleapis | 144 | Gmail + Calendar + Drive API client |
+| @anthropic-ai/sdk | ^0.78.0 | Claude LLM extraction of interview data (optional, dry mode by default) |
 | dotenv | 16 | Env var loading |
 | Jest | 29 | `--experimental-vm-modules` for ESM |
 | supertest | 7 | HTTP route testing |
@@ -98,9 +99,9 @@ Before opening any PR, confirm every item:
 
 ---
 
-## Post-PR Review & Stress Test (mandatory)
+## Post-PR Review, Stress Test & Docs Audit (mandatory)
 
-After every PR is created and quality gates pass, run the two global skills **in order** before requesting user approval:
+After every PR is created and quality gates pass, run the three global skills **in order** before requesting user approval:
 
 ### Step 1: Code Review (`code-review` skill)
 
@@ -127,14 +128,25 @@ After the code review fixes are committed, invoke the `debug-mode` skill:
 7. Clean up the debug branch
 8. Push and re-run full quality gates
 
+### Step 3: Documentation Audit (`write-docs` skill)
+
+After code review and stress testing pass, invoke the `write-docs` skill with the `audit` operation:
+
+1. Audit all three documentation files (README.md, CLAUDE.md, SETUP.md) against the current codebase
+2. Check for gaps introduced by the PR: new files, new dependencies, changed descriptions, updated test counts, new env vars, new APIs
+3. Classify findings by severity (HIGH / MEDIUM / LOW)
+4. **Fix all findings** — commit the doc updates to the same branch (or a separate `feature/update-docs-*` branch if the PR is already open)
+5. Push and re-run quality gates
+
 ### Output
 
-Both steps produce a structured summary for the user showing:
+All three steps produce a structured summary for the user showing:
 - Code review findings (with severity) and what was fixed
 - Hypothesis table with CONFIRMED/REFUTED verdicts
+- Documentation audit findings and what was updated
 - Final test count and quality gate results
 
-Only after both steps pass cleanly should the PR be presented to the user for merge approval.
+Only after all three steps pass cleanly should the PR be presented to the user for merge approval.
 
 ---
 
@@ -164,10 +176,12 @@ src/
 │   ├── useCompanies.js
 │   ├── useSeenQuestions.js
 │   ├── useInterviewSuggestions.js   ← SSE + auth + suggestion state
+│   ├── useCloudSync.js              ← Google Drive backup/restore with multi-version support
 │   └── useInterviewTracker.js       ← thin composition of all three above
 │
 ├── components/         Presentational — receive props, call callbacks, own no global state
 │   ├── shared/
+│   │   ├── CloudSyncMenu.jsx    ← gear icon dropdown for Google Drive backup/restore
 │   │   ├── DifficultyBadge.jsx
 │   │   ├── TabNav.jsx
 │   │   ├── FieldLabel.jsx
@@ -200,15 +214,19 @@ server/src/
 │   ├── googleAuth.js       Google OAuth2 flow (getAuthUrl, handleCallback, isAuthenticated)
 │   ├── gmailService.js     Scans Gmail for interview-related emails
 │   ├── calendarService.js  Scans Google Calendar for interview events
-│   └── interviewDetector.js  Cross-references Gmail+Calendar; only surfaces matches from BOTH
+│   ├── interviewDetector.js  Cross-references Gmail+Calendar, enriches with LLM extraction before matching
+│   ├── llmExtractor.js     Claude-based extraction of company names, dates, and interview types from emails/events (with dry-mode privacy gate)
+│   └── driveService.js     Google Drive save/load/list for versioned app-state backups (keeps last 5)
 │
 ├── utils/              Pure functions — no Express, no globals
 │   ├── emailParser.js      Scores + parses Gmail messages
+│   ├── llmEnrichment.js    Merges LLM-extracted fields into regex results (per-field fallback)
 │   └── matchingUtils.js    Scores + cross-references calendar events with emails
 │
 ├── routes/             Express routers — thin HTTP adapters
 │   ├── auth.js             GET /api/auth/status|url|callback, POST /api/auth/disconnect
-│   └── interviews.js       GET /api/interviews/suggestions (SSE), POST /dismiss|scan
+│   ├── interviews.js       GET /api/interviews/suggestions (SSE), POST /dismiss|scan
+│   └── sync.js             GET /api/sync/status|load, POST /api/sync/save (Drive backup/restore)
 │
 └── index.js            createApp(deps) factory + server bootstrap
 ```
@@ -217,7 +235,7 @@ server/src/
 ```js
 // Good — swap in test doubles without touching globals
 createGmailService(authClient, { gmailApi: mockGmailApi })
-createInterviewDetector({ gmailService, calendarService, tokenStore, idFn })
+createInterviewDetector({ gmailService, calendarService, tokenStore, llmExtractor, idFn })
 ```
 
 ### Where does new code go?

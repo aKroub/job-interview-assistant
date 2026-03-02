@@ -10,6 +10,7 @@ import {
   flattenAndSortInterviews,
   isInPipeline,
   isMultiPipeline,
+  matchByNameOnly,
   matchSuggestionToInterview,
   migrateCompanies,
 } from './companyUtils';
@@ -689,5 +690,146 @@ describe('applyInterviewUpdate', () => {
     expect(result[0].interviews[0].type).toBe('Phone Screen');
     expect(result[0].interviews[0].time).toBe('10:00');
     expect(result[0].interviews[0].status).toBe('scheduled');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// matchByNameOnly — relaxed match by company name only (ignoring date)
+// ---------------------------------------------------------------------------
+
+describe('matchByNameOnly', () => {
+  it('returns null when no company matches the suggestion name', () => {
+    const companies = [makeCompany({ id: 'c1', name: 'Acme' })];
+    const result = matchByNameOnly(companies, { companyName: 'Unknown Corp' });
+    expect(result).toBeNull();
+  });
+
+  it('returns null when the company has no interviews', () => {
+    const companies = [makeCompany({ id: 'c1', name: 'Acme', interviews: [] })];
+    const result = matchByNameOnly(companies, { companyName: 'Acme' });
+    expect(result).toBeNull();
+  });
+
+  it('returns null when all interviews are cancelled', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        name: 'Acme',
+        interviews: [makeInterview({ id: 'i1', status: 'cancelled' })],
+      }),
+    ];
+    const result = matchByNameOnly(companies, { companyName: 'Acme' });
+    expect(result).toBeNull();
+  });
+
+  it('matches the single active interview regardless of date', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        name: 'SentinelOne',
+        interviews: [makeInterview({ id: 'i1', date: '2026-03-04', status: 'scheduled' })],
+      }),
+    ];
+    const result = matchByNameOnly(companies, { companyName: 'SentinelOne', date: '2026-03-09' });
+    expect(result).toEqual({ companyId: 'c1', interviewId: 'i1' });
+  });
+
+  it('picks the interview with the closest date when multiple are active', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        name: 'Acme',
+        interviews: [
+          makeInterview({ id: 'i1', date: '2026-01-10', status: 'scheduled' }),
+          makeInterview({ id: 'i2', date: '2026-03-01', status: 'scheduled' }),
+          makeInterview({ id: 'i3', date: '2026-06-15', status: 'completed' }),
+        ],
+      }),
+    ];
+    const result = matchByNameOnly(companies, { companyName: 'Acme', date: '2026-03-05' });
+    expect(result).toEqual({ companyId: 'c1', interviewId: 'i2' });
+  });
+
+  it('skips cancelled interviews when picking closest date', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        name: 'Acme',
+        interviews: [
+          makeInterview({ id: 'i1', date: '2026-03-04', status: 'cancelled' }),
+          makeInterview({ id: 'i2', date: '2026-01-20', status: 'scheduled' }),
+        ],
+      }),
+    ];
+    const result = matchByNameOnly(companies, { companyName: 'Acme', date: '2026-03-05' });
+    expect(result).toEqual({ companyId: 'c1', interviewId: 'i2' });
+  });
+
+  it('returns first active interview when suggestion has no date', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        name: 'Acme',
+        interviews: [
+          makeInterview({ id: 'i1', status: 'scheduled' }),
+          makeInterview({ id: 'i2', status: 'scheduled' }),
+        ],
+      }),
+    ];
+    const result = matchByNameOnly(companies, { companyName: 'Acme' });
+    expect(result).toEqual({ companyId: 'c1', interviewId: 'i1' });
+  });
+
+  it('uses fuzzy name matching (case-insensitive, substring)', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        name: 'SentinelOne Technologies',
+        interviews: [makeInterview({ id: 'i1', date: '2026-03-04', status: 'scheduled' })],
+      }),
+    ];
+    const result = matchByNameOnly(companies, { companyName: 'sentinelone', date: '2026-03-09' });
+    expect(result).toEqual({ companyId: 'c1', interviewId: 'i1' });
+  });
+
+  it('uses time as tiebreaker when two interviews share the same date', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        name: 'Acme',
+        interviews: [
+          makeInterview({ id: 'i1', date: '2026-03-04', time: '09:30', status: 'scheduled' }),
+          makeInterview({ id: 'i2', date: '2026-03-04', time: '14:00', status: 'scheduled' }),
+        ],
+      }),
+    ];
+    // Suggestion at 10:00 — closer to the 09:30 interview
+    const result = matchByNameOnly(companies, { companyName: 'Acme', date: '2026-03-09', time: '10:00' });
+    expect(result).toEqual({ companyId: 'c1', interviewId: 'i1' });
+  });
+
+  it('uses time tiebreaker to pick the afternoon interview', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        name: 'Acme',
+        interviews: [
+          makeInterview({ id: 'i1', date: '2026-03-04', time: '09:30', status: 'scheduled' }),
+          makeInterview({ id: 'i2', date: '2026-03-04', time: '14:00', status: 'scheduled' }),
+        ],
+      }),
+    ];
+    // Suggestion at 15:00 — closer to the 14:00 interview
+    const result = matchByNameOnly(companies, { companyName: 'Acme', date: '2026-03-09', time: '15:00' });
+    expect(result).toEqual({ companyId: 'c1', interviewId: 'i2' });
+  });
+
+  it('does not mutate the input companies array', () => {
+    const interviews = [makeInterview({ id: 'i1', status: 'scheduled' })];
+    const companies = Object.freeze([
+      Object.freeze(makeCompany({ id: 'c1', name: 'Acme', interviews: Object.freeze(interviews) })),
+    ]);
+    const result = matchByNameOnly(companies, { companyName: 'Acme', date: '2026-01-01' });
+    expect(result).toEqual({ companyId: 'c1', interviewId: 'i1' });
   });
 });

@@ -14,7 +14,7 @@ import { DEFAULT_PIPELINE, PIPELINES, PIPELINE_LABELS } from './constants/pipeli
 import { POSITIONS } from './constants/positions';
 import { ACTIVE_STAGES, CLOSED_STAGE, STAGES, STAGE_LABELS } from './constants/stages';
 import { useInterviewTracker } from './hooks/useInterviewTracker';
-import { findCompanyByFuzzyName, isInPipeline, matchSuggestionToInterview } from './utils/companyUtils';
+import { findCompanyByFuzzyName, isInPipeline, matchByNameOnly, matchSuggestionToInterview } from './utils/companyUtils';
 
 const EMPTY_DRAFT = { name: '', position: '', stage: STAGES[0], pipeline: [DEFAULT_PIPELINE] };
 
@@ -89,37 +89,49 @@ const InterviewPrepTracker = () => {
     const action = suggestion.action || 'add';
 
     if (action === 'cancel') {
-      const matched = matchSuggestionToInterview(companies, suggestion);
-      if (!matched) return;
-      updateInterviewStatus(matched.companyId, matched.interviewId, 'cancelled');
-      dismissSuggestion(suggestion);
-      return;
+      const matched = matchSuggestionToInterview(companies, suggestion)
+        || matchByNameOnly(companies, suggestion);
+      if (matched) {
+        updateInterviewStatus(matched.companyId, matched.interviewId, 'cancelled');
+        dismissSuggestion(suggestion);
+        return;
+      }
+      // No tracked interview found — fall through to add flow so the user
+      // can see the detected details and optionally add it to the tracker.
     }
 
     if (action === 'update') {
-      const matched = matchSuggestionToInterview(companies, suggestion);
-      if (!matched) return;
-      const company   = companies.find((c) => c.id === matched.companyId);
-      const interview = company?.interviews.find((i) => i.id === matched.interviewId);
-      if (!company || !interview) return;
-
-      // Build a full interview object with the suggestion's proposed changes
-      // pre-applied, so the edit modal opens with the new values ready to save.
-      const editInterview = {
-        ...interview,
-        companyId:   company.id,
-        companyName: company.name,
-        position:    company.position,
-        ...(suggestion.type     ? { type: suggestion.type }         : {}),
-        ...(suggestion.date     ? { date: suggestion.date }         : {}),
-        ...(suggestion.time     ? { time: suggestion.time }         : {}),
-        ...(suggestion.duration ? { duration: suggestion.duration } : {}),
-      };
-      setSuggestionDraft({ suggestion, editInterview });
-      return;
+      // Strict match first (name + date), then relaxed match (name only,
+      // closest date). The relaxed match handles the common case where
+      // an "update" email changes the interview date — the tracker still
+      // holds the old date, so strict matching fails.
+      const matched = matchSuggestionToInterview(companies, suggestion)
+        || matchByNameOnly(companies, suggestion);
+      if (matched) {
+        const company   = companies.find((c) => c.id === matched.companyId);
+        const interview = company?.interviews.find((i) => i.id === matched.interviewId);
+        if (company && interview) {
+          // Build a full interview object with the suggestion's proposed changes
+          // pre-applied, so the edit modal opens with the new values ready to save.
+          const editInterview = {
+            ...interview,
+            companyId:   company.id,
+            companyName: company.name,
+            position:    company.position,
+            ...(suggestion.type     ? { type: suggestion.type }         : {}),
+            ...(suggestion.date     ? { date: suggestion.date }         : {}),
+            ...(suggestion.time     ? { time: suggestion.time }         : {}),
+            ...(suggestion.duration ? { duration: suggestion.duration } : {}),
+          };
+          setSuggestionDraft({ suggestion, editInterview });
+          return;
+        }
+      }
+      // No tracked interview found — fall through to add flow so the user
+      // can see the updated details and optionally add the interview.
     }
 
-    // Default: action === 'add'
+    // Default: action === 'add', or cancel/update with no tracked match.
     const match = findCompanyByFuzzyName(companies, suggestion.companyName);
     const values = {
       companyId: match?.id || '',

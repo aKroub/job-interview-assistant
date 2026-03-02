@@ -264,6 +264,66 @@ export function findCompanyByFuzzyName(companies, name) {
 }
 
 /**
+ * Relaxed version of {@link matchSuggestionToInterview} that matches by
+ * company name only (ignoring date).
+ *
+ * Used as a fallback for 'update' and 'cancel' actions where the interview
+ * date may have changed — the tracker still holds the old date so the strict
+ * name+date match fails.
+ *
+ * Among all non-cancelled interviews for the matched company, picks the one
+ * closest to the suggestion's date+time. When two interviews are on the
+ * same date, time proximity is used as a tiebreaker so each interview can
+ * be matched independently.
+ *
+ * @param {Object[]} companies
+ * @param {{ companyName: string, date?: string, time?: string }} suggestion
+ * @returns {{ companyId: string, interviewId: string } | null}
+ */
+export function matchByNameOnly(companies, suggestion) {
+  const company = findCompanyByFuzzyName(companies, suggestion.companyName);
+  if (!company) return null;
+
+  const active = company.interviews.filter((i) => i.status !== 'cancelled');
+  if (active.length === 0) return null;
+
+  if (active.length === 1) {
+    return { companyId: company.id, interviewId: active[0].id };
+  }
+
+  // Multiple active interviews — pick the one closest by date, then by time
+  if (suggestion.date) {
+    const targetMs = new Date(suggestion.date).getTime();
+    const targetTimeMin = suggestion.time ? timeToMinutes(suggestion.time) : null;
+
+    let closest = active[0];
+    let closestDateDiff = Math.abs(new Date(closest.date).getTime() - targetMs);
+    let closestTimeDiff = targetTimeMin !== null && closest.time
+      ? Math.abs(timeToMinutes(closest.time) - targetTimeMin)
+      : Infinity;
+
+    for (let i = 1; i < active.length; i++) {
+      const dateDiff = Math.abs(new Date(active[i].date).getTime() - targetMs);
+      const timeDiff = targetTimeMin !== null && active[i].time
+        ? Math.abs(timeToMinutes(active[i].time) - targetTimeMin)
+        : Infinity;
+
+      // Prefer closer date; on date tie, prefer closer time
+      if (dateDiff < closestDateDiff ||
+          (dateDiff === closestDateDiff && timeDiff < closestTimeDiff)) {
+        closest = active[i];
+        closestDateDiff = dateDiff;
+        closestTimeDiff = timeDiff;
+      }
+    }
+    return { companyId: company.id, interviewId: closest.id };
+  }
+
+  // No date on suggestion — return the first active interview
+  return { companyId: company.id, interviewId: active[0].id };
+}
+
+/**
  * Returns a new companies array with one interview's fields updated.
  *
  * @param {Object[]} companies

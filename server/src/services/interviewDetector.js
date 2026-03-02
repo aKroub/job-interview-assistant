@@ -1,4 +1,9 @@
 import { crossReferenceEmailAndEvent } from '../utils/matchingUtils.js';
+import {
+  mergeEmailExtraction,
+  mergeCalendarExtraction,
+  normalizeInterviewType,
+} from '../utils/llmEnrichment.js';
 
 /**
  * Minimum email score required to surface an email-only suggestion.
@@ -50,9 +55,49 @@ const CALENDAR_ONLY_CONFIDENCE_FACTOR = 0.6;
  * @param {{ scanForInterviews: Function }} deps.calendarService
  * @param {{ getDismissed: Function }} deps.tokenStore
  * @param {Function} [deps.idFn=Date.now] - injectable ID generator for testing
+ * @param {Object|null} [deps.llmExtractor=null] - optional LLM extractor for enrichment
  * @returns {{ detect: () => Promise<Object[]> }}
  */
-export function createInterviewDetector({ gmailService, calendarService, tokenStore, idFn = Date.now }) {
+export function createInterviewDetector({ gmailService, calendarService, tokenStore, idFn = Date.now, llmExtractor = null }) {
+
+  /**
+   * Enriches email and calendar results with LLM-extracted fields.
+   * Uses Promise.allSettled so individual failures do not abort the batch.
+   * Returns new arrays with enriched items (originals are not mutated).
+   *
+   * @param {Object[]} emails - regex-extracted email results
+   * @param {Object[]} events - regex-extracted calendar results
+   * @returns {Promise<{ emails: Object[], events: Object[] }>}
+   */
+  async function enrichWithLlm(emails, events) {
+    if (!llmExtractor) return { emails, events };
+
+    const emailPromises = emails.map((email) =>
+      llmExtractor.extractFromEmail(email.subject, email.bodyText || email.snippet, email.senderEmail)
+    );
+    const eventPromises = events.map((event) =>
+      llmExtractor.extractFromCalendarEvent(event.summary, event.description, event.location, event.organizerEmail)
+    );
+
+    const [emailSettled, eventSettled] = await Promise.all([
+      Promise.allSettled(emailPromises),
+      Promise.allSettled(eventPromises),
+    ]);
+
+    const enrichedEmails = emails.map((email, i) => {
+      if (emailSettled[i].status !== 'fulfilled') return email;
+      const extraction = emailSettled[i].value?.extraction ?? null;
+      return mergeEmailExtraction(email, extraction);
+    });
+
+    const enrichedEvents = events.map((event, i) => {
+      if (eventSettled[i].status !== 'fulfilled') return event;
+      const extraction = eventSettled[i].value?.extraction ?? null;
+      return mergeCalendarExtraction(event, extraction);
+    });
+
+    return { emails: enrichedEmails, events: enrichedEvents };
+  }
 
   /**
    * Scans both Gmail and Calendar, cross-references results, and returns
@@ -80,14 +125,18 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
    */
   async function detect() {
     // Run both scans concurrently
-    const [emailResults, calendarResults] = await Promise.all([
+    const [rawEmails, rawEvents] = await Promise.all([
       gmailService.scanForInterviews(),
       calendarService.scanForInterviews(),
     ]);
 
-    if (emailResults.length === 0 && calendarResults.length === 0) {
+    if (rawEmails.length === 0 && rawEvents.length === 0) {
       return [];
     }
+
+    // Enrich with LLM-extracted fields (no-op when llmExtractor is null)
+    const { emails: emailResults, events: calendarResults } =
+      await enrichWithLlm(rawEmails, rawEvents);
 
     const dismissed = tokenStore.getDismissed();
     const suggestions = [];
@@ -260,6 +309,21 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
 }
 
 /**
+ * Returns the first normalised LLM interview type found across the provided
+ * items, or null if none have a usable llmInterviewType.
+ *
+ * @param {...Object} items - email and/or calendar result objects
+ * @returns {string|null} canonical type or null
+ */
+function llmTypeOrNull(...items) {
+  for (const item of items) {
+    const mapped = normalizeInterviewType(item?.llmInterviewType);
+    if (mapped) return mapped;
+  }
+  return null;
+}
+
+/**
  * Video-conference URL patterns. When `event.location` matches one of these,
  * the location is a join-link, not a physical address.
  */
@@ -304,6 +368,9 @@ function isPhysicalLocation(location) {
  * @returns {string} one of 'Phone Interview', 'Video Interview', 'In-Person Interview'
  */
 function guessInterviewType(email, event) {
+  const llmType = llmTypeOrNull(email, event);
+  if (llmType) return llmType;
+
   const combined = `${email.subject || ''} ${email.snippet || ''} ${event.summary || ''} ${event.description || ''}`.toLowerCase();
 
   if (combined.includes('phone')) {
@@ -332,6 +399,9 @@ function guessInterviewType(email, event) {
  * @returns {string} one of 'Phone Interview', 'Video Interview', 'In-Person Interview'
  */
 function guessInterviewTypeFromEmail(email) {
+  const llmType = llmTypeOrNull(email);
+  if (llmType) return llmType;
+
   const combined = `${email.subject || ''} ${email.snippet || ''}`.toLowerCase();
 
   if (combined.includes('phone')) {
@@ -358,6 +428,9 @@ function guessInterviewTypeFromEmail(email) {
  * @returns {string} one of 'Phone Interview', 'Video Interview', 'In-Person Interview'
  */
 function guessInterviewTypeFromCalendar(event) {
+  const llmType = llmTypeOrNull(event);
+  if (llmType) return llmType;
+
   const combined = `${event.summary || ''} ${event.description || ''}`.toLowerCase();
 
   if (combined.includes('phone')) {

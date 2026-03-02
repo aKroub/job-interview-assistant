@@ -10,8 +10,7 @@
       "ignoreExports": [
         "src/index.js",
         "src/utils/matchingUtils.js",
-        "src/services/llmExtractor.js",
-        "src/utils/llmEnrichment.js"
+        "src/services/llmExtractor.js"
       ]
     }]
   },

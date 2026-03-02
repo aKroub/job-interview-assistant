@@ -1431,4 +1431,568 @@ describe('createInterviewDetector', () => {
       expect(suggestions[1].action).toBe('cancel');
     });
   });
+
+  // ---------------------------------------------------------------------------
+  // LLM enrichment integration
+  // ---------------------------------------------------------------------------
+  describe('detect — LLM enrichment', () => {
+    /**
+     * Creates a mock llmExtractor with configurable extraction results.
+     * Mirrors the real interface: { extractFromEmail, extractFromCalendarEvent }
+     */
+    function mockLlmExtractor(overrides = {}) {
+      return {
+        extractFromEmail: overrides.extractFromEmail
+          || (async () => ({ dryModePrompt: null, extraction: null })),
+        extractFromCalendarEvent: overrides.extractFromCalendarEvent
+          || (async () => ({ dryModePrompt: null, extraction: null })),
+      };
+    }
+
+    it('enriches company name from LLM into cross-ref suggestion', async () => {
+      const extractor = mockLlmExtractor({
+        extractFromEmail: async () => ({
+          dryModePrompt: null,
+          extraction: { company_name: 'Acme Corporation', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        }),
+      });
+
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ companyName: 'acme' })]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.companyName).toBe('Acme Corporation');
+    });
+
+    it('enriches company name from LLM into email-only suggestion', async () => {
+      const extractor = mockLlmExtractor({
+        extractFromEmail: async () => ({
+          dryModePrompt: null,
+          extraction: { company_name: 'Meta Platforms', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        }),
+      });
+
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ score: 0.8, companyName: 'meta' })]),
+        calendarService: mockCalendar([]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.companyName).toBe('Meta Platforms');
+    });
+
+    it('enriches company name from LLM into calendar-only suggestion', async () => {
+      const extractor = mockLlmExtractor({
+        extractFromCalendarEvent: async () => ({
+          dryModePrompt: null,
+          extraction: { company_name: 'TechCo Industries', interview_type: null },
+        }),
+      });
+
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([]),
+        calendarService: mockCalendar([makeCalendarResult({ score: 0.7, companyName: 'techco' })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.companyName).toBe('TechCo Industries');
+    });
+
+    it('LLM interview type overrides keyword-based guess in cross-ref suggestion', async () => {
+      const extractor = mockLlmExtractor({
+        extractFromEmail: async () => ({
+          dryModePrompt: null,
+          extraction: { company_name: null, date: null, time: null, duration_minutes: null, intent: null, interview_type: 'in-person' },
+        }),
+      });
+
+      const detector = createInterviewDetector({
+        // Subject does not mention in-person, and event has a video link
+        // Without LLM, this would guess "Video Interview"
+        gmailService: mockGmail([makeEmailResult({ subject: 'Interview with Google' })]),
+        calendarService: mockCalendar([makeCalendarResult({ hasVideoLink: true })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.type).toBe('In-Person Interview');
+    });
+
+    it('LLM interview type overrides keyword-based guess in email-only suggestion', async () => {
+      const extractor = mockLlmExtractor({
+        extractFromEmail: async () => ({
+          dryModePrompt: null,
+          extraction: { company_name: null, date: null, time: null, duration_minutes: null, intent: null, interview_type: 'phone' },
+        }),
+      });
+
+      const detector = createInterviewDetector({
+        // Subject mentions Zoom which would normally guess "Video Interview"
+        gmailService: mockGmail([makeEmailResult({ score: 0.8, subject: 'Interview via Zoom' })]),
+        calendarService: mockCalendar([]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.type).toBe('Phone Interview');
+    });
+
+    it('LLM interview type overrides keyword-based guess in calendar-only suggestion', async () => {
+      const extractor = mockLlmExtractor({
+        extractFromCalendarEvent: async () => ({
+          dryModePrompt: null,
+          extraction: { company_name: null, interview_type: 'onsite' },
+        }),
+      });
+
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([]),
+        calendarService: mockCalendar([makeCalendarResult({
+          score: 0.7,
+          hasVideoLink: true,
+          summary: 'Interview with Acme',
+        })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.type).toBe('In-Person Interview');
+    });
+
+    it('falls back to regex when LLM returns null extraction', async () => {
+      const extractor = mockLlmExtractor({
+        extractFromEmail: async () => ({
+          dryModePrompt: null,
+          extraction: null,
+        }),
+      });
+
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ companyName: 'regex-company' })]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.companyName).toBe('Regex-company');
+    });
+
+    it('falls back to regex when LLM extraction fields are all null', async () => {
+      const extractor = mockLlmExtractor({
+        extractFromEmail: async () => ({
+          dryModePrompt: null,
+          extraction: { company_name: null, date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        }),
+      });
+
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({
+          companyName: 'google',
+          extractedDate: '2025-01-20',
+          extractedTime: '14:00',
+          intent: 'add',
+        })]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.companyName).toBe('Google');
+      expect(s.date).toBe('2025-01-20');
+      expect(s.time).toBe('14:00');
+    });
+
+    it('falls back to regex when LLM call rejects (Promise.allSettled resilience)', async () => {
+      const extractor = mockLlmExtractor({
+        extractFromEmail: async () => { throw new Error('API rate limit'); },
+      });
+
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ companyName: 'fallback-corp' })]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      const [s] = await detector.detect();
+      // Should not throw — graceful fallback to regex
+      expect(s.companyName).toBe('Fallback-corp');
+    });
+
+    it('enriches some items even when others fail (partial failure resilience)', async () => {
+      let callCount = 0;
+      const extractor = mockLlmExtractor({
+        extractFromEmail: async () => {
+          callCount++;
+          if (callCount === 1) throw new Error('API error');
+          return {
+            dryModePrompt: null,
+            extraction: { company_name: 'LLM Corp', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          };
+        },
+      });
+
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([
+          makeEmailResult({ messageId: 'msg1', senderDomain: 'a.com', companyName: 'regex-a', extractedDate: '2025-01-20' }),
+          makeEmailResult({ messageId: 'msg2', senderDomain: 'b.com', companyName: 'regex-b', extractedDate: '2025-01-21', score: 0.8 }),
+        ]),
+        calendarService: mockCalendar([
+          makeCalendarResult({ eventId: 'evt1', organizerEmail: 'hr@a.com', date: '2025-01-20' }),
+        ]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      const suggestions = await detector.detect();
+
+      // msg1 (failed LLM) keeps regex companyName
+      const crossRef = suggestions.find(s => s.source === 'gmail+calendar');
+      expect(crossRef.companyName).toBe('Regex-a');
+
+      // msg2 (successful LLM) gets enriched companyName
+      const emailOnly = suggestions.find(s => s.source === 'gmail');
+      expect(emailOnly.companyName).toBe('LLM Corp');
+    });
+
+    it('does not enrich when no llmExtractor is provided (null)', async () => {
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult()]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+        // llmExtractor not provided — defaults to null
+      });
+
+      const [s] = await detector.detect();
+      expect(s.companyName).toBe('Google');
+    });
+
+    it('dry mode result (extraction: null) does not enrich', async () => {
+      const extractor = mockLlmExtractor({
+        extractFromEmail: async () => ({
+          dryModePrompt: '[System]\nYou are...',
+          extraction: null,
+        }),
+      });
+
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ companyName: 'dry-test' })]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.companyName).toBe('Dry-test');
+    });
+
+    it('privacy gate rejection (null return) does not enrich', async () => {
+      const extractor = mockLlmExtractor({
+        extractFromEmail: async () => null,
+      });
+
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ companyName: 'privacy-test' })]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.companyName).toBe('Privacy-test');
+    });
+
+    it('LLM enriches date/time/duration in email results', async () => {
+      const extractor = mockLlmExtractor({
+        extractFromEmail: async () => ({
+          dryModePrompt: null,
+          extraction: {
+            company_name: null,
+            date: '2025-02-15',
+            time: '10:30',
+            duration_minutes: 45,
+            intent: null,
+            interview_type: null,
+          },
+        }),
+      });
+
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({
+          score: 0.8,
+          extractedDate: '2025-01-20',
+          extractedTime: '14:00',
+          extractedDuration: null,
+        })]),
+        calendarService: mockCalendar([]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.date).toBe('2025-02-15');
+      expect(s.time).toBe('10:30');
+      expect(s.duration).toBe(45);
+    });
+
+    it('LLM enriches intent to "cancel" in email results', async () => {
+      const extractor = mockLlmExtractor({
+        extractFromEmail: async () => ({
+          dryModePrompt: null,
+          extraction: {
+            company_name: null,
+            date: null,
+            time: null,
+            duration_minutes: null,
+            intent: 'cancel',
+            interview_type: null,
+          },
+        }),
+      });
+
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ intent: 'add' })]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.action).toBe('cancel');
+    });
+
+    it('unrecognised LLM interview type falls back to keyword-based guess', async () => {
+      const extractor = mockLlmExtractor({
+        extractFromEmail: async () => ({
+          dryModePrompt: null,
+          extraction: { company_name: null, date: null, time: null, duration_minutes: null, intent: null, interview_type: 'technical' },
+        }),
+      });
+
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ subject: 'Phone Screen' })]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      const [s] = await detector.detect();
+      // "technical" is a round-type, not a format — normalizeInterviewType returns null
+      // Falls back to keyword-based guess which finds "phone"
+      expect(s.type).toBe('Phone Interview');
+    });
+
+    it('passes bodyText to extractFromEmail when available', async () => {
+      const calls = [];
+      const extractor = mockLlmExtractor({
+        extractFromEmail: async (subject, body, senderEmail) => {
+          calls.push({ subject, body, senderEmail });
+          return { dryModePrompt: null, extraction: null };
+        },
+      });
+
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({
+          bodyText: 'Full email body content here',
+          snippet: 'Short snippet',
+        })]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      await detector.detect();
+
+      expect(calls.length).toBe(1);
+      expect(calls[0].body).toBe('Full email body content here');
+    });
+
+    it('falls back to snippet when bodyText is empty', async () => {
+      const calls = [];
+      const extractor = mockLlmExtractor({
+        extractFromEmail: async (subject, body, senderEmail) => {
+          calls.push({ subject, body, senderEmail });
+          return { dryModePrompt: null, extraction: null };
+        },
+      });
+
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({
+          bodyText: '',
+          snippet: 'Short snippet for extraction',
+        })]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      await detector.detect();
+
+      expect(calls.length).toBe(1);
+      expect(calls[0].body).toBe('Short snippet for extraction');
+    });
+
+    it('passes correct args to extractFromCalendarEvent', async () => {
+      const calls = [];
+      const extractor = mockLlmExtractor({
+        extractFromCalendarEvent: async (summary, description, location, organizerEmail) => {
+          calls.push({ summary, description, location, organizerEmail });
+          return { dryModePrompt: null, extraction: null };
+        },
+      });
+
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([]),
+        calendarService: mockCalendar([makeCalendarResult({
+          score: 0.7,
+          summary: 'Tech Interview',
+          description: 'With engineering team',
+          location: 'Zoom link',
+          organizerEmail: 'recruiter@test.com',
+        })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      await detector.detect();
+
+      expect(calls.length).toBe(1);
+      expect(calls[0].summary).toBe('Tech Interview');
+      expect(calls[0].description).toBe('With engineering team');
+      expect(calls[0].location).toBe('Zoom link');
+      expect(calls[0].organizerEmail).toBe('recruiter@test.com');
+    });
+
+    it('calls all extractors concurrently (not sequentially)', async () => {
+      const timestamps = [];
+      const extractor = mockLlmExtractor({
+        extractFromEmail: async () => {
+          timestamps.push({ type: 'email', time: Date.now() });
+          return { dryModePrompt: null, extraction: null };
+        },
+        extractFromCalendarEvent: async () => {
+          timestamps.push({ type: 'calendar', time: Date.now() });
+          return { dryModePrompt: null, extraction: null };
+        },
+      });
+
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([
+          makeEmailResult({ messageId: 'msg1' }),
+          makeEmailResult({ messageId: 'msg2', senderDomain: 'other.com', score: 0.8 }),
+        ]),
+        calendarService: mockCalendar([makeCalendarResult({ score: 0.7 })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      await detector.detect();
+
+      // All 3 calls (2 emails + 1 calendar) should have been initiated
+      expect(timestamps.length).toBe(3);
+    });
+
+    it('does not mutate original email/calendar arrays', async () => {
+      const extractor = mockLlmExtractor({
+        extractFromEmail: async () => ({
+          dryModePrompt: null,
+          extraction: { company_name: 'Enriched Corp', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        }),
+      });
+
+      const originalEmail = makeEmailResult({ companyName: 'original' });
+      const originalEvent = makeCalendarResult();
+      const emailArray = [originalEmail];
+      const calendarArray = [originalEvent];
+
+      const detector = createInterviewDetector({
+        gmailService: { scanForInterviews: async () => emailArray },
+        calendarService: { scanForInterviews: async () => calendarArray },
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      await detector.detect();
+
+      // Original objects should not be mutated
+      expect(originalEmail.companyName).toBe('original');
+      expect(emailArray.length).toBe(1);
+      expect(calendarArray.length).toBe(1);
+    });
+
+    it('falls back to regex when extractFromCalendarEvent rejects (calendar-only)', async () => {
+      const extractor = mockLlmExtractor({
+        extractFromCalendarEvent: async () => { throw new Error('API timeout'); },
+      });
+
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([]),
+        calendarService: mockCalendar([makeCalendarResult({ score: 0.7, companyName: 'regex-cal' })]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      const [s] = await detector.detect();
+      expect(s.companyName).toBe('Regex-cal');
+      expect(s.source).toBe('calendar');
+    });
+
+    it('falls back to regex when extractFromCalendarEvent rejects (cross-ref)', async () => {
+      const extractor = mockLlmExtractor({
+        extractFromEmail: async () => ({
+          dryModePrompt: null,
+          extraction: { company_name: 'LLM Email Corp', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        }),
+        extractFromCalendarEvent: async () => { throw new Error('API timeout'); },
+      });
+
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ companyName: 'regex-email' })]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: mockTokenStore(),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      const [s] = await detector.detect();
+      // Email enrichment succeeds, calendar enrichment fails gracefully
+      expect(s.companyName).toBe('LLM Email Corp');
+      expect(s.source).toBe('gmail+calendar');
+    });
+  });
 });

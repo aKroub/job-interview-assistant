@@ -72,6 +72,7 @@ export function createGmailService(authClient, options = {}) {
    *   extractedTime: string | null,
    *   extractedDuration: number | null,
    *   intent: 'add' | 'cancel' | 'update',
+   *   bodyText: string,
    * }>>}
    */
   async function scanForInterviews() {
@@ -149,6 +150,7 @@ export function createGmailService(authClient, options = {}) {
           extractedTime: time,
           extractedDuration: duration,
           intent,
+          bodyText: bodyText || '',
         });
       }
     }

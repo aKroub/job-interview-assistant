@@ -421,6 +421,44 @@ describe('createGmailService', () => {
       expect(results[0].intent).toBe('cancel');
     });
 
+    it('includes bodyText from the full email body', async () => {
+      const messages = [
+        makeMessage({
+          id: 'msg1',
+          subject: 'Technical Interview Scheduled',
+          from: 'recruiter@company.com',
+          snippet: 'Your technical interview is on January 20, 2025',
+          body: 'Full email body with interview details and extra context.',
+        }),
+      ];
+      const gmailApi = createMockGmailApi(messages);
+      const service = createGmailService({}, { gmailApi, minScore: 0.1 });
+
+      const results = await service.scanForInterviews();
+
+      expect(results.length).toBe(1);
+      expect(results[0].bodyText).toBe('Full email body with interview details and extra context.');
+    });
+
+    it('returns empty bodyText when no body is available', async () => {
+      const messages = [
+        makeMessage({
+          id: 'msg1',
+          subject: 'Technical Interview Scheduled',
+          from: 'recruiter@company.com',
+          snippet: 'Your technical interview is on January 20, 2025',
+          // No body provided — metadata-only format
+        }),
+      ];
+      const gmailApi = createMockGmailApi(messages);
+      const service = createGmailService({}, { gmailApi, minScore: 0.1 });
+
+      const results = await service.scanForInterviews();
+
+      expect(results.length).toBe(1);
+      expect(results[0].bodyText).toBe('');
+    });
+
     it('handles individual message fetch failures gracefully', async () => {
       const mockApi = {
         users: {

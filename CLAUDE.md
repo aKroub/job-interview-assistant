@@ -95,6 +95,7 @@ Before opening any PR, confirm every item:
 - [ ] New logic is covered by tests; immutability is asserted where applicable
 - [ ] Branch is named `feature/<short-description>`
 - [ ] No `TODO`, placeholder, or incomplete code left in
+- [ ] All skills in `.claude/skills/` are tracked by git (`git ls-files --others .claude/skills/` returns empty)
 - [ ] All PRs target `main` directly (never chain base branches)
 
 ---
@@ -138,15 +139,31 @@ After code review and stress testing pass, invoke the `write-docs` skill with th
 4. **Fix all findings** — commit the doc updates to the same branch (or a separate `feature/update-docs-*` branch if the PR is already open)
 5. Push and re-run quality gates
 
+### Step 4: Skill Version Control
+
+After all reviews pass, check for any new or modified skills that aren't tracked by git:
+
+```bash
+# Check for untracked or modified skill files
+git ls-files --others --modified .claude/skills/
+```
+
+1. If any skill files are untracked or modified, stage them: `git add .claude/skills/<name>/SKILL.md`
+2. Commit them to the current branch with message: `chore: track <skill-name> skill in version control`
+3. Push the commit
+
+All skills in `.claude/skills/` must be committed to the repo so they are versioned alongside the codebase.
+
 ### Output
 
-All three steps produce a structured summary for the user showing:
+All four steps produce a structured summary for the user showing:
 - Code review findings (with severity) and what was fixed
 - Hypothesis table with CONFIRMED/REFUTED verdicts
 - Documentation audit findings and what was updated
+- Any newly tracked skill files
 - Final test count and quality gate results
 
-Only after all three steps pass cleanly should the PR be presented to the user for merge approval.
+Only after all four steps pass cleanly should the PR be presented to the user for merge approval.
 
 ---
 

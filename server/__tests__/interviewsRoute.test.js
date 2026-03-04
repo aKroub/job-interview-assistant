@@ -20,7 +20,6 @@ function createTestApp(overrides = {}) {
   const tokenStore = {
     addDismissed: jest.fn().mockResolvedValue(undefined),
     clearDismissed: jest.fn().mockResolvedValue(undefined),
-    clearSurfaced: jest.fn().mockResolvedValue(undefined),
   };
 
   const googleAuth = {

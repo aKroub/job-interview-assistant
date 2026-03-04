@@ -58,23 +58,12 @@ function makeDetector() {
 
 /** Stub token store. */
 function makeTokenStore() {
-  const surfacedEmailIds = new Set();
-  const surfacedCalendarIds = new Set();
   return {
     loadTokens: jest.fn().mockReturnValue(null),
     saveTokens: jest.fn(),
     getDismissed: () => ({ ids: new Set(), emailIds: new Set(), calendarIds: new Set() }),
     addDismissed: jest.fn(),
-    getSurfaced: () => ({
-      emailIds: new Set(surfacedEmailIds),
-      calendarIds: new Set(surfacedCalendarIds),
-    }),
-    addSurfaced: jest.fn(async (emailIds = [], calendarIds = []) => {
-      for (const id of emailIds) surfacedEmailIds.add(id);
-      for (const id of calendarIds) surfacedCalendarIds.add(id);
-    }),
     clearDismissed: jest.fn(),
-    clearSurfaced: jest.fn(),
   };
 }
 

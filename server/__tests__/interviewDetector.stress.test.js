@@ -1,5 +1,6 @@
 import { describe, it, expect, jest } from '@jest/globals';
 import { createInterviewDetector } from '../src/services/interviewDetector.js';
+import { createMockTokenStore } from './helpers/mockTokenStore.js';
 
 // ---------------------------------------------------------------------------
 // Shared test helpers (same pattern as interviewDetector.test.js)
@@ -11,36 +12,6 @@ function mockGmail(results = []) {
 
 function mockCalendar(results = []) {
   return { scanForInterviews: async () => results };
-}
-
-function mockTokenStore(dismissed = []) {
-  const surfacedEmailIds = new Set();
-  const surfacedCalendarIds = new Set();
-  return {
-    getDismissed: () => {
-      const ids = new Set();
-      const emailIds = new Set();
-      const calendarIds = new Set();
-      for (const entry of dismissed) {
-        if (typeof entry === 'string') {
-          ids.add(entry);
-        } else {
-          ids.add(entry.id);
-          if (entry.emailId) emailIds.add(entry.emailId);
-          if (entry.calendarId) calendarIds.add(entry.calendarId);
-        }
-      }
-      return { ids, emailIds, calendarIds };
-    },
-    getSurfaced: () => ({
-      emailIds: new Set(surfacedEmailIds),
-      calendarIds: new Set(surfacedCalendarIds),
-    }),
-    addSurfaced: async (emailIds = [], calendarIds = []) => {
-      for (const id of emailIds) surfacedEmailIds.add(id);
-      for (const id of calendarIds) surfacedCalendarIds.add(id);
-    },
-  };
 }
 
 const fixedId = () => 1700000000000;
@@ -126,7 +97,7 @@ describe('H1: extractor-null-passthrough — privacy gate null returns', () => {
     const detector = createInterviewDetector({
       gmailService: mockGmail([makeEmailResult()]),
       calendarService: mockCalendar([makeCalendarResult()]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
       llmExtractor: extractor,
     });
@@ -150,7 +121,7 @@ describe('H1: extractor-null-passthrough — privacy gate null returns', () => {
     const detector = createInterviewDetector({
       gmailService: mockGmail([makeEmailResult()]),
       calendarService: mockCalendar([makeCalendarResult()]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
       llmExtractor: extractor,
     });
@@ -174,7 +145,7 @@ describe('H1: extractor-null-passthrough — privacy gate null returns', () => {
     const withLlm = createInterviewDetector({
       gmailService: mockGmail(emailData),
       calendarService: mockCalendar(calData),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
       llmExtractor: extractor,
     });
@@ -182,7 +153,7 @@ describe('H1: extractor-null-passthrough — privacy gate null returns', () => {
     const withoutLlm = createInterviewDetector({
       gmailService: mockGmail(emailData),
       calendarService: mockCalendar(calData),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
       // no llmExtractor
     });
@@ -208,7 +179,7 @@ describe('H1: extractor-null-passthrough — privacy gate null returns', () => {
     const detector = createInterviewDetector({
       gmailService: mockGmail([makeEmailResult({ companyName: 'regex-co' })]),
       calendarService: mockCalendar([makeCalendarResult()]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
       llmExtractor: extractor,
     });
@@ -255,7 +226,7 @@ describe('H2: extractor-rejection-corruption — rejected promises preserve corr
     const detector = createInterviewDetector({
       gmailService: mockGmail([email1, email2]),
       calendarService: mockCalendar([evt1, evt2]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
       llmExtractor: extractor,
     });
@@ -308,7 +279,7 @@ describe('H2: extractor-rejection-corruption — rejected promises preserve corr
     const detector = createInterviewDetector({
       gmailService: mockGmail([email]),
       calendarService: mockCalendar([evt1, evt2]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
       llmExtractor: extractor,
     });
@@ -335,7 +306,7 @@ describe('H2: extractor-rejection-corruption — rejected promises preserve corr
     const withLlm = createInterviewDetector({
       gmailService: mockGmail(emailData),
       calendarService: mockCalendar(calData),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
       llmExtractor: extractor,
     });
@@ -343,7 +314,7 @@ describe('H2: extractor-rejection-corruption — rejected promises preserve corr
     const withoutLlm = createInterviewDetector({
       gmailService: mockGmail(emailData),
       calendarService: mockCalendar(calData),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
     });
 
@@ -378,7 +349,7 @@ describe('H3: llmType-precedence-override — LLM type overrides regex heuristic
     const detector = createInterviewDetector({
       gmailService: mockGmail([makeEmailResult({ subject: 'Zoom Interview' })]),
       calendarService: mockCalendar([makeCalendarResult({ hasVideoLink: true, description: 'Join via Zoom' })]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
       llmExtractor: extractor,
     });
@@ -405,7 +376,7 @@ describe('H3: llmType-precedence-override — LLM type overrides regex heuristic
     const detector = createInterviewDetector({
       gmailService: mockGmail([makeEmailResult({ subject: 'Your Interview' })]),
       calendarService: mockCalendar([makeCalendarResult({ hasVideoLink: true })]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
       llmExtractor: extractor,
     });
@@ -432,7 +403,7 @@ describe('H3: llmType-precedence-override — LLM type overrides regex heuristic
     const detector = createInterviewDetector({
       gmailService: mockGmail([makeEmailResult({ subject: 'Phone Interview' })]),
       calendarService: mockCalendar([makeCalendarResult()]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
       llmExtractor: extractor,
     });
@@ -456,7 +427,7 @@ describe('H3: llmType-precedence-override — LLM type overrides regex heuristic
     const detector = createInterviewDetector({
       gmailService: mockGmail([makeEmailResult({ subject: 'Zoom Interview Call', score: 0.8 })]),
       calendarService: mockCalendar([]), // no calendar events
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
       llmExtractor: extractor,
     });
@@ -480,7 +451,7 @@ describe('H3: llmType-precedence-override — LLM type overrides regex heuristic
     const detector = createInterviewDetector({
       gmailService: mockGmail([]), // no emails
       calendarService: mockCalendar([makeCalendarResult({ hasVideoLink: true, score: 0.6 })]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
       llmExtractor: extractor,
     });
@@ -521,7 +492,7 @@ describe('H4: enrichment-immutability — originals not mutated by detect()', ()
     const detector = createInterviewDetector({
       gmailService: mockGmail([originalEmail]),
       calendarService: mockCalendar([makeCalendarResult()]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
       llmExtractor: extractor,
     });
@@ -550,7 +521,7 @@ describe('H4: enrichment-immutability — originals not mutated by detect()', ()
     const detector = createInterviewDetector({
       gmailService: mockGmail([makeEmailResult()]),
       calendarService: mockCalendar([originalEvent]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
       llmExtractor: extractor,
     });
@@ -571,7 +542,7 @@ describe('H4: enrichment-immutability — originals not mutated by detect()', ()
     const detector = createInterviewDetector({
       gmailService: mockGmail([originalEmail]),
       calendarService: mockCalendar([originalEvent]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
       // no llmExtractor — enrichWithLlm returns originals directly
     });
@@ -607,7 +578,7 @@ describe('H4: enrichment-immutability — originals not mutated by detect()', ()
       calendarService: mockCalendar([
         makeCalendarResult({ eventId: 'evt1', organizerEmail: 'hr@google.com', date: '2025-01-20' }),
       ]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
       llmExtractor: extractor,
     });
@@ -631,7 +602,7 @@ describe('H5: concurrent-enrichment-race — empty and large batch handling', ()
     const detector = createInterviewDetector({
       gmailService: mockGmail([]),
       calendarService: mockCalendar([]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
       llmExtractor: extractor,
     });
@@ -662,7 +633,7 @@ describe('H5: concurrent-enrichment-race — empty and large batch handling', ()
     const detector = createInterviewDetector({
       gmailService: mockGmail([makeEmailResult({ score: 0.8 })]),
       calendarService: mockCalendar([]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
       llmExtractor: extractor,
     });
@@ -722,7 +693,7 @@ describe('H5: concurrent-enrichment-race — empty and large batch handling', ()
     const detector = createInterviewDetector({
       gmailService: mockGmail(emails),
       calendarService: mockCalendar(events),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
       llmExtractor: extractor,
     });
@@ -781,7 +752,7 @@ describe('H5: concurrent-enrichment-race — empty and large batch handling', ()
     const detector = createInterviewDetector({
       gmailService: mockGmail(emails),
       calendarService: mockCalendar(events),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
       llmExtractor: extractor,
     });
@@ -838,7 +809,7 @@ describe('H6: mixed dismissed/active batch — cross-referencing still works', (
         makeCalendarResult({ eventId: 'evt1', organizerEmail: 'hr@acme.com', date: '2025-01-20' }),
         makeCalendarResult({ eventId: 'evt2', organizerEmail: 'hr@beta.com', date: '2025-01-20' }),
       ]),
-      tokenStore: mockTokenStore([
+      tokenStore: createMockTokenStore([
         { id: 'suggestion_dismissed-msg_evt1', emailId: 'dismissed-msg', calendarId: '' },
       ]),
       idFn: fixedId,
@@ -889,7 +860,7 @@ describe('H6: mixed dismissed/active batch — cross-referencing still works', (
     const detector = createInterviewDetector({
       gmailService: mockGmail(emails),
       calendarService: mockCalendar(events),
-      tokenStore: mockTokenStore(dismissedEntries),
+      tokenStore: createMockTokenStore(dismissedEntries),
       idFn: fixedId,
     });
 
@@ -913,7 +884,7 @@ describe('H7: dismissed set changes between scans', () => {
     const detector1 = createInterviewDetector({
       gmailService: mockGmail([makeEmailResult({ messageId: 'msg1' })]),
       calendarService: mockCalendar([makeCalendarResult({ eventId: 'evt1' })]),
-      tokenStore: mockTokenStore([
+      tokenStore: createMockTokenStore([
         { id: 'suggestion_msg1_evt1', emailId: 'msg1', calendarId: 'evt1' },
       ]),
       idFn: fixedId,
@@ -926,7 +897,7 @@ describe('H7: dismissed set changes between scans', () => {
     const detector2 = createInterviewDetector({
       gmailService: mockGmail([makeEmailResult({ messageId: 'msg1' })]),
       calendarService: mockCalendar([makeCalendarResult({ eventId: 'evt1' })]),
-      tokenStore: mockTokenStore([]),
+      tokenStore: createMockTokenStore([]),
       idFn: fixedId,
     });
 
@@ -949,7 +920,7 @@ describe('H8: matchWasDismissed prevents email-only leak', () => {
       calendarService: mockCalendar([
         makeCalendarResult({ eventId: 'evt1', score: 0.8 }),
       ]),
-      tokenStore: mockTokenStore([
+      tokenStore: createMockTokenStore([
         { id: 'some-old-id', emailId: 'msg1', calendarId: '' },
       ]),
       idFn: fixedId,
@@ -987,7 +958,7 @@ describe('H8: matchWasDismissed prevents email-only leak', () => {
       calendarService: mockCalendar([
         makeCalendarResult({ eventId: 'evt1', organizerEmail: 'hr@acme.com', date: '2025-01-20' }),
       ]),
-      tokenStore: mockTokenStore([
+      tokenStore: createMockTokenStore([
         { id: 'suggestion_msg-dismissed_evt1', emailId: 'msg-dismissed', calendarId: '' },
       ]),
       idFn: fixedId,
@@ -1025,7 +996,7 @@ describe('H9: dismissed items filtered at suggestion level', () => {
     const detector = createInterviewDetector({
       gmailService: mockGmail(emails),
       calendarService: mockCalendar(events),
-      tokenStore: mockTokenStore([
+      tokenStore: createMockTokenStore([
         { id: 'x0', emailId: 'msg0', calendarId: '' },
         { id: 'x2', emailId: 'msg2', calendarId: '' },
       ]),

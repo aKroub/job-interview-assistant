@@ -1,6 +1,7 @@
 import { describe, it, expect } from '@jest/globals';
 import { extractDateTimeFromText } from '../src/utils/emailParser.js';
 import { createInterviewDetector } from '../src/services/interviewDetector.js';
+import { createMockTokenStore } from './helpers/mockTokenStore.js';
 
 /**
  * Stress tests for previousDate derivation and date extraction edge cases.
@@ -21,26 +22,6 @@ function mockGmail(results = []) {
 
 function mockCalendar(results = []) {
   return { scanForInterviews: async () => results };
-}
-
-function mockTokenStore(dismissed = []) {
-  const surfacedEmailIds = new Set();
-  const surfacedCalendarIds = new Set();
-  return {
-    getDismissed: () => ({
-      ids: new Set(dismissed),
-      emailIds: new Set(),
-      calendarIds: new Set(),
-    }),
-    getSurfaced: () => ({
-      emailIds: new Set(surfacedEmailIds),
-      calendarIds: new Set(surfacedCalendarIds),
-    }),
-    addSurfaced: async (emailIds = [], calendarIds = []) => {
-      for (const id of emailIds) surfacedEmailIds.add(id);
-      for (const id of calendarIds) surfacedCalendarIds.add(id);
-    },
-  };
 }
 
 const fixedId = () => 1700000000000;
@@ -116,7 +97,7 @@ describe('H1: allDates deduplication with mixed MDY/DMY formats', () => {
         startDateTime: '2026-03-09T14:00:00Z',
         endDateTime: '2026-03-09T15:00:00Z',
       })]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
     });
 
@@ -197,7 +178,7 @@ describe('H3: derivePreviousDate when all allDates match event date', () => {
         startDateTime: '2026-03-09T14:00:00Z',
         endDateTime: '2026-03-09T15:00:00Z',
       })]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
     });
 
@@ -218,7 +199,7 @@ describe('H3: derivePreviousDate when all allDates match event date', () => {
       calendarService: mockCalendar([makeCalendarResult({
         calendarStatus: 'cancelled',
       })]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
     });
 
@@ -236,7 +217,7 @@ describe('H3: derivePreviousDate when all allDates match event date', () => {
       calendarService: mockCalendar([makeCalendarResult({
         calendarStatus: 'cancelled',
       })]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
     });
 
@@ -257,7 +238,7 @@ describe('H3: derivePreviousDate when all allDates match event date', () => {
       calendarService: mockCalendar([makeCalendarResult({
         calendarStatus: 'cancelled',
       })]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
     });
 
@@ -279,7 +260,7 @@ describe('H4: email-only previousDate edge cases', () => {
         extractedAllDates: [],
       })]),
       calendarService: mockCalendar([]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
     });
 
@@ -299,7 +280,7 @@ describe('H4: email-only previousDate edge cases', () => {
         extractedAllDates: ['2026-03-10', '2026-03-05', '2026-03-01'],
       })]),
       calendarService: mockCalendar([]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
     });
 
@@ -318,7 +299,7 @@ describe('H4: email-only previousDate edge cases', () => {
         extractedAllDates: ['2026-03-09', '2026-03-04'],
       })]),
       calendarService: mockCalendar([]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
     });
 
@@ -338,7 +319,7 @@ describe('H4: email-only previousDate edge cases', () => {
         extractedAllDates: [],
       })]),
       calendarService: mockCalendar([]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
     });
 

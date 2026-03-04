@@ -58,25 +58,28 @@ const CALENDAR_ONLY_CONFIDENCE_FACTOR = 0.6;
  * @param {Object|null} [deps.llmExtractor=null] - optional LLM extractor for enrichment
  * @returns {{ detect: () => Promise<Object[]> }}
  */
-export function createInterviewDetector({ gmailService, calendarService, tokenStore, idFn = Date.now, llmExtractor = null }) {
+export function createInterviewDetector({ gmailService, calendarService, tokenStore, idFn = Date.now, llmExtractor = null, breakerThreshold = 2, maxCacheSize = 500 }) {
 
   /**
    * Circuit breaker state for LLM enrichment.
    * When the API is persistently failing (e.g. 529 overloaded), the breaker
-   * opens and skips LLM calls for a cooldown period to avoid hammering the API.
+   * opens and skips LLM calls for one cycle to let the API recover.
    *
-   * - consecutiveAllFailBatches: number of consecutive enrichment batches
-   *   where ALL calls failed (no successes at all).
-   * - BREAKER_THRESHOLD: after this many consecutive all-fail batches, skip
-   *   LLM enrichment entirely for the next batch.
+   * Behaviour: after `breakerThreshold` consecutive all-fail batches the
+   * breaker opens (skips enrichment) for exactly one cycle, then resets.
+   * If retries fail again, the breaker re-opens after another
+   * `breakerThreshold` consecutive all-fail batches. The counter only
+   * resets to 0 when at least one call in a batch succeeds.
    */
   let consecutiveAllFailBatches = 0;
-  const BREAKER_THRESHOLD = 2;
 
   /**
    * In-memory LLM extraction cache — stores successful extractions keyed
    * by source ID. Only successful extractions are cached; failed ones are
    * retried on the next cycle (circuit breaker limits retries during outages).
+   *
+   * Capped at `maxCacheSize` entries; oldest entries (by insertion order)
+   * are evicted when the cap is reached.
    *
    * @type {Map<string, Object>}
    */
@@ -91,24 +94,37 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
    * LLM twice. Failed extractions are NOT cached — they fall back to
    * regex data and are retried on the next poll cycle.
    *
-   * Includes a circuit breaker: after BREAKER_THRESHOLD consecutive all-fail
+   * Includes a circuit breaker: after breakerThreshold consecutive all-fail
    * batches, enrichment is skipped to let the API recover.
    *
    * @param {Object[]} emails - regex-extracted email results
    * @param {Object[]} events - regex-extracted calendar results
    * @returns {Promise<{ emails: Object[], events: Object[] }>}
    */
+  /**
+   * Adds an entry to the extraction cache, evicting the oldest entries
+   * (by insertion order) when the cache exceeds maxCacheSize.
+   */
+  function cacheSet(key, value) {
+    extractionCache.set(key, value);
+    while (extractionCache.size > maxCacheSize) {
+      const oldest = extractionCache.keys().next().value;
+      extractionCache.delete(oldest);
+    }
+  }
+
   async function enrichWithLlm(emails, events) {
     if (!llmExtractor) return { emails, events };
 
-    // Circuit breaker: skip LLM enrichment when the API is persistently down
-    if (consecutiveAllFailBatches >= BREAKER_THRESHOLD) {
+    // Circuit breaker: skip LLM enrichment when the API is persistently down.
+    // Resets the counter so the next cycle retries from zero. If retries fail
+    // again, the breaker re-opens after another breakerThreshold all-fail batches.
+    if (consecutiveAllFailBatches >= breakerThreshold) {
       console.log(
         `[interviewDetector] Circuit breaker OPEN — skipping LLM enrichment ` +
         `(${consecutiveAllFailBatches} consecutive all-fail batches). ` +
         `Will retry next cycle.`
       );
-      // Reset so the NEXT cycle retries (open for one cycle, then retry)
       consecutiveAllFailBatches = 0;
       return { emails, events };
     }
@@ -166,7 +182,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
         batchApiCalls++;
         if (extraction !== null) {
           batchSuccesses++;
-          extractionCache.set(`email:${emails[emailIdx].messageId}`, extraction);
+          cacheSet(`email:${emails[emailIdx].messageId}`, extraction);
         }
       }
       enrichedEmails[emailIdx] = mergeEmailExtraction(emails[emailIdx], extraction);
@@ -180,7 +196,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
         batchApiCalls++;
         if (extraction !== null) {
           batchSuccesses++;
-          extractionCache.set(`event:${events[eventIdx].eventId}`, extraction);
+          cacheSet(`event:${events[eventIdx].eventId}`, extraction);
         }
       }
       enrichedEvents[eventIdx] = mergeCalendarExtraction(events[eventIdx], extraction);

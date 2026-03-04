@@ -192,9 +192,12 @@ export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, g
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    await tokenStore.clearDismissed();
-
-    res.json({ reset: true });
+    try {
+      await tokenStore.clearDismissed();
+      res.json({ reset: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
   });
 
   return router;

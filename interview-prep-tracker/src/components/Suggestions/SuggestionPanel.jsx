@@ -54,7 +54,11 @@ export function SuggestionPanel({
               Scan now
             </button>
             <button
-              onClick={onReset}
+              onClick={() => {
+                if (window.confirm('Reset all dismissed and accepted suggestions? They will reappear on the next scan.')) {
+                  onReset();
+                }
+              }}
               className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-800 transition"
               aria-label="Reset suggestions"
             >

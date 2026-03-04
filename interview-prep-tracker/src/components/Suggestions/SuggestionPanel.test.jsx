@@ -118,10 +118,20 @@ describe('SuggestionPanel — callbacks', () => {
     expect(onScan).toHaveBeenCalledTimes(1);
   });
 
-  it('calls onReset when Reset is clicked', async () => {
+  it('calls onReset when Reset is clicked and confirmed', async () => {
+    jest.spyOn(window, 'confirm').mockReturnValue(true);
     const { onReset } = setup({ authStatus: 'authenticated' });
     await userEvent.click(screen.getByRole('button', { name: /reset suggestions/i }));
     expect(onReset).toHaveBeenCalledTimes(1);
+    window.confirm.mockRestore();
+  });
+
+  it('does not call onReset when Reset is clicked but cancelled', async () => {
+    jest.spyOn(window, 'confirm').mockReturnValue(false);
+    const { onReset } = setup({ authStatus: 'authenticated' });
+    await userEvent.click(screen.getByRole('button', { name: /reset suggestions/i }));
+    expect(onReset).not.toHaveBeenCalled();
+    window.confirm.mockRestore();
   });
 
   it('calls onDisconnect when Disconnect is clicked', async () => {

@@ -224,7 +224,7 @@ server/src/
 │
 ├── routes/
 │   ├── auth.js                    # GET /api/auth/status|url|callback, POST disconnect
-│   ├── interviews.js              # GET /api/interviews/suggestions (SSE), POST dismiss|scan
+│   ├── interviews.js              # GET /api/interviews/suggestions (SSE), POST dismiss|scan|reset
 │   └── sync.js                    # GET /api/sync/status|load, POST /api/sync/save (Drive backup)
 │
 └── index.js                       # createApp(deps) factory + server bootstrap
@@ -243,25 +243,25 @@ server/src/
 
 The test suite covers every layer across both frontend and backend:
 
-### Frontend (37 test suites)
+### Frontend (38 test suites)
 
 | Layer | Test files | What they test |
 |---|---|---|
 | Constants | `constants.test.js` | Stage keys, positions, interview types, question bank integrity |
 | Services | `storageService.test.js`, `apiService.test.js` | Storage interface, REST calls, SSE stream |
 | Utils | `companyUtils.test.js`, `questionUtils.test.js`, `calendarUtils.test.js`, `companyUtils.stress.test.js`, `cancelUpdateStress.test.js` | Pure function unit tests and stress tests (no React) |
-| Hooks | `useCompanies.test.js`, `useSeenQuestions.test.js`, `useInterviewSuggestions.test.js`, `useInterviewTracker.test.js`, `useCloudSync.test.js` | Hook tests with injected in-memory storage / mock API |
+| Hooks | `useCompanies.test.js`, `useSeenQuestions.test.js`, `useInterviewSuggestions.test.js`, `useInterviewSuggestions.stress.test.js`, `useInterviewTracker.test.js`, `useCloudSync.test.js` | Hook tests with injected in-memory storage / mock API, stress tests |
 | Components | 21 test files (one per component) including `CloudSyncMenu.test.jsx`, `KanbanBoard.stress.test.jsx`, `editInterview.stress.test.jsx` | Rendering, user interactions, callback wiring, stress tests |
 | Integration | `App.test.js` | Smoke test — app renders and default view loads |
 
-### Backend (25 test suites)
+### Backend (26 test suites)
 
 | Layer | Test files | What they test |
 |---|---|---|
 | Config | `config.test.js` | Env var loading + validation |
 | Services | `tokenStore.test.js`, `googleAuth.test.js`, `gmailService.test.js`, `calendarService.test.js`, `interviewDetector.test.js`, `interviewDetector.stress.test.js`, `llmExtractor.test.js`, `driveService.test.js` | Business logic with injectable mocks |
 | Utils | `emailParser.test.js`, `matchingUtils.test.js`, `llmEnrichment.test.js`, `llmEnrichment.stress.test.js`, `phraseExpansionStress.test.js`, `gcalScoringStress.test.js`, `gcalCancellationRepro.test.js`, `cancelUpdateStress.test.js`, `cancellationEmailRepro.test.js` | Scoring, parsing, LLM enrichment, stress and regression tests |
-| Resilience | `llmResilience.stress.test.js`, `interviewsRoute.test.js` | Semaphore deadlock, scan cooldown, stats consistency, concurrent error batches |
+| Resilience | `llmResilience.stress.test.js`, `interviewsRoute.test.js`, `resetSuggestions.stress.test.js` | Semaphore deadlock, scan cooldown, reset races, stats consistency, concurrent error batches |
 | Integration | `indexWiring.stress.test.js` | App factory wiring stress tests |
 | Routes | `auth.test.js`, `interviews.test.js`, `sync.test.js` | HTTP route tests via supertest |
 

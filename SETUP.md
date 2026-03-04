@@ -187,6 +187,7 @@ nvm use 20 && npm start
 | **Cross-reference rule** | A cross-referenced suggestion requires both Gmail and Calendar confirmation; email-only and calendar-only suggestions are also surfaced with lower confidence |
 | **Tokens** | Stored at `~/.interview-tracker/tokens.json` (outside the repo, never committed) |
 | **Dismissed suggestions** | Stored at `~/.interview-tracker/dismissed.json` |
+| **Reset** | `POST /api/interviews/reset` clears all dismissed suggestions so they reappear on the next scan |
 
 ---
 

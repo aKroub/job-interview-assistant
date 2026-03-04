@@ -94,4 +94,46 @@ describe('loadConfig', () => {
     const config = loadConfig(makeEnv({ LLM_MODEL: 'claude-sonnet-4-6' }), '/dev/null');
     expect(config.llmModel).toBe('claude-sonnet-4-6');
   });
+
+  // LLM resilience config
+  it('defaults llmMaxConcurrency to 2', () => {
+    const config = loadConfig(makeEnv(), '/dev/null');
+    expect(config.llmMaxConcurrency).toBe(2);
+  });
+
+  it('uses custom LLM_MAX_CONCURRENCY when provided', () => {
+    const config = loadConfig(makeEnv({ LLM_MAX_CONCURRENCY: '5' }), '/dev/null');
+    expect(config.llmMaxConcurrency).toBe(5);
+  });
+
+  it('defaults llmMaxRetries to 3', () => {
+    const config = loadConfig(makeEnv(), '/dev/null');
+    expect(config.llmMaxRetries).toBe(3);
+  });
+
+  it('uses custom LLM_MAX_RETRIES when provided', () => {
+    const config = loadConfig(makeEnv({ LLM_MAX_RETRIES: '5' }), '/dev/null');
+    expect(config.llmMaxRetries).toBe(5);
+  });
+
+  it('defaults scanCooldownMs to 30000', () => {
+    const config = loadConfig(makeEnv(), '/dev/null');
+    expect(config.scanCooldownMs).toBe(30_000);
+  });
+
+  it('uses custom SCAN_COOLDOWN_MS when provided', () => {
+    const config = loadConfig(makeEnv({ SCAN_COOLDOWN_MS: '60000' }), '/dev/null');
+    expect(config.scanCooldownMs).toBe(60_000);
+  });
+
+  it('falls back to defaults for invalid resilience values', () => {
+    const config = loadConfig(makeEnv({
+      LLM_MAX_CONCURRENCY: 'abc',
+      LLM_MAX_RETRIES: '',
+      SCAN_COOLDOWN_MS: 'xyz',
+    }), '/dev/null');
+    expect(config.llmMaxConcurrency).toBe(2);
+    expect(config.llmMaxRetries).toBe(3);
+    expect(config.scanCooldownMs).toBe(30_000);
+  });
 });

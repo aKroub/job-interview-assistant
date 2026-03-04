@@ -12,9 +12,10 @@ import { Router } from 'express';
  * @param {{ addDismissed: Function }} deps.tokenStore - for persisting dismissals
  * @param {number} deps.pollIntervalMs - how often to poll (from config)
  * @param {{ isAuthenticated: Function }} deps.googleAuth - for auth checks
+ * @param {number} [deps.scanCooldownMs=30000] - minimum interval between manual scans
  * @returns {import('express').Router}
  */
-export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, googleAuth }) {
+export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, googleAuth, scanCooldownMs = 30_000 }) {
   const router = Router();
 
   /** Set of active SSE response objects. */
@@ -153,12 +154,24 @@ export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, g
    * Manual trigger for a single scan cycle. Returns suggestions directly
    * instead of via SSE. Useful for testing and for the frontend to get
    * immediate results without waiting for the next poll.
+   *
+   * Rate-limited by scanCooldownMs to prevent overwhelming the API.
    */
+  let lastScanAt = 0;
+
   router.post('/scan', async (_req, res) => {
     // Auth check
     if (!googleAuth.isAuthenticated()) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
+
+    // Cooldown check
+    const now = Date.now();
+    if (now - lastScanAt < scanCooldownMs) {
+      const retryAfterSeconds = Math.ceil((scanCooldownMs - (now - lastScanAt)) / 1000);
+      return res.status(429).json({ error: 'Scan rate limited', retryAfterSeconds });
+    }
+    lastScanAt = now;
 
     try {
       const suggestions = await detector.detect();

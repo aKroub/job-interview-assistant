@@ -38,6 +38,36 @@ const CALENDAR_SYSTEM_PROMPT = [
 ].join('\n');
 
 /**
+ * Creates a promise-based semaphore for limiting concurrent operations.
+ *
+ * @param {number} maxConcurrent - maximum number of operations allowed to run simultaneously
+ * @returns {{ acquire: () => Promise<void>, release: () => void }}
+ */
+export function createSemaphore(maxConcurrent) {
+  let running = 0;
+  const queue = [];
+
+  async function acquire() {
+    if (running < maxConcurrent) {
+      running++;
+      return;
+    }
+    await new Promise((resolve) => queue.push(resolve));
+  }
+
+  function release() {
+    running--;
+    if (queue.length > 0) {
+      running++;
+      const next = queue.shift();
+      next();
+    }
+  }
+
+  return { acquire, release };
+}
+
+/**
  * Checks if any of the provided text fields contain an interview-related keyword.
  * This is the privacy gate — nothing leaves the server unless this returns true.
  *
@@ -116,14 +146,21 @@ export function parseJsonResponse(text) {
  * Creates an LLM extractor service that uses Claude to extract structured
  * interview data from emails and calendar events.
  *
+ * Includes a concurrency limiter (semaphore) to prevent overwhelming the
+ * Anthropic API when many emails/events are processed in parallel. The SDK's
+ * built-in retry (exponential backoff for 429/529/5xx) handles transient errors.
+ *
  * @param {Object} options
  * @param {string} [options.apiKey=''] - Anthropic API key
  * @param {boolean} [options.dryMode=true] - when true, returns prompts without calling the API
  * @param {string} [options.model='claude-haiku-4-5'] - Claude model ID
+ * @param {number} [options.maxConcurrency=2] - max simultaneous API calls
+ * @param {number} [options.maxRetries=3] - max retry attempts for transient errors (passed to SDK)
  * @param {Object} [options.anthropicClient] - injectable Anthropic client for testing
  * @returns {{
  *   extractFromEmail: (subject: string, body: string, senderEmail: string) => Promise<Object|null>,
  *   extractFromCalendarEvent: (summary: string, description: string, location: string, organizerEmail: string) => Promise<Object|null>,
+ *   getStats: () => { total: number, succeeded: number, failed: number },
  * }}
  */
 export function createLlmExtractor(options = {}) {
@@ -131,26 +168,35 @@ export function createLlmExtractor(options = {}) {
     apiKey = '',
     dryMode = true,
     model = 'claude-haiku-4-5',
+    maxConcurrency = 2,
+    maxRetries = 3,
     anthropicClient,
   } = options;
+
+  const semaphore = createSemaphore(maxConcurrency);
+  const stats = { total: 0, succeeded: 0, failed: 0 };
 
   // Lazy-create the client only when needed (wet mode)
   let client = anthropicClient || null;
   function getClient() {
     if (!client) {
-      client = new Anthropic({ apiKey });
+      client = new Anthropic({ apiKey, maxRetries });
     }
     return client;
   }
 
   /**
    * Sends a prompt to Claude and returns the parsed JSON extraction.
+   * Guarded by the semaphore to limit concurrent API calls. The SDK
+   * handles retry with exponential backoff for transient errors (429/529/5xx).
    *
    * @param {string} systemPrompt - system-level instructions (trusted)
    * @param {string} userContent - untrusted content from email/event
    * @returns {Promise<Object|null>} parsed extraction, or null on failure
    */
   async function callLlm(systemPrompt, userContent) {
+    await semaphore.acquire();
+    stats.total++;
     try {
       const response = await getClient().messages.create({
         model,
@@ -160,12 +206,25 @@ export function createLlmExtractor(options = {}) {
       });
 
       const textBlock = response.content.find((b) => b.type === 'text');
-      if (!textBlock) return null;
+      if (!textBlock) {
+        stats.failed++;
+        return null;
+      }
 
-      return parseJsonResponse(textBlock.text);
+      const result = parseJsonResponse(textBlock.text);
+      if (result) {
+        stats.succeeded++;
+      } else {
+        stats.failed++;
+      }
+      return result;
     } catch (err) {
-      console.error('[llmExtractor] API call failed:', err.message);
+      stats.failed++;
+      const status = err.status ?? 'N/A';
+      console.error(`[llmExtractor] API call failed (status=${status}): ${err.message}`);
       return null;
+    } finally {
+      semaphore.release();
     }
   }
 
@@ -222,5 +281,14 @@ export function createLlmExtractor(options = {}) {
     return { dryModePrompt: null, extraction };
   }
 
-  return { extractFromEmail, extractFromCalendarEvent };
+  /**
+   * Returns a snapshot of API call statistics.
+   *
+   * @returns {{ total: number, succeeded: number, failed: number }}
+   */
+  function getStats() {
+    return { ...stats };
+  }
+
+  return { extractFromEmail, extractFromCalendarEvent, getStats };
 }

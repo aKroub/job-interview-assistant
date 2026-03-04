@@ -269,7 +269,7 @@ describe('H4: no side effects from importing llmExtractor.js', () => {
     const { default: request } = await import('supertest');
     const res = await request(app).get('/api/health');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ status: 'ok' });
+    expect(res.body).toEqual({ status: 'ok', llm: { disabled: true } });
   });
 
   it('createApp can be called multiple times without leaking state', () => {

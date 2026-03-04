@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, jest } from '@jest/globals';
 import { createInterviewDetector } from '../src/services/interviewDetector.js';
 
 // ---------------------------------------------------------------------------
@@ -784,5 +784,299 @@ describe('H5: concurrent-enrichment-race — empty and large batch handling', ()
     // The cross-ref suggestion for msg0/evt0 should exist (msg0 gets call 1 which succeeds)
     const crossRef = suggestions.find((s) => s.source === 'gmail+calendar');
     expect(crossRef).toBeDefined();
+  });
+});
+
+// ===========================================================================
+// Pre-LLM dismissed filtering stress tests
+// ===========================================================================
+
+/**
+ * Creates a spy-capable mock llmExtractor that tracks calls.
+ */
+function spyLlmExtractor({ emailHandler, eventHandler } = {}) {
+  const emailCalls = [];
+  const eventCalls = [];
+
+  const defaultReturn = { dryModePrompt: null, extraction: null };
+
+  return {
+    extractFromEmail: async (subject, body, sender) => {
+      emailCalls.push({ subject, body, sender });
+      return emailHandler ? emailHandler(subject, body, sender) : defaultReturn;
+    },
+    extractFromCalendarEvent: async (summary, desc, loc, organizer) => {
+      eventCalls.push({ summary, desc, loc, organizer });
+      return eventHandler ? eventHandler(summary, desc, loc, organizer) : defaultReturn;
+    },
+    emailCalls,
+    eventCalls,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// H6: Mixed dismissed/active batch — cross-referencing correctness
+// ---------------------------------------------------------------------------
+describe('H6: mixed dismissed/active batch — cross-referencing still works', () => {
+  it('dismissed email skips LLM but its matched event does not leak as calendar-only', async () => {
+    const extractor = spyLlmExtractor();
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([
+        makeEmailResult({ messageId: 'dismissed-msg', senderDomain: 'acme.com', senderEmail: 'hr@acme.com', companyName: 'acme' }),
+        makeEmailResult({ messageId: 'active-msg', senderDomain: 'beta.com', senderEmail: 'hr@beta.com', companyName: 'beta' }),
+      ]),
+      calendarService: mockCalendar([
+        makeCalendarResult({ eventId: 'evt1', organizerEmail: 'hr@acme.com', date: '2025-01-20' }),
+        makeCalendarResult({ eventId: 'evt2', organizerEmail: 'hr@beta.com', date: '2025-01-20' }),
+      ]),
+      tokenStore: mockTokenStore([
+        { id: 'suggestion_dismissed-msg_evt1', emailId: 'dismissed-msg', calendarId: '' },
+      ]),
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    const suggestions = await detector.detect();
+
+    // Only active email gets LLM call
+    expect(extractor.emailCalls).toHaveLength(1);
+    expect(extractor.emailCalls[0].subject).toBe('Interview Invitation');
+
+    // active-msg + evt2 produces a suggestion
+    const active = suggestions.find((s) => s.emailMessageId === 'active-msg');
+    expect(active).toBeDefined();
+
+    // evt1 was matched by dismissed email — must NOT appear as calendar-only
+    const calOnlyEvt1 = suggestions.find((s) => s.source === 'calendar' && s.calendarEventId === 'evt1');
+    expect(calOnlyEvt1).toBeUndefined();
+  });
+
+  it('batch with 50% dismissed — correct LLM call count and suggestion output', async () => {
+    const emails = [];
+    const events = [];
+    const dismissedEntries = [];
+
+    for (let i = 0; i < 6; i++) {
+      const msgId = `msg${i}`;
+      const evtId = `evt${i}`;
+      emails.push(makeEmailResult({
+        messageId: msgId,
+        senderDomain: `co${i}.com`,
+        senderEmail: `hr@co${i}.com`,
+        companyName: `company${i}`,
+        extractedDate: `2025-02-${String(i + 1).padStart(2, '0')}`,
+        score: 0.9,
+      }));
+      events.push(makeCalendarResult({
+        eventId: evtId,
+        organizerEmail: `hr@co${i}.com`,
+        date: `2025-02-${String(i + 1).padStart(2, '0')}`,
+        time: '14:00',
+        startDateTime: `2025-02-${String(i + 1).padStart(2, '0')}T14:00:00Z`,
+        endDateTime: `2025-02-${String(i + 1).padStart(2, '0')}T15:00:00Z`,
+      }));
+
+      // Dismiss even-indexed items
+      if (i % 2 === 0) {
+        dismissedEntries.push({ id: `suggestion_${msgId}_${evtId}`, emailId: msgId, calendarId: evtId });
+      }
+    }
+
+    const extractor = spyLlmExtractor();
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail(emails),
+      calendarService: mockCalendar(events),
+      tokenStore: mockTokenStore(dismissedEntries),
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    const suggestions = await detector.detect();
+
+    // 3 of 6 emails dismissed, 3 of 6 events dismissed
+    expect(extractor.emailCalls).toHaveLength(3);
+    expect(extractor.eventCalls).toHaveLength(3);
+
+    // Only 3 active cross-ref suggestions
+    expect(suggestions).toHaveLength(3);
+    for (const s of suggestions) {
+      const idx = parseInt(s.emailMessageId.replace('msg', ''), 10);
+      expect(idx % 2).toBe(1);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// H7: Dismissed set changes between scans
+// ---------------------------------------------------------------------------
+describe('H7: dismissed set changes between scans', () => {
+  it('un-dismissed item is enriched with LLM on second scan', async () => {
+    const extractor1 = spyLlmExtractor();
+
+    // First scan: msg1 dismissed
+    const detector1 = createInterviewDetector({
+      gmailService: mockGmail([makeEmailResult({ messageId: 'msg1' })]),
+      calendarService: mockCalendar([makeCalendarResult({ eventId: 'evt1' })]),
+      tokenStore: mockTokenStore([
+        { id: 'suggestion_msg1_evt1', emailId: 'msg1', calendarId: 'evt1' },
+      ]),
+      idFn: fixedId,
+      llmExtractor: extractor1,
+    });
+
+    const suggestions1 = await detector1.detect();
+    expect(suggestions1).toHaveLength(0);
+    expect(extractor1.emailCalls).toHaveLength(0);
+    expect(extractor1.eventCalls).toHaveLength(0);
+
+    // Second scan: un-dismissed (empty set)
+    const extractor2 = spyLlmExtractor({
+      emailHandler: () => ({
+        dryModePrompt: null,
+        extraction: { company_name: 'NowActive', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+      }),
+    });
+
+    const detector2 = createInterviewDetector({
+      gmailService: mockGmail([makeEmailResult({ messageId: 'msg1' })]),
+      calendarService: mockCalendar([makeCalendarResult({ eventId: 'evt1' })]),
+      tokenStore: mockTokenStore([]),
+      idFn: fixedId,
+      llmExtractor: extractor2,
+    });
+
+    const suggestions2 = await detector2.detect();
+    expect(suggestions2).toHaveLength(1);
+    expect(extractor2.emailCalls).toHaveLength(1);
+    expect(suggestions2[0].companyName).toBe('NowActive');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// H8: matchWasDismissed prevents email-only leak after dismissed cross-ref
+// ---------------------------------------------------------------------------
+describe('H8: matchWasDismissed prevents email-only leak', () => {
+  it('dismissed cross-ref by emailId component blocks both cross-ref and email-only', async () => {
+    const extractor = spyLlmExtractor();
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([
+        makeEmailResult({ messageId: 'msg1', score: 0.9 }),
+      ]),
+      calendarService: mockCalendar([
+        makeCalendarResult({ eventId: 'evt1', score: 0.8 }),
+      ]),
+      tokenStore: mockTokenStore([
+        { id: 'some-old-id', emailId: 'msg1', calendarId: '' },
+      ]),
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    const suggestions = await detector.detect();
+
+    // Cross-ref blocked by emailId component dismissal.
+    // matchWasDismissed = true → no email-only either.
+    // evt1 is in matchedEventIds → no calendar-only.
+    expect(suggestions).toHaveLength(0);
+  });
+
+  it('two emails match one event — dismissed email does not block active email', async () => {
+    const extractor = spyLlmExtractor();
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([
+        makeEmailResult({
+          messageId: 'msg-dismissed',
+          senderDomain: 'acme.com',
+          senderEmail: 'hr@acme.com',
+          companyName: 'acme',
+          score: 0.9,
+        }),
+        makeEmailResult({
+          messageId: 'msg-active',
+          senderDomain: 'acme.com',
+          senderEmail: 'hr@acme.com',
+          companyName: 'acme',
+          score: 0.7,
+        }),
+      ]),
+      calendarService: mockCalendar([
+        makeCalendarResult({ eventId: 'evt1', organizerEmail: 'hr@acme.com', date: '2025-01-20' }),
+      ]),
+      tokenStore: mockTokenStore([
+        { id: 'suggestion_msg-dismissed_evt1', emailId: 'msg-dismissed', calendarId: '' },
+      ]),
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    const suggestions = await detector.detect();
+
+    // msg-active should get the event since msg-dismissed's cross-ref was rejected
+    const crossRef = suggestions.find((s) => s.source === 'gmail+calendar');
+    expect(crossRef).toBeDefined();
+    expect(crossRef.emailMessageId).toBe('msg-active');
+    expect(crossRef.calendarEventId).toBe('evt1');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// H9: Index alignment with variable-delay enrichment in mixed dismissed batch
+// ---------------------------------------------------------------------------
+describe('H9: index alignment under variable-delay enrichment', () => {
+  it('enriched results at correct indices despite null gaps from dismissed items', async () => {
+    const extractor = spyLlmExtractor({
+      emailHandler: async (subject) => {
+        await new Promise((r) => setTimeout(r, Math.random() * 15));
+        return {
+          dryModePrompt: null,
+          extraction: { company_name: `LLM_${subject}`, date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        };
+      },
+    });
+
+    const emails = [
+      makeEmailResult({ messageId: 'msg0', companyName: 'co0', senderDomain: 'co0.com', senderEmail: 'hr@co0.com', subject: 'S0', extractedDate: '2025-03-01', score: 0.9 }),
+      makeEmailResult({ messageId: 'msg1', companyName: 'co1', senderDomain: 'co1.com', senderEmail: 'hr@co1.com', subject: 'S1', extractedDate: '2025-03-02', score: 0.9 }),
+      makeEmailResult({ messageId: 'msg2', companyName: 'co2', senderDomain: 'co2.com', senderEmail: 'hr@co2.com', subject: 'S2', extractedDate: '2025-03-03', score: 0.9 }),
+      makeEmailResult({ messageId: 'msg3', companyName: 'co3', senderDomain: 'co3.com', senderEmail: 'hr@co3.com', subject: 'S3', extractedDate: '2025-03-04', score: 0.9 }),
+    ];
+    const events = [
+      makeCalendarResult({ eventId: 'evt0', organizerEmail: 'hr@co0.com', date: '2025-03-01' }),
+      makeCalendarResult({ eventId: 'evt1', organizerEmail: 'hr@co1.com', date: '2025-03-02' }),
+      makeCalendarResult({ eventId: 'evt2', organizerEmail: 'hr@co2.com', date: '2025-03-03' }),
+      makeCalendarResult({ eventId: 'evt3', organizerEmail: 'hr@co3.com', date: '2025-03-04' }),
+    ];
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail(emails),
+      calendarService: mockCalendar(events),
+      tokenStore: mockTokenStore([
+        { id: 'x0', emailId: 'msg0', calendarId: '' },
+        { id: 'x2', emailId: 'msg2', calendarId: '' },
+      ]),
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    const suggestions = await detector.detect();
+
+    // Only 2 LLM email calls (msg1, msg3)
+    expect(extractor.emailCalls).toHaveLength(2);
+
+    // 2 active cross-ref suggestions
+    const crossRefs = suggestions.filter((s) => s.source === 'gmail+calendar');
+    expect(crossRefs).toHaveLength(2);
+
+    // Verify enriched names are correctly assigned (no index drift)
+    const s1 = crossRefs.find((s) => s.emailMessageId === 'msg1');
+    const s3 = crossRefs.find((s) => s.emailMessageId === 'msg3');
+    expect(s1).toBeDefined();
+    expect(s3).toBeDefined();
+    expect(s1.companyName).toBe('LLM_S1');
+    expect(s3.companyName).toBe('LLM_S3');
   });
 });

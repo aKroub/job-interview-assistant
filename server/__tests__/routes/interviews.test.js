@@ -14,9 +14,10 @@ function mockDetector(suggestions = []) {
  * Creates a mock token store for dismiss testing.
  */
 function mockTokenStore() {
-  const dismissed = [];
+  let dismissed = [];
   return {
     addDismissed: async (entry) => dismissed.push(entry),
+    clearDismissed: async () => { dismissed = []; },
     getDismissed: () => dismissed,
     _getDismissed: () => dismissed,
   };
@@ -66,6 +67,14 @@ describe('Interviews routes', () => {
     it('POST /scan returns 401 when not authenticated', async () => {
       const app = createTestApp(mockDetector(), mockTokenStore(), 300_000, mockGoogleAuth(false));
       const res = await request(app).post('/api/interviews/scan');
+
+      expect(res.status).toBe(401);
+      expect(res.body.error).toContain('Not authenticated');
+    });
+
+    it('POST /reset returns 401 when not authenticated', async () => {
+      const app = createTestApp(mockDetector(), mockTokenStore(), 300_000, mockGoogleAuth(false));
+      const res = await request(app).post('/api/interviews/reset');
 
       expect(res.status).toBe(401);
       expect(res.body.error).toContain('Not authenticated');
@@ -138,6 +147,33 @@ describe('Interviews routes', () => {
 
       expect(res.status).toBe(500);
       expect(res.body.error).toContain('API failure');
+    });
+  });
+
+  describe('POST /api/interviews/reset', () => {
+    it('clears dismissed entries and returns success', async () => {
+      const store = mockTokenStore();
+      const app = createTestApp(mockDetector(), store);
+
+      // Add some dismissed entries first
+      await store.addDismissed({ id: 'sug-1', emailId: 'msg1', calendarId: '' });
+      await store.addDismissed({ id: 'sug-2', emailId: '', calendarId: 'evt2' });
+      expect(store._getDismissed()).toHaveLength(2);
+
+      const res = await request(app).post('/api/interviews/reset');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ reset: true });
+      expect(store._getDismissed()).toHaveLength(0);
+    });
+
+    it('succeeds even when no dismissed entries exist', async () => {
+      const app = createTestApp(mockDetector(), mockTokenStore());
+
+      const res = await request(app).post('/api/interviews/reset');
+
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual({ reset: true });
     });
   });
 

@@ -37,6 +37,7 @@ A full-stack interview preparation and job application tracking tool. A React fr
 - Manual scan cooldown prevents API overload from repeated requests
 - Real-time updates via Server-Sent Events (SSE)
 - Dismiss suggestions or trigger manual scans
+- Reset all dismissed and accepted suggestions to re-evaluate from scratch
 - Connection status indicator in the header
 
 ### 💾 Persistent Storage

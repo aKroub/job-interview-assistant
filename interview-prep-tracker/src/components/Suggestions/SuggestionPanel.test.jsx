@@ -26,6 +26,7 @@ function setup({
   const onDismiss    = handlers.onDismiss    ?? jest.fn();
   const onAccept     = handlers.onAccept     ?? jest.fn();
   const onScan       = handlers.onScan       ?? jest.fn();
+  const onReset      = handlers.onReset      ?? jest.fn();
   const onConnect    = handlers.onConnect    ?? jest.fn();
   const onDisconnect = handlers.onDisconnect ?? jest.fn();
 
@@ -37,12 +38,13 @@ function setup({
       onDismiss={onDismiss}
       onAccept={onAccept}
       onScan={onScan}
+      onReset={onReset}
       onConnect={onConnect}
       onDisconnect={onDisconnect}
     />
   );
 
-  return { onDismiss, onAccept, onScan, onConnect, onDisconnect };
+  return { onDismiss, onAccept, onScan, onReset, onConnect, onDisconnect };
 }
 
 describe('SuggestionPanel — rendering', () => {
@@ -88,15 +90,17 @@ describe('SuggestionPanel — rendering', () => {
     expect(screen.getByText('Meta')).toBeInTheDocument();
   });
 
-  it('shows Scan now and Disconnect buttons when authenticated', () => {
+  it('shows Scan now, Reset, and Disconnect buttons when authenticated', () => {
     setup({ authStatus: 'authenticated' });
     expect(screen.getByRole('button', { name: /scan now/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /reset suggestions/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /disconnect google/i })).toBeInTheDocument();
   });
 
-  it('does not show Scan now or Disconnect when unauthenticated', () => {
+  it('does not show Scan now, Reset, or Disconnect when unauthenticated', () => {
     setup({ authStatus: 'unauthenticated' });
     expect(screen.queryByRole('button', { name: /scan now/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /reset suggestions/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /disconnect google/i })).not.toBeInTheDocument();
   });
 });
@@ -112,6 +116,12 @@ describe('SuggestionPanel — callbacks', () => {
     const { onScan } = setup({ authStatus: 'authenticated' });
     await userEvent.click(screen.getByRole('button', { name: /scan now/i }));
     expect(onScan).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onReset when Reset is clicked', async () => {
+    const { onReset } = setup({ authStatus: 'authenticated' });
+    await userEvent.click(screen.getByRole('button', { name: /reset suggestions/i }));
+    expect(onReset).toHaveBeenCalledTimes(1);
   });
 
   it('calls onDisconnect when Disconnect is clicked', async () => {

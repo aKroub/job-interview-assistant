@@ -23,7 +23,7 @@ const DEFAULT_MAX_DISMISSED = 500;
  *
  * @param {string} [dir=DEFAULT_DIR] - directory to store token and dismissed files
  * @param {number} [maxDismissed=DEFAULT_MAX_DISMISSED] - max dismissed entries to keep (oldest pruned)
- * @returns {{ getTokens, saveTokens, clearTokens, getDismissed, addDismissed }}
+ * @returns {{ getTokens, saveTokens, clearTokens, getDismissed, addDismissed, clearDismissed }}
  */
 export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_DISMISSED) {
   const tokensPath    = join(dir, TOKENS_FILE);
@@ -195,5 +195,21 @@ export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_D
     await writeFile(dismissedPath, JSON.stringify(dismissedCache, null, 2), 'utf-8');
   }
 
-  return { getTokens, saveTokens, clearTokens, getDismissed, addDismissed };
+  /**
+   * Clears all dismissed suggestion records (async, non-blocking).
+   * Used by the reset endpoint so the user can re-evaluate all suggestions.
+   *
+   * @returns {Promise<void>}
+   */
+  async function clearDismissed() {
+    dismissedCache = [];
+    try {
+      await ensureDir();
+      await writeFile(dismissedPath, '[]', 'utf-8');
+    } catch {
+      // File may not exist — that's fine
+    }
+  }
+
+  return { getTokens, saveTokens, clearTokens, getDismissed, addDismissed, clearDismissed };
 }

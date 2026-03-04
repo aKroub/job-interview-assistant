@@ -4,6 +4,7 @@ import {
   disconnectAuth,
   dismissSuggestion,
   triggerScan,
+  resetSuggestions,
   createSuggestionStream,
 } from './apiService';
 
@@ -143,6 +144,25 @@ describe('apiService — REST functions', () => {
     it('throws on non-200 response', async () => {
       const fetcher = mockFetch({}, 500);
       await expect(triggerScan(fetcher)).rejects.toThrow('Scan failed: 500');
+    });
+  });
+
+  describe('resetSuggestions', () => {
+    it('sends POST to /api/interviews/reset and returns result', async () => {
+      const fetcher = mockFetch({ reset: true });
+      const result = await resetSuggestions(fetcher);
+      expect(result).toEqual({ reset: true });
+      expect(fetcher).toHaveBeenCalledWith('/api/interviews/reset', { method: 'POST' });
+    });
+
+    it('throws on non-200 response', async () => {
+      const fetcher = mockFetch({}, 500);
+      await expect(resetSuggestions(fetcher)).rejects.toThrow('Reset failed: 500');
+    });
+
+    it('propagates network errors', async () => {
+      const fetcher = mockFetchError();
+      await expect(resetSuggestions(fetcher)).rejects.toThrow('Network error');
     });
   });
 });

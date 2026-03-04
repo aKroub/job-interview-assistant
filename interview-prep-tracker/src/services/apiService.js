@@ -80,6 +80,18 @@ export async function triggerScan(fetchFn = fetch) {
 }
 
 /**
+ * Resets all dismissed suggestions on the server so they reappear.
+ *
+ * @param {Function} [fetchFn=fetch] - injectable fetch for testing
+ * @returns {Promise<{ reset: true }>}
+ */
+export async function resetSuggestions(fetchFn = fetch) {
+  const res = await fetchFn('/api/interviews/reset', { method: 'POST' });
+  if (!res.ok) throw new Error(`Reset failed: ${res.status}`);
+  return res.json();
+}
+
+/**
  * Saves the current app state to Google Drive as a new backup version.
  * Returns the updated list of available backups.
  *

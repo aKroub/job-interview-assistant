@@ -20,6 +20,7 @@ import * as defaultApi from '../services/apiService';
  *   connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error',
  *   dismissSuggestion: (suggestion: Object) => Promise<void>,
  *   triggerScan: () => Promise<void>,
+ *   resetSuggestions: () => Promise<void>,
  *   connectGoogle: () => Promise<void>,
  *   disconnectGoogle: () => Promise<void>,
  * }}
@@ -245,6 +246,25 @@ export function useInterviewSuggestions(api = defaultApi) {
   }, [api]);
 
   /**
+   * Resets all dismissed suggestions on the server, clears local dismissed
+   * state, and triggers a fresh scan so cleared suggestions reappear.
+   */
+  const resetSuggestions = useCallback(async () => {
+    try {
+      await api.resetSuggestions();
+      dismissedIdsRef.current = new Set();
+      dismissedEmailIdsRef.current = new Set();
+      dismissedCalendarIdsRef.current = new Set();
+
+      // Trigger a fresh scan so the cleared suggestions appear immediately
+      const { suggestions: scanned } = await api.triggerScan();
+      setSuggestions(scanned || []);
+    } catch (err) {
+      console.warn('Reset failed:', err);
+    }
+  }, [api]);
+
+  /**
    * Initiates Google OAuth by opening the consent URL in a new tab.
    * After the user completes auth, they return to the app and we
    * re-check status and open the SSE stream.
@@ -285,6 +305,7 @@ export function useInterviewSuggestions(api = defaultApi) {
     connectionStatus,
     dismissSuggestion,
     triggerScan,
+    resetSuggestions,
     connectGoogle,
     disconnectGoogle,
   };

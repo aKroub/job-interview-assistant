@@ -234,6 +234,37 @@ describe('createTokenStore', () => {
     });
   });
 
+  describe('clearDismissed', () => {
+    it('clears all dismissed entries', async () => {
+      await store.addDismissed({ id: 'sug-1', emailId: 'msg1', calendarId: 'evt1' });
+      await store.addDismissed({ id: 'sug-2', emailId: 'msg2', calendarId: '' });
+
+      expect(store.getDismissed().ids.size).toBe(2);
+
+      await store.clearDismissed();
+
+      const dismissed = store.getDismissed();
+      expect(dismissed.ids.size).toBe(0);
+      expect(dismissed.emailIds.size).toBe(0);
+      expect(dismissed.calendarIds.size).toBe(0);
+    });
+
+    it('does not throw when no dismissed file exists', async () => {
+      await expect(store.clearDismissed()).resolves.not.toThrow();
+    });
+
+    it('allows adding new entries after clearing', async () => {
+      await store.addDismissed({ id: 'sug-1', emailId: 'msg1', calendarId: '' });
+      await store.clearDismissed();
+      await store.addDismissed({ id: 'sug-2', emailId: 'msg2', calendarId: 'evt2' });
+
+      const dismissed = store.getDismissed();
+      expect(dismissed.ids).toEqual(new Set(['sug-2']));
+      expect(dismissed.emailIds).toEqual(new Set(['msg2']));
+      expect(dismissed.calendarIds).toEqual(new Set(['evt2']));
+    });
+  });
+
   // --- Instance isolation ---
 
   describe('isolation', () => {

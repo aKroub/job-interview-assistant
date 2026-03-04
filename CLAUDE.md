@@ -242,7 +242,7 @@ server/src/
 │
 ├── routes/             Express routers — thin HTTP adapters
 │   ├── auth.js             GET /api/auth/status|url|callback, POST /api/auth/disconnect
-│   ├── interviews.js       GET /api/interviews/suggestions (SSE), POST /dismiss|scan (with scan cooldown)
+│   ├── interviews.js       GET /api/interviews/suggestions (SSE), POST /dismiss|scan|reset (with scan cooldown)
 │   └── sync.js             GET /api/sync/status|load, POST /api/sync/save (Drive backup/restore)
 │
 └── index.js            createApp(deps) factory + server bootstrap

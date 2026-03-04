@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bell, RefreshCw, LogIn, LogOut } from 'lucide-react';
+import { Bell, RefreshCw, RotateCcw, LogIn, LogOut } from 'lucide-react';
 import { SuggestionCard } from './SuggestionCard';
 
 /**
@@ -17,6 +17,7 @@ import { SuggestionCard } from './SuggestionCard';
  *   onDismiss:         (suggestionId: string) => void,
  *   onAccept:          (suggestion: Object) => void,
  *   onScan:            () => void,
+ *   onReset:           () => void,
  *   onConnect:         () => void,
  *   onDisconnect:      () => void,
  * }} props
@@ -28,6 +29,7 @@ export function SuggestionPanel({
   onDismiss,
   onAccept,
   onScan,
+  onReset,
   onConnect,
   onDisconnect,
 }) {
@@ -50,6 +52,18 @@ export function SuggestionPanel({
             >
               <RefreshCw size={13} />
               Scan now
+            </button>
+            <button
+              onClick={() => {
+                if (window.confirm('Reset all dismissed and accepted suggestions? They will reappear on the next scan.')) {
+                  onReset();
+                }
+              }}
+              className="flex items-center gap-1 text-xs text-amber-600 hover:text-amber-800 transition"
+              aria-label="Reset suggestions"
+            >
+              <RotateCcw size={13} />
+              Reset
             </button>
             <button
               onClick={onDisconnect}

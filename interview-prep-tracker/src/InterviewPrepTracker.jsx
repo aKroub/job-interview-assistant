@@ -53,6 +53,7 @@ const InterviewPrepTracker = () => {
     connectionStatus,
     dismissSuggestion,
     triggerScan,
+    resetSuggestions,
     connectGoogle,
     disconnectGoogle,
     syncStatus,
@@ -225,6 +226,7 @@ const InterviewPrepTracker = () => {
               onDismiss={dismissSuggestion}
               onAccept={handleAcceptSuggestion}
               onScan={triggerScan}
+              onReset={resetSuggestions}
               onConnect={connectGoogle}
               onDisconnect={disconnectGoogle}
             />

@@ -19,6 +19,7 @@ function createMockApi(overrides = {}) {
     disconnectAuth: jest.fn().mockResolvedValue({ authenticated: false }),
     dismissSuggestion: jest.fn().mockResolvedValue({ dismissed: true }),
     triggerScan: jest.fn().mockResolvedValue({ suggestions: [] }),
+    resetSuggestions: jest.fn().mockResolvedValue({ reset: true }),
     createSuggestionStream: jest.fn().mockReturnValue(streamInstance),
     _stream: streamInstance,
     ...overrides,
@@ -585,6 +586,132 @@ describe('useInterviewSuggestions', () => {
       expect(api.fetchAuthUrl).toHaveBeenCalled();
       expect(openSpy).toHaveBeenCalledWith('https://google.com/auth', '_blank');
       openSpy.mockRestore();
+    });
+  });
+
+  describe('resetSuggestions', () => {
+    it('calls the API resetSuggestions method', async () => {
+      const { result, api } = await setup();
+
+      api.resetSuggestions = jest.fn().mockResolvedValue({ reset: true });
+      api.triggerScan.mockResolvedValue({ suggestions: [] });
+
+      await act(async () => {
+        await result.current.resetSuggestions();
+      });
+
+      expect(api.resetSuggestions).toHaveBeenCalled();
+    });
+
+    it('clears local dismissed IDs so previously dismissed suggestions reappear', async () => {
+      const { result, api } = await setup({
+        fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+      });
+
+      const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0][0];
+
+      // Push a suggestion and dismiss it
+      await act(async () => {
+        onSuggestionsCallback([{ id: 's1', companyName: 'Google' }]);
+      });
+      await act(async () => {
+        await result.current.dismissSuggestion({ id: 's1', companyName: 'Google' });
+      });
+
+      // Verify it's dismissed (SSE re-push should be filtered)
+      await act(async () => {
+        onSuggestionsCallback([{ id: 's1', companyName: 'Google' }]);
+      });
+      expect(result.current.suggestions).toEqual([]);
+
+      // Reset — should clear local dismissed IDs
+      api.resetSuggestions = jest.fn().mockResolvedValue({ reset: true });
+      api.triggerScan.mockResolvedValue({
+        suggestions: [{ id: 's1', companyName: 'Google' }],
+      });
+
+      await act(async () => {
+        await result.current.resetSuggestions();
+      });
+
+      // s1 should reappear since local dismissed IDs were cleared
+      expect(result.current.suggestions).toHaveLength(1);
+      expect(result.current.suggestions[0].id).toBe('s1');
+    });
+
+    it('clears component-level dismissed IDs (email and calendar)', async () => {
+      const { result, api } = await setup({
+        fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+      });
+
+      const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0][0];
+
+      // Push and dismiss a suggestion with component IDs
+      await act(async () => {
+        onSuggestionsCallback([{
+          id: 's1', companyName: 'Google',
+          emailMessageId: 'msg_1', calendarEventId: 'cal_1',
+        }]);
+      });
+      await act(async () => {
+        await result.current.dismissSuggestion({
+          id: 's1', companyName: 'Google',
+          emailMessageId: 'msg_1', calendarEventId: 'cal_1',
+        });
+      });
+
+      // Same interview reappears under a different composite ID (same emailMessageId)
+      await act(async () => {
+        onSuggestionsCallback([{
+          id: 's1_v2', companyName: 'Google',
+          emailMessageId: 'msg_1', calendarEventId: 'cal_2',
+        }]);
+      });
+      expect(result.current.suggestions).toEqual([]);
+
+      // Reset clears component IDs too
+      api.resetSuggestions = jest.fn().mockResolvedValue({ reset: true });
+      api.triggerScan.mockResolvedValue({
+        suggestions: [{
+          id: 's1_v2', companyName: 'Google',
+          emailMessageId: 'msg_1', calendarEventId: 'cal_2',
+        }],
+      });
+
+      await act(async () => {
+        await result.current.resetSuggestions();
+      });
+
+      expect(result.current.suggestions).toHaveLength(1);
+    });
+
+    it('triggers a fresh scan after reset so suggestions appear immediately', async () => {
+      const { result, api } = await setup();
+
+      api.resetSuggestions = jest.fn().mockResolvedValue({ reset: true });
+      const scanned = [{ id: 's1', companyName: 'Apple' }];
+      api.triggerScan.mockResolvedValue({ suggestions: scanned });
+
+      await act(async () => {
+        await result.current.resetSuggestions();
+      });
+
+      expect(api.triggerScan).toHaveBeenCalled();
+      expect(result.current.suggestions).toEqual(scanned);
+    });
+
+    it('logs warning when reset fails', async () => {
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const { result, api } = await setup();
+
+      api.resetSuggestions = jest.fn().mockRejectedValue(new Error('Network error'));
+
+      await act(async () => {
+        await result.current.resetSuggestions();
+      });
+
+      expect(consoleWarnSpy).toHaveBeenCalledWith('Reset failed:', expect.any(Error));
+      consoleWarnSpy.mockRestore();
     });
   });
 

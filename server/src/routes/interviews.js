@@ -181,5 +181,24 @@ export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, g
     }
   });
 
+  /**
+   * POST /api/interviews/reset
+   *
+   * Clears all dismissed suggestion state. Used for a one-time clean-slate
+   * reset so the user can re-evaluate all suggestions from scratch.
+   */
+  router.post('/reset', async (_req, res) => {
+    if (!googleAuth.isAuthenticated()) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    try {
+      await tokenStore.clearDismissed();
+      res.json({ reset: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   return router;
 }

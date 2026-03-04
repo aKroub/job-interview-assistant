@@ -89,7 +89,7 @@ GOOGLE_CLIENT_SECRET=your-client-secret-here
 # Leave these as-is unless you need to change ports
 PORT=3001
 POLL_INTERVAL_MS=300000
-EMAIL_LOOKBACK_DAYS=1
+EMAIL_LOOKBACK_DAYS=7
 CALENDAR_LOOKAHEAD_DAYS=30
 ```
 
@@ -180,7 +180,7 @@ nvm use 20 && npm start
 |---|---|
 | **Trigger** | Scanning only runs while the frontend is open and connected via SSE |
 | **Interval** | Every 5 minutes (configurable via `POLL_INTERVAL_MS`) |
-| **Email lookback** | Last 1 day of Gmail (configurable via `EMAIL_LOOKBACK_DAYS`) |
+| **Email lookback** | Last 7 days of Gmail (configurable via `EMAIL_LOOKBACK_DAYS`) |
 | **Calendar lookahead** | Next 30 days (configurable via `CALENDAR_LOOKAHEAD_DAYS`) |
 | **LLM enrichment** | When `LLM_DRY_MODE=false` and an API key is set, each email/event is enriched with Claude-extracted fields before matching (per-field fallback to regex) |
 | **Manual scan cooldown** | `POST /scan` is rate-limited — repeated calls within 30s (configurable via `SCAN_COOLDOWN_MS`) return 429 |

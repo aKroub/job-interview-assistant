@@ -65,19 +65,41 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
    * Uses Promise.allSettled so individual failures do not abort the batch.
    * Returns new arrays with enriched items (originals are not mutated).
    *
+   * When `dismissedSets` is provided, dismissed items skip the LLM call
+   * entirely (resolving with null) to avoid wasting paid API calls. The
+   * arrays keep their full length so cross-referencing indices stay intact.
+   *
    * @param {Object[]} emails - regex-extracted email results
    * @param {Object[]} events - regex-extracted calendar results
+   * @param {{ emailIds: Set<string>, calendarIds: Set<string> }|null} [dismissedSets=null]
    * @returns {Promise<{ emails: Object[], events: Object[] }>}
    */
-  async function enrichWithLlm(emails, events) {
+  async function enrichWithLlm(emails, events, dismissedSets = null) {
     if (!llmExtractor) return { emails, events };
 
-    const emailPromises = emails.map((email) =>
-      llmExtractor.extractFromEmail(email.subject, email.bodyText || email.snippet, email.senderEmail)
-    );
-    const eventPromises = events.map((event) =>
-      llmExtractor.extractFromCalendarEvent(event.summary, event.description, event.location, event.organizerEmail)
-    );
+    let emailsSkipped = 0;
+    let eventsSkipped = 0;
+
+    const emailPromises = emails.map((email) => {
+      if (dismissedSets && dismissedSets.emailIds.has(email.messageId)) {
+        emailsSkipped++;
+        return Promise.resolve(null);
+      }
+      return llmExtractor.extractFromEmail(email.subject, email.bodyText || email.snippet, email.senderEmail);
+    });
+    const eventPromises = events.map((event) => {
+      if (dismissedSets && dismissedSets.calendarIds.has(event.eventId)) {
+        eventsSkipped++;
+        return Promise.resolve(null);
+      }
+      return llmExtractor.extractFromCalendarEvent(event.summary, event.description, event.location, event.organizerEmail);
+    });
+
+    if (emailsSkipped > 0 || eventsSkipped > 0) {
+      console.log(
+        `[interviewDetector] Skipped LLM calls: ${emailsSkipped} dismissed emails, ${eventsSkipped} dismissed events`
+      );
+    }
 
     const [emailSettled, eventSettled] = await Promise.all([
       Promise.allSettled(emailPromises),
@@ -135,11 +157,15 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
       return [];
     }
 
-    // Enrich with LLM-extracted fields (no-op when llmExtractor is null)
-    const { emails: emailResults, events: calendarResults } =
-      await enrichWithLlm(rawEmails, rawEvents);
-
+    // Fetch dismissed sets before enrichment so enrichWithLlm can skip
+    // LLM calls for dismissed items (avoids wasting paid API calls).
     const dismissed = tokenStore.getDismissed();
+
+    // Enrich with LLM-extracted fields (no-op when llmExtractor is null).
+    // Dismissed items skip LLM calls but remain in the arrays so
+    // cross-referencing (matchedEventIds, matchWasDismissed) works correctly.
+    const { emails: emailResults, events: calendarResults } =
+      await enrichWithLlm(rawEmails, rawEvents, dismissed);
     const suggestions = [];
     const usedEventIds = new Set();
     const usedMessageIds = new Set();

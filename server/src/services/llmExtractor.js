@@ -198,7 +198,12 @@ export function createLlmExtractor(options = {}) {
   async function callLlm(systemPrompt, userContent) {
     await semaphore.acquire();
     stats.total++;
+    const callId = stats.total;
     try {
+      console.log(
+        `[llmExtractor] REQUEST #${callId}: model=${model}, systemPromptLen=${systemPrompt.length}, userContentLen=${userContent.length}, max_tokens=512`
+      );
+
       const response = await getClient().messages.create({
         model,
         max_tokens: 512,
@@ -206,8 +211,15 @@ export function createLlmExtractor(options = {}) {
         messages: [{ role: 'user', content: userContent }],
       });
 
+      const inputTokens = response.usage?.input_tokens ?? '?';
+      const outputTokens = response.usage?.output_tokens ?? '?';
+      console.log(
+        `[llmExtractor] RESPONSE #${callId}: stop_reason=${response.stop_reason}, usage={input:${inputTokens}, output:${outputTokens}}`
+      );
+
       const textBlock = response.content.find((b) => b.type === 'text');
       if (!textBlock) {
+        console.warn(`[llmExtractor] RESPONSE #${callId}: no text block in response`);
         stats.failed++;
         return null;
       }
@@ -215,14 +227,16 @@ export function createLlmExtractor(options = {}) {
       const result = parseJsonResponse(textBlock.text);
       if (result) {
         stats.succeeded++;
+        console.log(`[llmExtractor] RESPONSE #${callId}: extracted=${JSON.stringify(result)}`);
       } else {
         stats.failed++;
+        console.warn(`[llmExtractor] RESPONSE #${callId}: JSON parse failed, raw=${textBlock.text.slice(0, 200)}`);
       }
       return result;
     } catch (err) {
       stats.failed++;
       const status = err.status ?? 'N/A';
-      console.error(`[llmExtractor] API call failed (status=${status}): ${err.message}`);
+      console.error(`[llmExtractor] REQUEST #${callId} FAILED (status=${status}): ${err.message}`);
       return null;
     } finally {
       semaphore.release();

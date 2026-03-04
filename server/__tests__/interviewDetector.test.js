@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, jest } from '@jest/globals';
 import { createInterviewDetector } from '../src/services/interviewDetector.js';
 
 /**
@@ -2164,6 +2164,136 @@ describe('createInterviewDetector', () => {
       // Email enrichment succeeds, calendar enrichment fails gracefully
       expect(s.companyName).toBe('LLM Email Corp');
       expect(s.source).toBe('gmail+calendar');
+    });
+  });
+
+  // ---------------------------------------------------------------------------
+  // Pre-LLM dismissed filtering
+  // ---------------------------------------------------------------------------
+  describe('detect — pre-LLM dismissed filtering', () => {
+    /**
+     * Creates a spy-capable mock llmExtractor that tracks calls.
+     */
+    function spyLlmExtractor() {
+      const emailCalls = [];
+      const eventCalls = [];
+      return {
+        extractFromEmail: async (subject) => {
+          emailCalls.push(subject);
+          return { dryModePrompt: null, extraction: null };
+        },
+        extractFromCalendarEvent: async (summary) => {
+          eventCalls.push(summary);
+          return { dryModePrompt: null, extraction: null };
+        },
+        emailCalls,
+        eventCalls,
+      };
+    }
+
+    it('skips LLM calls for dismissed emails (by messageId)', async () => {
+      const extractor = spyLlmExtractor();
+
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([
+          makeEmailResult({ messageId: 'dismissed-msg', subject: 'Dismissed Interview' }),
+          makeEmailResult({ messageId: 'active-msg', subject: 'Active Interview' }),
+        ]),
+        calendarService: mockCalendar([]),
+        tokenStore: mockTokenStore([
+          { id: 'x', emailId: 'dismissed-msg', calendarId: '' },
+        ]),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      await detector.detect();
+
+      // Only the non-dismissed email should trigger an LLM call
+      expect(extractor.emailCalls).toEqual(['Active Interview']);
+    });
+
+    it('skips LLM calls for dismissed events (by eventId)', async () => {
+      const extractor = spyLlmExtractor();
+
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([]),
+        calendarService: mockCalendar([
+          makeCalendarResult({ eventId: 'dismissed-evt', summary: 'Dismissed Event' }),
+          makeCalendarResult({ eventId: 'active-evt', summary: 'Active Event' }),
+        ]),
+        tokenStore: mockTokenStore([
+          { id: 'x', emailId: '', calendarId: 'dismissed-evt' },
+        ]),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      await detector.detect();
+
+      // Only the non-dismissed event should trigger an LLM call
+      expect(extractor.eventCalls).toEqual(['Active Event']);
+    });
+
+    it('makes zero LLM calls when all items are dismissed', async () => {
+      const extractor = spyLlmExtractor();
+
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([
+          makeEmailResult({ messageId: 'msg-d' }),
+        ]),
+        calendarService: mockCalendar([
+          makeCalendarResult({ eventId: 'evt-d' }),
+        ]),
+        tokenStore: mockTokenStore([
+          { id: 'x1', emailId: 'msg-d', calendarId: '' },
+          { id: 'x2', emailId: '', calendarId: 'evt-d' },
+        ]),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      const suggestions = await detector.detect();
+
+      expect(extractor.emailCalls).toHaveLength(0);
+      expect(extractor.eventCalls).toHaveLength(0);
+      expect(suggestions).toEqual([]);
+    });
+
+    it('logs skipped LLM call counts when dismissed items are present', async () => {
+      const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+      const extractor = spyLlmExtractor();
+
+      try {
+        const detector = createInterviewDetector({
+          gmailService: mockGmail([
+            makeEmailResult({ messageId: 'dm1' }),
+            makeEmailResult({ messageId: 'dm2' }),
+            makeEmailResult({ messageId: 'active' }),
+          ]),
+          calendarService: mockCalendar([
+            makeCalendarResult({ eventId: 'de1' }),
+          ]),
+          tokenStore: mockTokenStore([
+            { id: 'x1', emailId: 'dm1', calendarId: '' },
+            { id: 'x2', emailId: 'dm2', calendarId: '' },
+            { id: 'x3', emailId: '', calendarId: 'de1' },
+          ]),
+          idFn: fixedId,
+          llmExtractor: extractor,
+        });
+
+        await detector.detect();
+
+        const skipLog = logSpy.mock.calls.find(
+          (call) => typeof call[0] === 'string' && call[0].includes('[interviewDetector] Skipped LLM calls:')
+        );
+        expect(skipLog).toBeDefined();
+        expect(skipLog[0]).toContain('2 dismissed emails');
+        expect(skipLog[0]).toContain('1 dismissed events');
+      } finally {
+        logSpy.mockRestore();
+      }
     });
   });
 });

@@ -612,3 +612,84 @@ describe('createLlmExtractor (stats)', () => {
     expect(extractor.getStats()).toEqual({ total: 0, succeeded: 0, failed: 0 });
   });
 });
+
+// ---------------------------------------------------------------------------
+// createLlmExtractor — API call logging
+// ---------------------------------------------------------------------------
+describe('createLlmExtractor (logging)', () => {
+  it('logs request and response for successful API calls', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const mockClient = {
+      messages: {
+        create: jest.fn().mockResolvedValue({
+          content: [{ type: 'text', text: '{"company_name": "Acme"}' }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 100, output_tokens: 25 },
+        }),
+      },
+    };
+    const extractor = createLlmExtractor({
+      dryMode: false,
+      anthropicClient: mockClient,
+      model: 'claude-haiku-4-5',
+    });
+
+    await extractor.extractFromEmail('Interview', 'interview body', 'a@b.com');
+
+    const logs = logSpy.mock.calls.map((c) => c[0]);
+    expect(logs.some((l) => l.includes('[llmExtractor] REQUEST #1:') && l.includes('model=claude-haiku-4-5'))).toBe(true);
+    expect(logs.some((l) => l.includes('[llmExtractor] RESPONSE #1:') && l.includes('stop_reason=end_turn'))).toBe(true);
+    expect(logs.some((l) => l.includes('input:100') && l.includes('output:25'))).toBe(true);
+    expect(logs.some((l) => l.includes('extracted=') && l.includes('"company_name":"Acme"'))).toBe(true);
+
+    logSpy.mockRestore();
+  });
+
+  it('logs warning when JSON parse fails', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const mockClient = {
+      messages: {
+        create: jest.fn().mockResolvedValue({
+          content: [{ type: 'text', text: 'not valid json' }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 50, output_tokens: 10 },
+        }),
+      },
+    };
+    const extractor = createLlmExtractor({
+      dryMode: false,
+      anthropicClient: mockClient,
+    });
+
+    await extractor.extractFromEmail('Interview', 'interview body', 'a@b.com');
+
+    const warns = warnSpy.mock.calls.map((c) => c[0]);
+    expect(warns.some((w) => w.includes('JSON parse failed') && w.includes('not valid json'))).toBe(true);
+
+    warnSpy.mockRestore();
+    logSpy.mockRestore();
+  });
+
+  it('logs error when API call fails', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const mockClient = {
+      messages: {
+        create: jest.fn().mockRejectedValue(Object.assign(new Error('Overloaded'), { status: 529 })),
+      },
+    };
+    const extractor = createLlmExtractor({
+      dryMode: false,
+      anthropicClient: mockClient,
+    });
+
+    await extractor.extractFromEmail('Interview', 'interview body', 'a@b.com');
+
+    const errors = errorSpy.mock.calls.map((c) => c[0]);
+    expect(errors.some((e) => e.includes('REQUEST #1 FAILED') && e.includes('status=529') && e.includes('Overloaded'))).toBe(true);
+
+    errorSpy.mockRestore();
+    logSpy.mockRestore();
+  });
+});

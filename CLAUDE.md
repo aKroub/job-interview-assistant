@@ -232,7 +232,7 @@ server/src/
 │   ├── gmailService.js     Scans Gmail for interview-related emails
 │   ├── calendarService.js  Scans Google Calendar for interview events
 │   ├── interviewDetector.js  Cross-references Gmail+Calendar, enriches with LLM extraction before matching
-│   ├── llmExtractor.js     Claude-based extraction of company names, dates, and interview types from emails/events (with dry-mode privacy gate)
+│   ├── llmExtractor.js     Claude-based extraction with semaphore concurrency control, SDK retry, stats tracking, and structured request/response logging
 │   └── driveService.js     Google Drive save/load/list for versioned app-state backups (keeps last 5)
 │
 ├── utils/              Pure functions — no Express, no globals
@@ -242,7 +242,7 @@ server/src/
 │
 ├── routes/             Express routers — thin HTTP adapters
 │   ├── auth.js             GET /api/auth/status|url|callback, POST /api/auth/disconnect
-│   ├── interviews.js       GET /api/interviews/suggestions (SSE), POST /dismiss|scan
+│   ├── interviews.js       GET /api/interviews/suggestions (SSE), POST /dismiss|scan (with scan cooldown)
 │   └── sync.js             GET /api/sync/status|load, POST /api/sync/save (Drive backup/restore)
 │
 └── index.js            createApp(deps) factory + server bootstrap

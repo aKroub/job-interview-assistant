@@ -68,7 +68,13 @@ export function createApp(deps = {}) {
   const calendarService = deps.calendarService || createCalendarService(authClient, { lookaheadDays: config.calendarLookaheadDays, getUserEmail });
   const llmExtractor    = deps.llmExtractor    ?? (
     !config.llmDryMode && config.anthropicApiKey
-      ? createLlmExtractor({ apiKey: config.anthropicApiKey, dryMode: false, model: config.llmModel })
+      ? createLlmExtractor({
+          apiKey: config.anthropicApiKey,
+          dryMode: false,
+          model: config.llmModel,
+          maxConcurrency: config.llmMaxConcurrency,
+          maxRetries: config.llmMaxRetries,
+        })
       : null
   );
   const detector        = deps.detector        || createInterviewDetector({ gmailService, calendarService, tokenStore, llmExtractor });
@@ -93,6 +99,7 @@ export function createApp(deps = {}) {
     tokenStore,
     pollIntervalMs: config.pollIntervalMs,
     googleAuth,
+    scanCooldownMs: config.scanCooldownMs,
   }));
 
   // Cloud sync routes (Google Drive backup/restore)
@@ -100,7 +107,10 @@ export function createApp(deps = {}) {
 
   // Health check
   app.get('/api/health', (_req, res) => {
-    res.json({ status: 'ok' });
+    res.json({
+      status: 'ok',
+      llm: llmExtractor ? llmExtractor.getStats() : { disabled: true },
+    });
   });
 
   return { app, config, tokenStore, googleAuth };

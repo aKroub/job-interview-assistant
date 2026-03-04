@@ -56,6 +56,7 @@ export function createSemaphore(maxConcurrent) {
   }
 
   function release() {
+    if (running <= 0) return;
     running--;
     if (queue.length > 0) {
       running++;

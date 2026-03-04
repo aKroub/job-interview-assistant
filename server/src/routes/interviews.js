@@ -21,7 +21,7 @@ export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, g
   /** Set of active SSE response objects. */
   const clients = new Set();
 
-  /** Handle to the polling interval (null when not running). */
+  /** Handle to the polling timeout (null when not running). */
   let pollHandle = null;
 
   /**
@@ -55,13 +55,28 @@ export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, g
   }
 
   /**
+   * Self-rescheduling poll loop. Waits for the current `pollOnce()` to
+   * complete before scheduling the next one, preventing overlapping async
+   * polls that would duplicate LLM calls through the shared semaphore.
+   */
+  async function pollLoop() {
+    await pollOnce();
+    // Only reschedule if clients are still connected
+    if (clients.size > 0) {
+      pollHandle = setTimeout(pollLoop, pollIntervalMs);
+    } else {
+      pollHandle = null;
+    }
+  }
+
+  /**
    * Starts the polling loop if not already running.
    */
   function startPolling() {
     if (pollHandle) return;
-    // Run once immediately, then on interval
-    pollOnce();
-    pollHandle = setInterval(pollOnce, pollIntervalMs);
+    // Use setTimeout-based loop instead of setInterval to prevent overlapping
+    // async polls. pollLoop awaits pollOnce, then schedules the next iteration.
+    pollHandle = setTimeout(pollLoop, 0);
   }
 
   /**
@@ -69,7 +84,7 @@ export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, g
    */
   function stopPollingIfEmpty() {
     if (clients.size === 0 && pollHandle) {
-      clearInterval(pollHandle);
+      clearTimeout(pollHandle);
       pollHandle = null;
     }
   }

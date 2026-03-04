@@ -1,5 +1,6 @@
 import { describe, it, expect, jest } from '@jest/globals';
 import { createInterviewDetector } from '../src/services/interviewDetector.js';
+import { createMockTokenStore } from './helpers/mockTokenStore.js';
 
 /**
  * Creates a mock gmail service returning the given results.
@@ -13,35 +14,6 @@ function mockGmail(results = []) {
  */
 function mockCalendar(results = []) {
   return { scanForInterviews: async () => results };
-}
-
-/**
- * Creates a mock token store with the given dismissed entries.
- *
- * Accepts either plain string IDs (backward compat) or objects with
- * { id, emailId, calendarId }. Returns getDismissed() in the new
- * structured format: { ids, emailIds, calendarIds }.
- *
- * @param {Array<string | { id: string, emailId?: string, calendarId?: string }>} dismissed
- */
-function mockTokenStore(dismissed = []) {
-  return {
-    getDismissed: () => {
-      const ids = new Set();
-      const emailIds = new Set();
-      const calendarIds = new Set();
-      for (const entry of dismissed) {
-        if (typeof entry === 'string') {
-          ids.add(entry);
-        } else {
-          ids.add(entry.id);
-          if (entry.emailId) emailIds.add(entry.emailId);
-          if (entry.calendarId) calendarIds.add(entry.calendarId);
-        }
-      }
-      return { ids, emailIds, calendarIds };
-    },
-  };
 }
 
 /** Fixed ID generator for deterministic test output. */
@@ -95,7 +67,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult()]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -111,7 +83,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ score: 0.8 })]),
         calendarService: mockCalendar([]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -124,7 +96,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ score: 0.35 })]),
         calendarService: mockCalendar([]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -136,7 +108,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([]),
         calendarService: mockCalendar([makeCalendarResult({ score: 0.7 })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -157,7 +129,7 @@ describe('createInterviewDetector', () => {
           date: '2025-01-20',
           score: 0.3, // below calendar-only threshold
         })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -171,7 +143,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult()]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -204,7 +176,7 @@ describe('createInterviewDetector', () => {
           makeEmailResult({ messageId: 'msg2', score: 0.35 }),
         ]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -233,7 +205,7 @@ describe('createInterviewDetector', () => {
             startDateTime: '2025-01-21T10:00:00Z',
           }),
         ]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -248,7 +220,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult()]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(['suggestion_msg1_evt1', 'suggestion_gmail_msg1']),
+        tokenStore: createMockTokenStore(['suggestion_msg1_evt1', 'suggestion_gmail_msg1']),
         idFn: fixedId,
       });
 
@@ -263,7 +235,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult()]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore([
+        tokenStore: createMockTokenStore([
           { id: 'suggestion_gmail_msg1', emailId: 'msg1', calendarId: '' },
         ]),
         idFn: fixedId,
@@ -278,7 +250,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult()]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore([
+        tokenStore: createMockTokenStore([
           { id: 'suggestion_calendar_evt1', emailId: '', calendarId: 'evt1' },
         ]),
         idFn: fixedId,
@@ -294,7 +266,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ score: 0.8 })]),
         calendarService: mockCalendar([]),
-        tokenStore: mockTokenStore([
+        tokenStore: createMockTokenStore([
           { id: 'suggestion_msg1_evt1', emailId: 'msg1', calendarId: 'evt1' },
         ]),
         idFn: fixedId,
@@ -310,7 +282,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([]),
         calendarService: mockCalendar([makeCalendarResult({ score: 0.7 })]),
-        tokenStore: mockTokenStore([
+        tokenStore: createMockTokenStore([
           { id: 'suggestion_msg1_evt1', emailId: 'msg1', calendarId: 'evt1' },
         ]),
         idFn: fixedId,
@@ -328,7 +300,7 @@ describe('createInterviewDetector', () => {
           makeEmailResult({ messageId: 'msg2', senderDomain: 'meta.com', score: 0.8 }),
         ]),
         calendarService: mockCalendar([]),
-        tokenStore: mockTokenStore([
+        tokenStore: createMockTokenStore([
           { id: 'suggestion_gmail_msg1', emailId: 'msg1', calendarId: '' },
         ]),
         idFn: fixedId,
@@ -345,7 +317,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ subject: 'Phone Screen with Team' })]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -357,7 +329,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ subject: 'Interview with Google' })]),
         calendarService: mockCalendar([makeCalendarResult({ hasVideoLink: true })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -369,7 +341,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ subject: 'Onsite Interview at HQ' })]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -384,7 +356,7 @@ describe('createInterviewDetector', () => {
           hasVideoLink: true,
           location: '3 HaMelacha St., Floor 10, Tel-Aviv',
         })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -399,7 +371,7 @@ describe('createInterviewDetector', () => {
           hasVideoLink: true,
           location: 'https://zoom.us/j/123456',
         })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -414,7 +386,7 @@ describe('createInterviewDetector', () => {
           snippet: 'Please come to our office at 10 AM',
         })]),
         calendarService: mockCalendar([makeCalendarResult({ hasVideoLink: true })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -429,7 +401,7 @@ describe('createInterviewDetector', () => {
           snippet: 'Conference Room, Floor 10',
         })]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -444,7 +416,7 @@ describe('createInterviewDetector', () => {
           subject: 'On-site Interview at HQ',
         })]),
         calendarService: mockCalendar([]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -460,7 +432,7 @@ describe('createInterviewDetector', () => {
           snippet: 'Zoom room 5 on the 3rd floor',
         })]),
         calendarService: mockCalendar([]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -474,7 +446,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ extractedDate: '2025-01-19', extractedTime: '09:00' })]),
         calendarService: mockCalendar([makeCalendarResult({ date: '2025-01-20', time: '14:00' })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -492,7 +464,7 @@ describe('createInterviewDetector', () => {
           startDateTime: '2025-01-20T10:00:00Z',
           endDateTime:   '2025-01-20T11:30:00Z',
         })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -507,7 +479,7 @@ describe('createInterviewDetector', () => {
           startDateTime: '2025-01-20T14:00:00Z',
           endDateTime:   '2025-01-20T14:45:00Z',
         })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -522,7 +494,7 @@ describe('createInterviewDetector', () => {
           startDateTime: '2025-01-20T14:00:00Z',
           endDateTime:   '',
         })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -537,7 +509,7 @@ describe('createInterviewDetector', () => {
           startDateTime: '',
           endDateTime:   '2025-01-20T15:00:00Z',
         })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -559,7 +531,7 @@ describe('createInterviewDetector', () => {
           companyName: 'torq',
           date: '2025-01-20',
         })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -582,7 +554,7 @@ describe('createInterviewDetector', () => {
           companyName: 'pango',
           date: '2025-01-20',
         })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -603,7 +575,7 @@ describe('createInterviewDetector', () => {
           extractedTime: '15:30',
         })]),
         calendarService: mockCalendar([]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -625,7 +597,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ score: 0.8 })]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -640,7 +612,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ score: 0.8 })]),
         calendarService: mockCalendar([]),
-        tokenStore: mockTokenStore(['suggestion_gmail_msg1']),
+        tokenStore: createMockTokenStore(['suggestion_gmail_msg1']),
         idFn: fixedId,
       });
 
@@ -655,7 +627,7 @@ describe('createInterviewDetector', () => {
           subject: 'Phone Screen with Hiring Manager',
         })]),
         calendarService: mockCalendar([]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -673,7 +645,7 @@ describe('createInterviewDetector', () => {
           // Only msg1 matches a calendar event (by domain)
           makeCalendarResult({ eventId: 'evt1', organizerEmail: 'hr@a.com', date: '2025-01-25', time: '10:00', startDateTime: '2025-01-25T10:00:00Z', endDateTime: '2025-01-25T11:00:00Z' }),
         ]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -696,7 +668,7 @@ describe('createInterviewDetector', () => {
           extractedDuration: 15,
         })]),
         calendarService: mockCalendar([]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -714,7 +686,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ score: 1.0 })]),
         calendarService: mockCalendar([]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -736,7 +708,7 @@ describe('createInterviewDetector', () => {
           summary: 'Your phone interview with Kela',
           companyName: 'kela',
         })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -759,7 +731,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([]),
         calendarService: mockCalendar([makeCalendarResult({ score: 0.3 })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -771,7 +743,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([]),
         calendarService: mockCalendar([makeCalendarResult({ score: 0.7 })]),
-        tokenStore: mockTokenStore(['suggestion_calendar_evt1']),
+        tokenStore: createMockTokenStore(['suggestion_calendar_evt1']),
         idFn: fixedId,
       });
 
@@ -783,7 +755,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult()]),
         calendarService: mockCalendar([makeCalendarResult({ score: 0.7 })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -800,7 +772,7 @@ describe('createInterviewDetector', () => {
           score: 0.7,
           summary: 'Phone interview with Kela',
         })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -816,7 +788,7 @@ describe('createInterviewDetector', () => {
           summary: 'Interview with Acme',
           hasVideoLink: true,
         })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -832,7 +804,7 @@ describe('createInterviewDetector', () => {
           summary: 'Interview with Acme',
           location: '123 Main St, Tel Aviv',
         })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -844,7 +816,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([]),
         calendarService: mockCalendar([makeCalendarResult({ score: 1.0 })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -866,7 +838,7 @@ describe('createInterviewDetector', () => {
           makeCalendarResult({ eventId: 'evt2', organizerEmail: 'hr@b.com', date: '2025-01-20', time: '14:00', startDateTime: '2025-01-20T14:00:00Z', endDateTime: '2025-01-20T15:00:00Z' }),
           makeCalendarResult({ eventId: 'evt3', organizerEmail: 'hr@c.com', date: '2025-01-22', time: '09:00', startDateTime: '2025-01-22T09:00:00Z', endDateTime: '2025-01-22T10:00:00Z' }),
         ]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -888,7 +860,7 @@ describe('createInterviewDetector', () => {
           makeCalendarResult({ eventId: 'evt1', organizerEmail: 'hr@a.com', date: '', time: '' }),
           makeCalendarResult({ eventId: 'evt2', organizerEmail: 'hr@b.com', date: '2025-01-20', time: '14:00', startDateTime: '2025-01-20T14:00:00Z', endDateTime: '2025-01-20T15:00:00Z' }),
         ]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -909,7 +881,7 @@ describe('createInterviewDetector', () => {
           makeCalendarResult({ eventId: 'evt1', organizerEmail: 'hr@a.com', date: '2025-01-20', time: '14:00', startDateTime: '2025-01-20T14:00:00Z', endDateTime: '2025-01-20T15:00:00Z' }),
           makeCalendarResult({ eventId: 'evt2', organizerEmail: 'hr@b.com', date: '2025-01-20', time: '09:00', startDateTime: '2025-01-20T09:00:00Z', endDateTime: '2025-01-20T10:00:00Z' }),
         ]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -950,7 +922,7 @@ describe('createInterviewDetector', () => {
             endDateTime: '2025-01-20T15:20:00Z',
           }),
         ]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -975,7 +947,7 @@ describe('createInterviewDetector', () => {
             endDateTime: '2025-01-20T15:30:00Z',
           }),
         ]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -997,7 +969,7 @@ describe('createInterviewDetector', () => {
             endDateTime: '2025-01-20T15:00:00Z',
           }),
         ]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1017,7 +989,7 @@ describe('createInterviewDetector', () => {
           // evt2 matches by domain + date (confidence ~0.95)
           makeCalendarResult({ eventId: 'evt2', organizerEmail: 'hr@b.com', date: '2025-01-20', time: '14:00', startDateTime: '2025-01-20T14:00:00Z', endDateTime: '2025-01-20T15:00:00Z', companyName: 'b' }),
         ]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1053,7 +1025,7 @@ describe('createInterviewDetector', () => {
           }),
         ]),
         // Best match (msg1 + evtA) is dismissed → falls back to evtB
-        tokenStore: mockTokenStore(['suggestion_msg1_evtA']),
+        tokenStore: createMockTokenStore(['suggestion_msg1_evtA']),
         idFn: fixedId,
       });
 
@@ -1072,7 +1044,7 @@ describe('createInterviewDetector', () => {
           makeCalendarResult({ eventId: 'evt1', date: '2025-01-20', time: '14:00' }),
           makeCalendarResult({ eventId: 'evt2', date: '2025-01-20', time: '14:00' }),
         ]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1092,7 +1064,7 @@ describe('createInterviewDetector', () => {
           // Only one event matching both emails by date+time
           makeCalendarResult({ eventId: 'evt1', organizerEmail: 'hr@google.com', date: '2025-01-20', time: '14:00' }),
         ]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1122,7 +1094,7 @@ describe('createInterviewDetector', () => {
             date: '2025-01-20',
           }),
         ]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1141,7 +1113,7 @@ describe('createInterviewDetector', () => {
             endDateTime: '2025-01-20T14:45:00Z',
           }),
         ]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1156,7 +1128,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult()]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1168,7 +1140,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ intent: 'cancel' })]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1183,7 +1155,7 @@ describe('createInterviewDetector', () => {
           calendarStatus: 'cancelled',
           score: 0.8,
         })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1198,7 +1170,7 @@ describe('createInterviewDetector', () => {
           calendarStatus: 'cancelled',
           score: 0.8,
         })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1210,7 +1182,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ intent: 'update' })]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1225,7 +1197,7 @@ describe('createInterviewDetector', () => {
           calendarStatus: 'cancelled',
           score: 0.8,
         })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1238,7 +1210,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ score: 0.8, intent: 'cancel' })]),
         calendarService: mockCalendar([]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1251,7 +1223,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ score: 0.8, intent: 'update' })]),
         calendarService: mockCalendar([]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1267,7 +1239,7 @@ describe('createInterviewDetector', () => {
           score: 0.8,
           calendarStatus: 'cancelled',
         })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1280,7 +1252,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([]),
         calendarService: mockCalendar([makeCalendarResult({ score: 0.7 })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1295,7 +1267,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult()]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1315,7 +1287,7 @@ describe('createInterviewDetector', () => {
           calendarStatus: 'cancelled',
           date: '2025-01-20',
         })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1339,7 +1311,7 @@ describe('createInterviewDetector', () => {
           startDateTime: '2026-03-09T14:00:00Z',
           endDateTime: '2026-03-09T15:00:00Z',
         })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1357,7 +1329,7 @@ describe('createInterviewDetector', () => {
           extractedAllDates: [],
         })]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1377,7 +1349,7 @@ describe('createInterviewDetector', () => {
           extractedAllDates: ['2026-03-09', '2026-03-04'],
         })]),
         calendarService: mockCalendar([]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1397,7 +1369,7 @@ describe('createInterviewDetector', () => {
           extractedAllDates: ['2026-03-02'],
         })]),
         calendarService: mockCalendar([]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1411,7 +1383,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ score: 0.8 })]),
         calendarService: mockCalendar([]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1428,7 +1400,7 @@ describe('createInterviewDetector', () => {
           score: 0.8,
           calendarStatus: 'cancelled',
         })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1448,7 +1420,7 @@ describe('createInterviewDetector', () => {
           extractedAllDates: ['2026-03-04'],
         })]),
         calendarService: mockCalendar([]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1464,7 +1436,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult()]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1476,7 +1448,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ intent: 'cancel' })]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1488,7 +1460,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ intent: 'update' })]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1500,7 +1472,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ score: 0.8, intent: 'cancel' })]),
         calendarService: mockCalendar([]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1512,7 +1484,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ score: 0.8, intent: 'update' })]),
         calendarService: mockCalendar([]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1527,7 +1499,7 @@ describe('createInterviewDetector', () => {
           score: 0.8,
           calendarStatus: 'cancelled',
         })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1540,7 +1512,7 @@ describe('createInterviewDetector', () => {
         gmailService: mockGmail([makeEmailResult({ intent: 'cancel' })]),
         calendarService: mockCalendar([makeCalendarResult()]),
         // The "add" variant was previously dismissed
-        tokenStore: mockTokenStore(['suggestion_msg1_evt1']),
+        tokenStore: createMockTokenStore(['suggestion_msg1_evt1']),
         idFn: fixedId,
       });
 
@@ -1566,7 +1538,7 @@ describe('createInterviewDetector', () => {
           makeCalendarResult({ eventId: 'evt2', organizerEmail: 'hr@b.com', date: '2025-01-20', time: '14:00', startDateTime: '2025-01-20T14:00:00Z', endDateTime: '2025-01-20T15:00:00Z' }),
           makeCalendarResult({ eventId: 'evt3', organizerEmail: 'hr@c.com', date: '2025-01-20', time: '14:00', startDateTime: '2025-01-20T14:00:00Z', endDateTime: '2025-01-20T15:00:00Z' }),
         ]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1588,7 +1560,7 @@ describe('createInterviewDetector', () => {
           makeCalendarResult({ eventId: 'evt1', organizerEmail: 'hr@a.com', date: '2025-01-18', time: '10:00', startDateTime: '2025-01-18T10:00:00Z', endDateTime: '2025-01-18T11:00:00Z' }),
           makeCalendarResult({ eventId: 'evt2', organizerEmail: 'hr@b.com', date: '2025-01-25', time: '10:00', startDateTime: '2025-01-25T10:00:00Z', endDateTime: '2025-01-25T11:00:00Z' }),
         ]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
       });
 
@@ -1631,7 +1603,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ companyName: 'acme' })]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
         llmExtractor: extractor,
       });
@@ -1651,7 +1623,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ score: 0.8, companyName: 'meta' })]),
         calendarService: mockCalendar([]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
         llmExtractor: extractor,
       });
@@ -1671,7 +1643,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([]),
         calendarService: mockCalendar([makeCalendarResult({ score: 0.7, companyName: 'techco' })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
         llmExtractor: extractor,
       });
@@ -1693,7 +1665,7 @@ describe('createInterviewDetector', () => {
         // Without LLM, this would guess "Video Interview"
         gmailService: mockGmail([makeEmailResult({ subject: 'Interview with Google' })]),
         calendarService: mockCalendar([makeCalendarResult({ hasVideoLink: true })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
         llmExtractor: extractor,
       });
@@ -1714,7 +1686,7 @@ describe('createInterviewDetector', () => {
         // Subject mentions Zoom which would normally guess "Video Interview"
         gmailService: mockGmail([makeEmailResult({ score: 0.8, subject: 'Interview via Zoom' })]),
         calendarService: mockCalendar([]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
         llmExtractor: extractor,
       });
@@ -1738,7 +1710,7 @@ describe('createInterviewDetector', () => {
           hasVideoLink: true,
           summary: 'Interview with Acme',
         })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
         llmExtractor: extractor,
       });
@@ -1758,7 +1730,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ companyName: 'regex-company' })]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
         llmExtractor: extractor,
       });
@@ -1783,7 +1755,7 @@ describe('createInterviewDetector', () => {
           intent: 'add',
         })]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
         llmExtractor: extractor,
       });
@@ -1802,7 +1774,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ companyName: 'fallback-corp' })]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
         llmExtractor: extractor,
       });
@@ -1833,7 +1805,7 @@ describe('createInterviewDetector', () => {
         calendarService: mockCalendar([
           makeCalendarResult({ eventId: 'evt1', organizerEmail: 'hr@a.com', date: '2025-01-20' }),
         ]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
         llmExtractor: extractor,
       });
@@ -1853,7 +1825,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult()]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
         // llmExtractor not provided — defaults to null
       });
@@ -1873,7 +1845,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ companyName: 'dry-test' })]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
         llmExtractor: extractor,
       });
@@ -1890,7 +1862,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ companyName: 'privacy-test' })]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
         llmExtractor: extractor,
       });
@@ -1922,7 +1894,7 @@ describe('createInterviewDetector', () => {
           extractedDuration: null,
         })]),
         calendarService: mockCalendar([]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
         llmExtractor: extractor,
       });
@@ -1951,7 +1923,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ intent: 'add' })]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
         llmExtractor: extractor,
       });
@@ -1971,7 +1943,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ subject: 'Phone Screen' })]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
         llmExtractor: extractor,
       });
@@ -1997,7 +1969,7 @@ describe('createInterviewDetector', () => {
           snippet: 'Short snippet',
         })]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
         llmExtractor: extractor,
       });
@@ -2023,7 +1995,7 @@ describe('createInterviewDetector', () => {
           snippet: 'Short snippet for extraction',
         })]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
         llmExtractor: extractor,
       });
@@ -2052,7 +2024,7 @@ describe('createInterviewDetector', () => {
           location: 'Zoom link',
           organizerEmail: 'recruiter@test.com',
         })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
         llmExtractor: extractor,
       });
@@ -2085,7 +2057,7 @@ describe('createInterviewDetector', () => {
           makeEmailResult({ messageId: 'msg2', senderDomain: 'other.com', score: 0.8 }),
         ]),
         calendarService: mockCalendar([makeCalendarResult({ score: 0.7 })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
         llmExtractor: extractor,
       });
@@ -2112,7 +2084,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: { scanForInterviews: async () => emailArray },
         calendarService: { scanForInterviews: async () => calendarArray },
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
         llmExtractor: extractor,
       });
@@ -2133,7 +2105,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([]),
         calendarService: mockCalendar([makeCalendarResult({ score: 0.7, companyName: 'regex-cal' })]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
         llmExtractor: extractor,
       });
@@ -2155,7 +2127,7 @@ describe('createInterviewDetector', () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult({ companyName: 'regex-email' })]),
         calendarService: mockCalendar([makeCalendarResult()]),
-        tokenStore: mockTokenStore(),
+        tokenStore: createMockTokenStore(),
         idFn: fixedId,
         llmExtractor: extractor,
       });
@@ -2170,74 +2142,40 @@ describe('createInterviewDetector', () => {
   // ---------------------------------------------------------------------------
   // Pre-LLM dismissed filtering
   // ---------------------------------------------------------------------------
-  describe('detect — pre-LLM dismissed filtering', () => {
-    /**
-     * Creates a spy-capable mock llmExtractor that tracks calls.
-     */
-    function spyLlmExtractor() {
-      const emailCalls = [];
-      const eventCalls = [];
-      return {
-        extractFromEmail: async (subject) => {
-          emailCalls.push(subject);
-          return { dryModePrompt: null, extraction: null };
-        },
-        extractFromCalendarEvent: async (summary) => {
-          eventCalls.push(summary);
-          return { dryModePrompt: null, extraction: null };
-        },
-        emailCalls,
-        eventCalls,
-      };
-    }
-
-    it('skips LLM calls for dismissed emails (by messageId)', async () => {
-      const extractor = spyLlmExtractor();
-
+  describe('detect — dismissed items produce no suggestions', () => {
+    it('dismissed email produces no email-only suggestion', async () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([
-          makeEmailResult({ messageId: 'dismissed-msg', subject: 'Dismissed Interview' }),
-          makeEmailResult({ messageId: 'active-msg', subject: 'Active Interview' }),
+          makeEmailResult({ messageId: 'dismissed-msg', score: 0.9 }),
         ]),
         calendarService: mockCalendar([]),
-        tokenStore: mockTokenStore([
+        tokenStore: createMockTokenStore([
           { id: 'x', emailId: 'dismissed-msg', calendarId: '' },
         ]),
         idFn: fixedId,
-        llmExtractor: extractor,
       });
 
-      await detector.detect();
-
-      // Only the non-dismissed email should trigger an LLM call
-      expect(extractor.emailCalls).toEqual(['Active Interview']);
+      const suggestions = await detector.detect();
+      expect(suggestions).toEqual([]);
     });
 
-    it('skips LLM calls for dismissed events (by eventId)', async () => {
-      const extractor = spyLlmExtractor();
-
+    it('dismissed event produces no calendar-only suggestion', async () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([]),
         calendarService: mockCalendar([
-          makeCalendarResult({ eventId: 'dismissed-evt', summary: 'Dismissed Event' }),
-          makeCalendarResult({ eventId: 'active-evt', summary: 'Active Event' }),
+          makeCalendarResult({ eventId: 'dismissed-evt', score: 0.9 }),
         ]),
-        tokenStore: mockTokenStore([
+        tokenStore: createMockTokenStore([
           { id: 'x', emailId: '', calendarId: 'dismissed-evt' },
         ]),
         idFn: fixedId,
-        llmExtractor: extractor,
       });
 
-      await detector.detect();
-
-      // Only the non-dismissed event should trigger an LLM call
-      expect(extractor.eventCalls).toEqual(['Active Event']);
+      const suggestions = await detector.detect();
+      expect(suggestions).toEqual([]);
     });
 
-    it('makes zero LLM calls when all items are dismissed', async () => {
-      const extractor = spyLlmExtractor();
-
+    it('dismissed cross-ref produces no suggestion', async () => {
       const detector = createInterviewDetector({
         gmailService: mockGmail([
           makeEmailResult({ messageId: 'msg-d' }),
@@ -2245,55 +2183,15 @@ describe('createInterviewDetector', () => {
         calendarService: mockCalendar([
           makeCalendarResult({ eventId: 'evt-d' }),
         ]),
-        tokenStore: mockTokenStore([
+        tokenStore: createMockTokenStore([
           { id: 'x1', emailId: 'msg-d', calendarId: '' },
           { id: 'x2', emailId: '', calendarId: 'evt-d' },
         ]),
         idFn: fixedId,
-        llmExtractor: extractor,
       });
 
       const suggestions = await detector.detect();
-
-      expect(extractor.emailCalls).toHaveLength(0);
-      expect(extractor.eventCalls).toHaveLength(0);
       expect(suggestions).toEqual([]);
-    });
-
-    it('logs skipped LLM call counts when dismissed items are present', async () => {
-      const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-      const extractor = spyLlmExtractor();
-
-      try {
-        const detector = createInterviewDetector({
-          gmailService: mockGmail([
-            makeEmailResult({ messageId: 'dm1' }),
-            makeEmailResult({ messageId: 'dm2' }),
-            makeEmailResult({ messageId: 'active' }),
-          ]),
-          calendarService: mockCalendar([
-            makeCalendarResult({ eventId: 'de1' }),
-          ]),
-          tokenStore: mockTokenStore([
-            { id: 'x1', emailId: 'dm1', calendarId: '' },
-            { id: 'x2', emailId: 'dm2', calendarId: '' },
-            { id: 'x3', emailId: '', calendarId: 'de1' },
-          ]),
-          idFn: fixedId,
-          llmExtractor: extractor,
-        });
-
-        await detector.detect();
-
-        const skipLog = logSpy.mock.calls.find(
-          (call) => typeof call[0] === 'string' && call[0].includes('[interviewDetector] Skipped LLM calls:')
-        );
-        expect(skipLog).toBeDefined();
-        expect(skipLog[0]).toContain('2 dismissed emails');
-        expect(skipLog[0]).toContain('1 dismissed events');
-      } finally {
-        logSpy.mockRestore();
-      }
     });
   });
 });

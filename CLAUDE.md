@@ -252,7 +252,7 @@ server/src/
 ```js
 // Good — swap in test doubles without touching globals
 createGmailService(authClient, { gmailApi: mockGmailApi })
-createInterviewDetector({ gmailService, calendarService, tokenStore, llmExtractor, idFn })
+createInterviewDetector({ gmailService, calendarService, tokenStore, llmExtractor, idFn, breakerThreshold, maxCacheSize })
 ```
 
 ### Where does new code go?

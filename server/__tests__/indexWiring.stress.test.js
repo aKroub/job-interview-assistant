@@ -63,6 +63,7 @@ function makeTokenStore() {
     saveTokens: jest.fn(),
     getDismissed: () => ({ ids: new Set(), emailIds: new Set(), calendarIds: new Set() }),
     addDismissed: jest.fn(),
+    clearDismissed: jest.fn(),
   };
 }
 

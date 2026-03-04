@@ -17,6 +17,7 @@ import {
   extractCompanyNameFromText,
 } from '../src/utils/emailParser.js';
 import { createInterviewDetector } from '../src/services/interviewDetector.js';
+import { createMockTokenStore } from './helpers/mockTokenStore.js';
 
 // -------------------------------------------------------------------------
 // H1: detectEmailIntent — "Interview Cancellation" noun form
@@ -114,15 +115,6 @@ describe('Integration — cancellation email pipeline', () => {
   function mockCalendar(results = []) {
     return { scanForInterviews: async () => results };
   }
-  function mockTokenStore(dismissed = []) {
-    return {
-      getDismissed: () => ({
-        ids: new Set(dismissed),
-        emailIds: new Set(),
-        calendarIds: new Set(),
-      }),
-    };
-  }
 
   it('surfaces a cancellation email as action=cancel, not action=add', async () => {
     const email = {
@@ -164,7 +156,7 @@ describe('Integration — cancellation email pipeline', () => {
     const detector = createInterviewDetector({
       gmailService: mockGmail([email]),
       calendarService: mockCalendar([calendarEvent]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: () => 1700000000000,
     });
 

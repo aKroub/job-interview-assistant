@@ -8,6 +8,7 @@
 import { describe, it, expect } from '@jest/globals';
 import { detectEmailIntent } from '../src/utils/emailParser.js';
 import { createInterviewDetector } from '../src/services/interviewDetector.js';
+import { createMockTokenStore } from './helpers/mockTokenStore.js';
 
 // ---------------------------------------------------------------------------
 // Helpers (same as interviewDetector.test.js)
@@ -19,26 +20,6 @@ function mockGmail(results = []) {
 
 function mockCalendar(results = []) {
   return { scanForInterviews: async () => results };
-}
-
-function mockTokenStore(dismissed = []) {
-  return {
-    getDismissed: () => {
-      const ids = new Set();
-      const emailIds = new Set();
-      const calendarIds = new Set();
-      for (const entry of dismissed) {
-        if (typeof entry === 'string') {
-          ids.add(entry);
-        } else {
-          ids.add(entry.id);
-          if (entry.emailId) emailIds.add(entry.emailId);
-          if (entry.calendarId) calendarIds.add(entry.calendarId);
-        }
-      }
-      return { ids, emailIds, calendarIds };
-    },
-  };
 }
 
 const fixedId = () => 1700000000000;
@@ -185,7 +166,7 @@ describe('H2 — mixed cancel and add suggestions from same company', () => {
           endDateTime: '2025-01-25T11:00:00Z',
         }),
       ]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
     });
 
@@ -229,7 +210,7 @@ describe('H2 — mixed cancel and add suggestions from same company', () => {
           endDateTime: '2025-01-20T15:00:00Z',
         }),
       ]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
     });
 
@@ -254,7 +235,7 @@ describe('H3 — dismissal isolation between action types', () => {
     const detector = createInterviewDetector({
       gmailService: mockGmail([makeEmailResult({ intent: 'add' })]),
       calendarService: mockCalendar([makeCalendarResult()]),
-      tokenStore: mockTokenStore(['suggestion_cancel_msg1_evt1']),
+      tokenStore: createMockTokenStore(['suggestion_cancel_msg1_evt1']),
       idFn: fixedId,
     });
 
@@ -271,7 +252,7 @@ describe('H3 — dismissal isolation between action types', () => {
     const detector = createInterviewDetector({
       gmailService: mockGmail([makeEmailResult({ intent: 'cancel' })]),
       calendarService: mockCalendar([makeCalendarResult()]),
-      tokenStore: mockTokenStore(['suggestion_update_msg1_evt1']),
+      tokenStore: createMockTokenStore(['suggestion_update_msg1_evt1']),
       idFn: fixedId,
     });
 
@@ -296,7 +277,7 @@ describe('H4 — calendar-only cancelled events', () => {
         calendarStatus: 'cancelled',
         summary: 'Technical Interview with Google',
       })]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
     });
 
@@ -314,7 +295,7 @@ describe('H4 — calendar-only cancelled events', () => {
         score: 0.8,
         calendarStatus: 'cancelled',
       })]),
-      tokenStore: mockTokenStore(),
+      tokenStore: createMockTokenStore(),
       idFn: fixedId,
     });
 

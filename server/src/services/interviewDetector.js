@@ -58,65 +58,156 @@ const CALENDAR_ONLY_CONFIDENCE_FACTOR = 0.6;
  * @param {Object|null} [deps.llmExtractor=null] - optional LLM extractor for enrichment
  * @returns {{ detect: () => Promise<Object[]> }}
  */
-export function createInterviewDetector({ gmailService, calendarService, tokenStore, idFn = Date.now, llmExtractor = null }) {
+export function createInterviewDetector({ gmailService, calendarService, tokenStore, idFn = Date.now, llmExtractor = null, breakerThreshold = 2, maxCacheSize = 500 }) {
+
+  /**
+   * Circuit breaker state for LLM enrichment.
+   * When the API is persistently failing (e.g. 529 overloaded), the breaker
+   * opens and skips LLM calls for one cycle to let the API recover.
+   *
+   * Behaviour: after `breakerThreshold` consecutive all-fail batches the
+   * breaker opens (skips enrichment) for exactly one cycle, then resets.
+   * If retries fail again, the breaker re-opens after another
+   * `breakerThreshold` consecutive all-fail batches. The counter only
+   * resets to 0 when at least one call in a batch succeeds.
+   */
+  let consecutiveAllFailBatches = 0;
+
+  /**
+   * In-memory LLM extraction cache — stores successful extractions keyed
+   * by source ID. Only successful extractions are cached; failed ones are
+   * retried on the next cycle (circuit breaker limits retries during outages).
+   *
+   * Capped at `maxCacheSize` entries; oldest entries (by insertion order)
+   * are evicted when the cap is reached.
+   *
+   * @type {Map<string, Object>}
+   */
+  const extractionCache = new Map();
 
   /**
    * Enriches email and calendar results with LLM-extracted fields.
    * Uses Promise.allSettled so individual failures do not abort the batch.
    * Returns new arrays with enriched items (originals are not mutated).
    *
-   * When `dismissedSets` is provided, dismissed items skip the LLM call
-   * entirely (resolving with null) to avoid wasting paid API calls. The
-   * arrays keep their full length so cross-referencing indices stay intact.
+   * Caches successful extractions so the same item is never sent to the
+   * LLM twice. Failed extractions are NOT cached — they fall back to
+   * regex data and are retried on the next poll cycle.
+   *
+   * Includes a circuit breaker: after breakerThreshold consecutive all-fail
+   * batches, enrichment is skipped to let the API recover.
    *
    * @param {Object[]} emails - regex-extracted email results
    * @param {Object[]} events - regex-extracted calendar results
-   * @param {{ emailIds: Set<string>, calendarIds: Set<string> }|null} [dismissedSets=null]
    * @returns {Promise<{ emails: Object[], events: Object[] }>}
    */
-  async function enrichWithLlm(emails, events, dismissedSets = null) {
+  /**
+   * Adds an entry to the extraction cache, evicting the oldest entries
+   * (by insertion order) when the cache exceeds maxCacheSize.
+   */
+  function cacheSet(key, value) {
+    extractionCache.set(key, value);
+    while (extractionCache.size > maxCacheSize) {
+      const oldest = extractionCache.keys().next().value;
+      extractionCache.delete(oldest);
+    }
+  }
+
+  async function enrichWithLlm(emails, events) {
     if (!llmExtractor) return { emails, events };
 
-    let emailsSkipped = 0;
-    let eventsSkipped = 0;
+    // Circuit breaker: skip LLM enrichment when the API is persistently down.
+    // Resets the counter so the next cycle retries from zero. If retries fail
+    // again, the breaker re-opens after another breakerThreshold all-fail batches.
+    if (consecutiveAllFailBatches >= breakerThreshold) {
+      console.log(
+        `[interviewDetector] Circuit breaker OPEN — skipping LLM enrichment ` +
+        `(${consecutiveAllFailBatches} consecutive all-fail batches). ` +
+        `Will retry next cycle.`
+      );
+      consecutiveAllFailBatches = 0;
+      return { emails, events };
+    }
 
-    const emailPromises = emails.map((email) => {
-      if (dismissedSets && dismissedSets.emailIds.has(email.messageId)) {
-        emailsSkipped++;
-        return Promise.resolve(null);
-      }
+    // Split items into cached (already extracted) vs uncached (need API call).
+    // Cached items are merged immediately; uncached items go through the API.
+    const uncachedEmailIndices = [];
+    const uncachedEventIndices = [];
+
+    const enrichedEmails = emails.map((email, i) => {
+      const cached = extractionCache.get(`email:${email.messageId}`);
+      if (cached) return mergeEmailExtraction(email, cached);
+      uncachedEmailIndices.push(i);
+      return email; // placeholder — will be replaced after API call
+    });
+
+    const enrichedEvents = events.map((event, i) => {
+      const cached = extractionCache.get(`event:${event.eventId}`);
+      if (cached) return mergeCalendarExtraction(event, cached);
+      uncachedEventIndices.push(i);
+      return event; // placeholder — will be replaced after API call
+    });
+
+    // If everything is cached, no API calls needed
+    if (uncachedEmailIndices.length === 0 && uncachedEventIndices.length === 0) {
+      return { emails: enrichedEmails, events: enrichedEvents };
+    }
+
+    // Call LLM only for uncached items
+    const emailPromises = uncachedEmailIndices.map((i) => {
+      const email = emails[i];
       return llmExtractor.extractFromEmail(email.subject, email.bodyText || email.snippet, email.senderEmail);
     });
-    const eventPromises = events.map((event) => {
-      if (dismissedSets && dismissedSets.calendarIds.has(event.eventId)) {
-        eventsSkipped++;
-        return Promise.resolve(null);
-      }
+    const eventPromises = uncachedEventIndices.map((i) => {
+      const event = events[i];
       return llmExtractor.extractFromCalendarEvent(event.summary, event.description, event.location, event.organizerEmail);
     });
-
-    if (emailsSkipped > 0 || eventsSkipped > 0) {
-      console.log(
-        `[interviewDetector] Skipped LLM calls: ${emailsSkipped} dismissed emails, ${eventsSkipped} dismissed events`
-      );
-    }
 
     const [emailSettled, eventSettled] = await Promise.all([
       Promise.allSettled(emailPromises),
       Promise.allSettled(eventPromises),
     ]);
 
-    const enrichedEmails = emails.map((email, i) => {
-      if (emailSettled[i].status !== 'fulfilled') return email;
-      const extraction = emailSettled[i].value?.extraction ?? null;
-      return mergeEmailExtraction(email, extraction);
+    // Track successes and failures for the circuit breaker.
+    // "API call" = privacy gate passed (result !== null).
+    // "success" = extraction returned usable data (extraction !== null).
+    let batchApiCalls = 0;
+    let batchSuccesses = 0;
+
+    uncachedEmailIndices.forEach((emailIdx, settledIdx) => {
+      if (emailSettled[settledIdx].status !== 'fulfilled') return;
+      const result = emailSettled[settledIdx].value;
+      const extraction = result?.extraction ?? null;
+      if (result !== null) {
+        batchApiCalls++;
+        if (extraction !== null) {
+          batchSuccesses++;
+          cacheSet(`email:${emails[emailIdx].messageId}`, extraction);
+        }
+      }
+      enrichedEmails[emailIdx] = mergeEmailExtraction(emails[emailIdx], extraction);
     });
 
-    const enrichedEvents = events.map((event, i) => {
-      if (eventSettled[i].status !== 'fulfilled') return event;
-      const extraction = eventSettled[i].value?.extraction ?? null;
-      return mergeCalendarExtraction(event, extraction);
+    uncachedEventIndices.forEach((eventIdx, settledIdx) => {
+      if (eventSettled[settledIdx].status !== 'fulfilled') return;
+      const result = eventSettled[settledIdx].value;
+      const extraction = result?.extraction ?? null;
+      if (result !== null) {
+        batchApiCalls++;
+        if (extraction !== null) {
+          batchSuccesses++;
+          cacheSet(`event:${events[eventIdx].eventId}`, extraction);
+        }
+      }
+      enrichedEvents[eventIdx] = mergeCalendarExtraction(events[eventIdx], extraction);
     });
+
+    // Update circuit breaker state
+    if (batchApiCalls > 0 && batchSuccesses === 0) {
+      consecutiveAllFailBatches++;
+    } else if (batchApiCalls > 0) {
+      consecutiveAllFailBatches = 0;
+    }
 
     return { emails: enrichedEmails, events: enrichedEvents };
   }
@@ -157,15 +248,14 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
       return [];
     }
 
-    // Fetch dismissed sets before enrichment so enrichWithLlm can skip
-    // LLM calls for dismissed items (avoids wasting paid API calls).
     const dismissed = tokenStore.getDismissed();
 
-    // Enrich with LLM-extracted fields (no-op when llmExtractor is null).
-    // Dismissed items skip LLM calls but remain in the arrays so
-    // cross-referencing (matchedEventIds, matchWasDismissed) works correctly.
+    // Enrich with LLM. The extraction cache inside enrichWithLlm ensures
+    // each item is only sent to the API once; successful extractions are
+    // cached and reused on subsequent polls. Regex re-runs every cycle
+    // (cheap) — only the LLM I/O is cached.
     const { emails: emailResults, events: calendarResults } =
-      await enrichWithLlm(rawEmails, rawEvents, dismissed);
+      await enrichWithLlm(rawEmails, rawEvents);
     const suggestions = [];
     const usedEventIds = new Set();
     const usedMessageIds = new Set();

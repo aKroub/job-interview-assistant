@@ -118,6 +118,26 @@ LLM_MODEL=claude-haiku-4-5
 - **`LLM_DRY_MODE`** — set to `false` only after you have added a valid API key.
 - **`LLM_MODEL`** — defaults to `claude-haiku-4-5`; any Anthropic messages-API model ID is accepted.
 
+#### LLM Resilience (optional tuning)
+
+These defaults work well for most setups. Only change them if you experience rate limiting or want different behavior:
+
+```env
+# Max simultaneous API calls to Anthropic (default: 2).
+LLM_MAX_CONCURRENCY=2
+
+# Max retry attempts for transient errors like 429/529 (default: 3).
+# Uses the SDK's built-in exponential backoff.
+LLM_MAX_RETRIES=3
+
+# Minimum interval between manual scan requests in ms (default: 30000 = 30s).
+SCAN_COOLDOWN_MS=30000
+```
+
+- **`LLM_MAX_CONCURRENCY`** — limits how many API calls run in parallel via a semaphore. Lower values reduce rate-limit risk.
+- **`LLM_MAX_RETRIES`** — passed to the Anthropic SDK; it handles retry with exponential backoff (0.5s base, max 8s, 25% jitter).
+- **`SCAN_COOLDOWN_MS`** — `POST /api/interviews/scan` returns 429 if called again within this window.
+
 ---
 
 ## 4 — Start the servers
@@ -163,6 +183,7 @@ nvm use 20 && npm start
 | **Email lookback** | Last 1 day of Gmail (configurable via `EMAIL_LOOKBACK_DAYS`) |
 | **Calendar lookahead** | Next 30 days (configurable via `CALENDAR_LOOKAHEAD_DAYS`) |
 | **LLM enrichment** | When `LLM_DRY_MODE=false` and an API key is set, each email/event is enriched with Claude-extracted fields before matching (per-field fallback to regex) |
+| **Manual scan cooldown** | `POST /scan` is rate-limited — repeated calls within 30s (configurable via `SCAN_COOLDOWN_MS`) return 429 |
 | **Cross-reference rule** | A cross-referenced suggestion requires both Gmail and Calendar confirmation; email-only and calendar-only suggestions are also surfaced with lower confidence |
 | **Tokens** | Stored at `~/.interview-tracker/tokens.json` (outside the repo, never committed) |
 | **Dismissed suggestions** | Stored at `~/.interview-tracker/dismissed.json` |

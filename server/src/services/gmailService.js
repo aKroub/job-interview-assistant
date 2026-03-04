@@ -16,14 +16,14 @@ import {
  *
  * @param {import('googleapis').Auth.OAuth2Client} authClient - authenticated OAuth2 client
  * @param {Object} [options]
- * @param {number} [options.lookbackDays=1] - how many days back to scan
+ * @param {number} [options.lookbackDays=7] - how many days back to scan
  * @param {number} [options.minScore=0.3] - minimum confidence score to include a result
  * @param {Function} [options.gmailApi] - injectable Gmail API instance for testing
  * @returns {{ scanForInterviews: () => Promise<Object[]> }}
  */
 export function createGmailService(authClient, options = {}) {
   const {
-    lookbackDays = 1,
+    lookbackDays = 7,
     minScore = 0.3,
     gmailApi = google.gmail({ version: 'v1', auth: authClient }),
   } = options;

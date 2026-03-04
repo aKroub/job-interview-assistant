@@ -10,7 +10,9 @@ import { homedir } from 'os';
 const DEFAULT_DIR = join(homedir(), '.interview-tracker');
 const TOKENS_FILE = 'tokens.json';
 const DISMISSED_FILE = 'dismissed.json';
+const SURFACED_FILE = 'surfaced.json';
 const DEFAULT_MAX_DISMISSED = 500;
+const DEFAULT_MAX_SURFACED = 500;
 
 /**
  * Creates a token store that reads/writes OAuth tokens and dismissed suggestion records
@@ -23,16 +25,19 @@ const DEFAULT_MAX_DISMISSED = 500;
  *
  * @param {string} [dir=DEFAULT_DIR] - directory to store token and dismissed files
  * @param {number} [maxDismissed=DEFAULT_MAX_DISMISSED] - max dismissed entries to keep (oldest pruned)
- * @returns {{ getTokens, saveTokens, clearTokens, getDismissed, addDismissed, clearDismissed }}
+ * @returns {{ getTokens, saveTokens, clearTokens, getDismissed, addDismissed, clearDismissed, getSurfaced, addSurfaced, clearSurfaced }}
  */
 export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_DISMISSED) {
   const tokensPath    = join(dir, TOKENS_FILE);
   const dismissedPath = join(dir, DISMISSED_FILE);
+  const surfacedPath  = join(dir, SURFACED_FILE);
 
   // In-memory caches — populated on first read (sync, one-time startup cost)
   let tokensCache = null;
   /** @type {Array<{ id: string, emailId?: string, calendarId?: string }> | null} */
   let dismissedCache = null;
+  /** @type {{ emailIds: string[], calendarIds: string[] } | null} */
+  let surfacedCache = null;
 
   /**
    * Ensures the storage directory exists (async).
@@ -211,5 +216,98 @@ export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_D
     }
   }
 
-  return { getTokens, saveTokens, clearTokens, getDismissed, addDismissed, clearDismissed };
+  /**
+   * Loads surfaced records from disk. Called once per store instance.
+   *
+   * @returns {{ emailIds: string[], calendarIds: string[] }}
+   */
+  function loadSurfacedRecords() {
+    try {
+      const raw = readFileSync(surfacedPath, 'utf-8');
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') {
+        return { emailIds: [], calendarIds: [] };
+      }
+      return {
+        emailIds: Array.isArray(parsed.emailIds)
+          ? parsed.emailIds.filter((id) => typeof id === 'string')
+          : [],
+        calendarIds: Array.isArray(parsed.calendarIds)
+          ? parsed.calendarIds.filter((id) => typeof id === 'string')
+          : [],
+      };
+    } catch {
+      return { emailIds: [], calendarIds: [] };
+    }
+  }
+
+  /**
+   * Returns the surfaced email and calendar IDs as Sets for O(1) lookup.
+   * First call reads from disk, subsequent calls return from the in-memory cache.
+   *
+   * @returns {{ emailIds: Set<string>, calendarIds: Set<string> }}
+   */
+  function getSurfaced() {
+    if (surfacedCache === null) {
+      surfacedCache = loadSurfacedRecords();
+    }
+    return {
+      emailIds: new Set(surfacedCache.emailIds),
+      calendarIds: new Set(surfacedCache.calendarIds),
+    };
+  }
+
+  /**
+   * Marks email and calendar IDs as surfaced (async, non-blocking).
+   * Updates the in-memory cache immediately. Deduplicates and prunes
+   * to DEFAULT_MAX_SURFACED entries per type.
+   *
+   * @param {string[]} [emailIds=[]] - email message IDs to mark as surfaced
+   * @param {string[]} [calendarIds=[]] - calendar event IDs to mark as surfaced
+   * @returns {Promise<void>}
+   */
+  async function addSurfaced(emailIds = [], calendarIds = []) {
+    if (surfacedCache === null) {
+      surfacedCache = loadSurfacedRecords();
+    }
+
+    const emailSet = new Set(surfacedCache.emailIds);
+    const calendarSet = new Set(surfacedCache.calendarIds);
+
+    for (const id of emailIds) {
+      if (id) emailSet.add(id);
+    }
+    for (const id of calendarIds) {
+      if (id) calendarSet.add(id);
+    }
+
+    // Prune to max size (keep most recent additions)
+    surfacedCache.emailIds = [...emailSet].slice(-DEFAULT_MAX_SURFACED);
+    surfacedCache.calendarIds = [...calendarSet].slice(-DEFAULT_MAX_SURFACED);
+
+    await ensureDir();
+    await writeFile(surfacedPath, JSON.stringify(surfacedCache, null, 2), 'utf-8');
+  }
+
+  /**
+   * Clears all surfaced records (async, non-blocking).
+   * Used for one-time state resets.
+   *
+   * @returns {Promise<void>}
+   */
+  async function clearSurfaced() {
+    surfacedCache = { emailIds: [], calendarIds: [] };
+    try {
+      await ensureDir();
+      await writeFile(surfacedPath, JSON.stringify(surfacedCache, null, 2), 'utf-8');
+    } catch {
+      // File may not exist — that's fine
+    }
+  }
+
+  return {
+    getTokens, saveTokens, clearTokens,
+    getDismissed, addDismissed, clearDismissed,
+    getSurfaced, addSurfaced, clearSurfaced,
+  };
 }

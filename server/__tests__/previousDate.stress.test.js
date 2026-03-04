@@ -24,12 +24,22 @@ function mockCalendar(results = []) {
 }
 
 function mockTokenStore(dismissed = []) {
+  const surfacedEmailIds = new Set();
+  const surfacedCalendarIds = new Set();
   return {
     getDismissed: () => ({
       ids: new Set(dismissed),
       emailIds: new Set(),
       calendarIds: new Set(),
     }),
+    getSurfaced: () => ({
+      emailIds: new Set(surfacedEmailIds),
+      calendarIds: new Set(surfacedCalendarIds),
+    }),
+    addSurfaced: async (emailIds = [], calendarIds = []) => {
+      for (const id of emailIds) surfacedEmailIds.add(id);
+      for (const id of calendarIds) surfacedCalendarIds.add(id);
+    },
   };
 }
 

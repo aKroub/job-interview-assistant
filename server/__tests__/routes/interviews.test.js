@@ -20,6 +20,8 @@ function mockTokenStore() {
     clearDismissed: async () => { dismissed = []; },
     getDismissed: () => dismissed,
     _getDismissed: () => dismissed,
+    clearDismissed: async () => { dismissed.length = 0; },
+    clearSurfaced: async () => {},
   };
 }
 

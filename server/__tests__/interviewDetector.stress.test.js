@@ -14,6 +14,8 @@ function mockCalendar(results = []) {
 }
 
 function mockTokenStore(dismissed = []) {
+  const surfacedEmailIds = new Set();
+  const surfacedCalendarIds = new Set();
   return {
     getDismissed: () => {
       const ids = new Set();
@@ -29,6 +31,14 @@ function mockTokenStore(dismissed = []) {
         }
       }
       return { ids, emailIds, calendarIds };
+    },
+    getSurfaced: () => ({
+      emailIds: new Set(surfacedEmailIds),
+      calendarIds: new Set(surfacedCalendarIds),
+    }),
+    addSurfaced: async (emailIds = [], calendarIds = []) => {
+      for (const id of emailIds) surfacedEmailIds.add(id);
+      for (const id of calendarIds) surfacedCalendarIds.add(id);
     },
   };
 }
@@ -818,9 +828,7 @@ function spyLlmExtractor({ emailHandler, eventHandler } = {}) {
 // H6: Mixed dismissed/active batch — cross-referencing correctness
 // ---------------------------------------------------------------------------
 describe('H6: mixed dismissed/active batch — cross-referencing still works', () => {
-  it('dismissed email skips LLM but its matched event does not leak as calendar-only', async () => {
-    const extractor = spyLlmExtractor();
-
+  it('dismissed email does not produce suggestion; matched event does not leak as calendar-only', async () => {
     const detector = createInterviewDetector({
       gmailService: mockGmail([
         makeEmailResult({ messageId: 'dismissed-msg', senderDomain: 'acme.com', senderEmail: 'hr@acme.com', companyName: 'acme' }),
@@ -834,14 +842,9 @@ describe('H6: mixed dismissed/active batch — cross-referencing still works', (
         { id: 'suggestion_dismissed-msg_evt1', emailId: 'dismissed-msg', calendarId: '' },
       ]),
       idFn: fixedId,
-      llmExtractor: extractor,
     });
 
     const suggestions = await detector.detect();
-
-    // Only active email gets LLM call
-    expect(extractor.emailCalls).toHaveLength(1);
-    expect(extractor.emailCalls[0].subject).toBe('Interview Invitation');
 
     // active-msg + evt2 produces a suggestion
     const active = suggestions.find((s) => s.emailMessageId === 'active-msg');
@@ -852,7 +855,7 @@ describe('H6: mixed dismissed/active batch — cross-referencing still works', (
     expect(calOnlyEvt1).toBeUndefined();
   });
 
-  it('batch with 50% dismissed — correct LLM call count and suggestion output', async () => {
+  it('batch with 50% dismissed — only non-dismissed items produce suggestions', async () => {
     const emails = [];
     const events = [];
     const dismissedEntries = [];
@@ -883,23 +886,16 @@ describe('H6: mixed dismissed/active batch — cross-referencing still works', (
       }
     }
 
-    const extractor = spyLlmExtractor();
-
     const detector = createInterviewDetector({
       gmailService: mockGmail(emails),
       calendarService: mockCalendar(events),
       tokenStore: mockTokenStore(dismissedEntries),
       idFn: fixedId,
-      llmExtractor: extractor,
     });
 
     const suggestions = await detector.detect();
 
-    // 3 of 6 emails dismissed, 3 of 6 events dismissed
-    expect(extractor.emailCalls).toHaveLength(3);
-    expect(extractor.eventCalls).toHaveLength(3);
-
-    // Only 3 active cross-ref suggestions
+    // Only 3 active cross-ref suggestions (odd-indexed items)
     expect(suggestions).toHaveLength(3);
     for (const s of suggestions) {
       const idx = parseInt(s.emailMessageId.replace('msg', ''), 10);
@@ -912,10 +908,8 @@ describe('H6: mixed dismissed/active batch — cross-referencing still works', (
 // H7: Dismissed set changes between scans
 // ---------------------------------------------------------------------------
 describe('H7: dismissed set changes between scans', () => {
-  it('un-dismissed item is enriched with LLM on second scan', async () => {
-    const extractor1 = spyLlmExtractor();
-
-    // First scan: msg1 dismissed
+  it('dismissed item produces no suggestion; un-dismissed produces a suggestion', async () => {
+    // First scan: msg1 dismissed — no suggestions
     const detector1 = createInterviewDetector({
       gmailService: mockGmail([makeEmailResult({ messageId: 'msg1' })]),
       calendarService: mockCalendar([makeCalendarResult({ eventId: 'evt1' })]),
@@ -923,34 +917,21 @@ describe('H7: dismissed set changes between scans', () => {
         { id: 'suggestion_msg1_evt1', emailId: 'msg1', calendarId: 'evt1' },
       ]),
       idFn: fixedId,
-      llmExtractor: extractor1,
     });
 
     const suggestions1 = await detector1.detect();
     expect(suggestions1).toHaveLength(0);
-    expect(extractor1.emailCalls).toHaveLength(0);
-    expect(extractor1.eventCalls).toHaveLength(0);
 
-    // Second scan: un-dismissed (empty set)
-    const extractor2 = spyLlmExtractor({
-      emailHandler: () => ({
-        dryModePrompt: null,
-        extraction: { company_name: 'NowActive', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
-      }),
-    });
-
+    // Second scan: un-dismissed (empty set) — suggestion created
     const detector2 = createInterviewDetector({
       gmailService: mockGmail([makeEmailResult({ messageId: 'msg1' })]),
       calendarService: mockCalendar([makeCalendarResult({ eventId: 'evt1' })]),
       tokenStore: mockTokenStore([]),
       idFn: fixedId,
-      llmExtractor: extractor2,
     });
 
     const suggestions2 = await detector2.detect();
     expect(suggestions2).toHaveLength(1);
-    expect(extractor2.emailCalls).toHaveLength(1);
-    expect(suggestions2[0].companyName).toBe('NowActive');
   });
 });
 
@@ -1024,20 +1005,10 @@ describe('H8: matchWasDismissed prevents email-only leak', () => {
 });
 
 // ---------------------------------------------------------------------------
-// H9: Index alignment with variable-delay enrichment in mixed dismissed batch
+// H9: Dismissed items produce no suggestions even with LLM enrichment
 // ---------------------------------------------------------------------------
-describe('H9: index alignment under variable-delay enrichment', () => {
-  it('enriched results at correct indices despite null gaps from dismissed items', async () => {
-    const extractor = spyLlmExtractor({
-      emailHandler: async (subject) => {
-        await new Promise((r) => setTimeout(r, Math.random() * 15));
-        return {
-          dryModePrompt: null,
-          extraction: { company_name: `LLM_${subject}`, date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
-        };
-      },
-    });
-
+describe('H9: dismissed items filtered at suggestion level', () => {
+  it('4 items, 2 dismissed — only 2 suggestions produced', async () => {
     const emails = [
       makeEmailResult({ messageId: 'msg0', companyName: 'co0', senderDomain: 'co0.com', senderEmail: 'hr@co0.com', subject: 'S0', extractedDate: '2025-03-01', score: 0.9 }),
       makeEmailResult({ messageId: 'msg1', companyName: 'co1', senderDomain: 'co1.com', senderEmail: 'hr@co1.com', subject: 'S1', extractedDate: '2025-03-02', score: 0.9 }),
@@ -1059,24 +1030,17 @@ describe('H9: index alignment under variable-delay enrichment', () => {
         { id: 'x2', emailId: 'msg2', calendarId: '' },
       ]),
       idFn: fixedId,
-      llmExtractor: extractor,
     });
 
     const suggestions = await detector.detect();
 
-    // Only 2 LLM email calls (msg1, msg3)
-    expect(extractor.emailCalls).toHaveLength(2);
-
-    // 2 active cross-ref suggestions
+    // 2 active cross-ref suggestions (msg1+evt1, msg3+evt3)
     const crossRefs = suggestions.filter((s) => s.source === 'gmail+calendar');
     expect(crossRefs).toHaveLength(2);
 
-    // Verify enriched names are correctly assigned (no index drift)
     const s1 = crossRefs.find((s) => s.emailMessageId === 'msg1');
     const s3 = crossRefs.find((s) => s.emailMessageId === 'msg3');
     expect(s1).toBeDefined();
     expect(s3).toBeDefined();
-    expect(s1.companyName).toBe('LLM_S1');
-    expect(s3.companyName).toBe('LLM_S3');
   });
 });

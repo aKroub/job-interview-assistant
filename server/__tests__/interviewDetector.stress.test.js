@@ -1705,3 +1705,361 @@ describe('H15: pre-filter + circuit breaker — dismissed items not counted in b
     expect(result[0].companyName).toBe('Good');
   });
 });
+
+// ===========================================================================
+// H16: New email + dismissed calendarId — cross-ref suggestion surfaces
+// ===========================================================================
+describe('H16: new email + dismissed calendarId — cross-ref surfaces', () => {
+  it('batch of 8 emails, 4 events: calendarId-only dismissals do not block new emails', async () => {
+    const emails = [];
+    const events = [];
+    const dismissedRecords = [];
+
+    // Create 4 email+event pairs from 4 different companies
+    for (let i = 0; i < 4; i++) {
+      const domain = `co${i}.com`;
+      events.push(makeCalendarResult({
+        eventId: `evt${i}`,
+        organizerEmail: `hr@${domain}`,
+        date: `2025-06-${String(i + 1).padStart(2, '0')}`,
+        time: '10:00',
+        startDateTime: `2025-06-${String(i + 1).padStart(2, '0')}T10:00:00Z`,
+        endDateTime: `2025-06-${String(i + 1).padStart(2, '0')}T11:00:00Z`,
+      }));
+
+      // "Old" email (dismissed) for each company
+      emails.push(makeEmailResult({
+        messageId: `old-msg${i}`,
+        senderDomain: domain,
+        senderEmail: `hr@${domain}`,
+        companyName: `company${i}`,
+        extractedDate: `2025-06-${String(i + 1).padStart(2, '0')}`,
+        score: 0.9,
+      }));
+
+      // "New" email (NOT dismissed) for each company
+      emails.push(makeEmailResult({
+        messageId: `new-msg${i}`,
+        senderDomain: domain,
+        senderEmail: `hr@${domain}`,
+        companyName: `company${i}`,
+        extractedDate: `2025-06-${String(i + 1).padStart(2, '0')}`,
+        score: 0.85,
+      }));
+
+      // Dismiss old email+event cross-ref (stores both emailId and calendarId)
+      dismissedRecords.push({
+        id: `suggestion_old-msg${i}_evt${i}`,
+        emailId: `old-msg${i}`,
+        calendarId: `evt${i}`,
+      });
+    }
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail(emails),
+      calendarService: mockCalendar(events),
+      tokenStore: createMockTokenStore(dismissedRecords),
+      idFn: fixedId,
+    });
+
+    const suggestions = await detector.detect();
+
+    // Each new email should produce a cross-ref with its event, even though
+    // the calendarId was dismissed (from the old email's dismissal)
+    const crossRefs = suggestions.filter((s) => s.source === 'gmail+calendar');
+    expect(crossRefs).toHaveLength(4);
+    for (let i = 0; i < 4; i++) {
+      const s = crossRefs.find((s) => s.calendarEventId === `evt${i}`);
+      expect(s).toBeDefined();
+      expect(s.emailMessageId).toBe(`new-msg${i}`);
+    }
+
+    // No calendar-only or email-only leaks
+    expect(suggestions.filter((s) => s.source === 'calendar')).toHaveLength(0);
+  });
+
+  it('calendarId-only dismissal (no emailId stored) still allows new email cross-ref', async () => {
+    // Edge case: dismissed record has calendarId but no emailId (e.g. from
+    // a calendar-only suggestion that was dismissed)
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([
+        makeEmailResult({ messageId: 'fresh-msg', score: 0.9 }),
+      ]),
+      calendarService: mockCalendar([
+        makeCalendarResult({ eventId: 'evt1' }),
+      ]),
+      tokenStore: createMockTokenStore([
+        { id: 'suggestion_calendar_evt1', emailId: '', calendarId: 'evt1' },
+      ]),
+      idFn: fixedId,
+    });
+
+    const suggestions = await detector.detect();
+
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0].source).toBe('gmail+calendar');
+    expect(suggestions[0].emailMessageId).toBe('fresh-msg');
+    expect(suggestions[0].calendarEventId).toBe('evt1');
+  });
+});
+
+// ===========================================================================
+// H17: Multiple new emails competing for the same dismissed calendar event
+// ===========================================================================
+describe('H17: multiple new emails for same dismissed calendar event', () => {
+  it('best-scoring new email wins the cross-ref; others become email-only', async () => {
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([
+        makeEmailResult({
+          messageId: 'email-high',
+          senderEmail: 'recruiter@google.com',
+          senderDomain: 'google.com',
+          companyName: 'google',
+          score: 0.95,
+          extractedDate: '2025-01-20',
+        }),
+        makeEmailResult({
+          messageId: 'email-low',
+          senderEmail: 'recruiter@google.com',
+          senderDomain: 'google.com',
+          companyName: 'google',
+          score: 0.7,
+          extractedDate: '2025-01-20',
+        }),
+      ]),
+      calendarService: mockCalendar([
+        makeCalendarResult({ eventId: 'evt1', organizerEmail: 'recruiter@google.com' }),
+      ]),
+      tokenStore: createMockTokenStore([
+        { id: 'suggestion_old-msg_evt1', emailId: 'old-msg', calendarId: 'evt1' },
+      ]),
+      idFn: fixedId,
+    });
+
+    const suggestions = await detector.detect();
+
+    // One cross-ref (best-scoring email wins the event)
+    const crossRefs = suggestions.filter((s) => s.source === 'gmail+calendar');
+    expect(crossRefs).toHaveLength(1);
+
+    // The other email becomes email-only (if score >= EMAIL_ONLY_MIN_SCORE)
+    // email-low has score 0.7 which is >= 0.5 threshold
+    const emailOnly = suggestions.filter((s) => s.source === 'gmail');
+    expect(emailOnly).toHaveLength(1);
+
+    // No calendar-only (event is used by cross-ref)
+    expect(suggestions.filter((s) => s.source === 'calendar')).toHaveLength(0);
+  });
+});
+
+// ===========================================================================
+// H18: Mixed emailId/calendarId dismissals — only emailId blocks cross-ref
+// ===========================================================================
+describe('H18: mixed emailId/calendarId dismissals — only emailId blocks', () => {
+  it('emailId-dismissed emails blocked, calendarId-dismissed events still allow new emails', async () => {
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([
+        // Email dismissed by emailId — should be BLOCKED
+        makeEmailResult({
+          messageId: 'dismissed-by-email',
+          senderEmail: 'hr@alpha.com',
+          senderDomain: 'alpha.com',
+          companyName: 'alpha',
+          extractedDate: '2025-07-01',
+          score: 0.9,
+        }),
+        // New email for dismissed calendar event — should SURFACE
+        makeEmailResult({
+          messageId: 'new-for-dismissed-cal',
+          senderEmail: 'hr@beta.com',
+          senderDomain: 'beta.com',
+          companyName: 'beta',
+          extractedDate: '2025-07-02',
+          score: 0.9,
+        }),
+        // Completely fresh email+event — should SURFACE
+        makeEmailResult({
+          messageId: 'fresh',
+          senderEmail: 'hr@gamma.com',
+          senderDomain: 'gamma.com',
+          companyName: 'gamma',
+          extractedDate: '2025-07-03',
+          score: 0.9,
+        }),
+      ]),
+      calendarService: mockCalendar([
+        makeCalendarResult({ eventId: 'evt-alpha', organizerEmail: 'hr@alpha.com', date: '2025-07-01' }),
+        makeCalendarResult({ eventId: 'evt-beta', organizerEmail: 'hr@beta.com', date: '2025-07-02' }),
+        makeCalendarResult({ eventId: 'evt-gamma', organizerEmail: 'hr@gamma.com', date: '2025-07-03' }),
+      ]),
+      tokenStore: createMockTokenStore([
+        { id: 'old1', emailId: 'dismissed-by-email', calendarId: '' },
+        { id: 'old2', emailId: '', calendarId: 'evt-beta' },
+      ]),
+      idFn: fixedId,
+    });
+
+    const suggestions = await detector.detect();
+
+    // 2 cross-ref suggestions: beta (calendarId dismissed but email is new) + gamma (both fresh)
+    const crossRefs = suggestions.filter((s) => s.source === 'gmail+calendar');
+    expect(crossRefs).toHaveLength(2);
+
+    const betaSuggestion = crossRefs.find((s) => s.emailMessageId === 'new-for-dismissed-cal');
+    expect(betaSuggestion).toBeDefined();
+    expect(betaSuggestion.calendarEventId).toBe('evt-beta');
+
+    const gammaSuggestion = crossRefs.find((s) => s.emailMessageId === 'fresh');
+    expect(gammaSuggestion).toBeDefined();
+
+    // Alpha blocked by emailId — must NOT appear in any form
+    const alpha = suggestions.find((s) => s.emailMessageId === 'dismissed-by-email');
+    expect(alpha).toBeUndefined();
+
+    // evt-alpha matched dismissed-by-email (matchedEventIds) — no calendar-only
+    const calAlpha = suggestions.find((s) => s.source === 'calendar' && s.calendarEventId === 'evt-alpha');
+    expect(calAlpha).toBeUndefined();
+  });
+});
+
+// ===========================================================================
+// H19: LLM enrichment with dismissed calendarId — email enriched, event skipped
+// ===========================================================================
+describe('H19: LLM enrichment with dismissed calendarId', () => {
+  it('new email is enriched by LLM; dismissed calendar event is not; suggestion uses email data', async () => {
+    const emailCalls = [];
+    const eventCalls = [];
+
+    const extractor = mockLlmExtractor({
+      emailHandler: (subject) => {
+        emailCalls.push(subject);
+        return {
+          dryModePrompt: null,
+          extraction: {
+            company_name: 'LlmEnrichedCompany',
+            date: null,
+            time: null,
+            duration_minutes: null,
+            intent: null,
+            interview_type: 'Phone Interview',
+          },
+        };
+      },
+      eventHandler: (summary) => {
+        eventCalls.push(summary);
+        return {
+          dryModePrompt: null,
+          extraction: { company_name: 'EventLlmCo', interview_type: 'video' },
+        };
+      },
+    });
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([
+        makeEmailResult({
+          messageId: 'new-msg',
+          subject: 'Follow-up Interview',
+          senderEmail: 'hr@acme.com',
+          senderDomain: 'acme.com',
+          companyName: 'acme',
+          score: 0.9,
+          extractedDate: '2025-08-01',
+        }),
+      ]),
+      calendarService: mockCalendar([
+        makeCalendarResult({
+          eventId: 'evt1',
+          organizerEmail: 'hr@acme.com',
+          date: '2025-08-01',
+          summary: 'Interview at Acme',
+        }),
+      ]),
+      tokenStore: createMockTokenStore([
+        { id: 'suggestion_old-msg_evt1', emailId: 'old-msg', calendarId: 'evt1' },
+      ]),
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    const suggestions = await detector.detect();
+
+    // Email was enriched by LLM
+    expect(emailCalls).toHaveLength(1);
+    expect(emailCalls[0]).toBe('Follow-up Interview');
+
+    // Calendar event was NOT enriched (calendarId is in dismissed set → pre-filter skips LLM)
+    expect(eventCalls).toHaveLength(0);
+
+    // Suggestion produced with LLM-enriched email data
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0].companyName).toBe('LlmEnrichedCompany');
+    expect(suggestions[0].type).toBe('Phone Interview');
+    expect(suggestions[0].emailMessageId).toBe('new-msg');
+    expect(suggestions[0].calendarEventId).toBe('evt1');
+  });
+});
+
+// ===========================================================================
+// H20: Rapid dismiss cycle — new emails keep surfacing for same calendar event
+// ===========================================================================
+describe('H20: rapid dismiss cycle — sequential new emails for same calendar event', () => {
+  it('dismiss E1+C1, E2 surfaces; dismiss E2+C1, E3 surfaces', async () => {
+    const tokenStore = createMockTokenStore();
+
+    // Cycle 1: E1+C1 → suggestion surfaces
+    const detector1 = createInterviewDetector({
+      gmailService: mockGmail([
+        makeEmailResult({ messageId: 'e1', score: 0.9 }),
+      ]),
+      calendarService: mockCalendar([
+        makeCalendarResult({ eventId: 'c1' }),
+      ]),
+      tokenStore,
+      idFn: fixedId,
+    });
+
+    const result1 = await detector1.detect();
+    expect(result1).toHaveLength(1);
+    expect(result1[0].emailMessageId).toBe('e1');
+
+    // Dismiss E1+C1
+    await tokenStore.addDismissed({ id: 'suggestion_e1_c1', emailId: 'e1', calendarId: 'c1' });
+
+    // Cycle 2: E2 (new email) + same C1 → should surface despite C1 dismissed
+    const detector2 = createInterviewDetector({
+      gmailService: mockGmail([
+        makeEmailResult({ messageId: 'e2', score: 0.9 }),
+      ]),
+      calendarService: mockCalendar([
+        makeCalendarResult({ eventId: 'c1' }),
+      ]),
+      tokenStore,
+      idFn: fixedId,
+    });
+
+    const result2 = await detector2.detect();
+    expect(result2).toHaveLength(1);
+    expect(result2[0].emailMessageId).toBe('e2');
+    expect(result2[0].calendarEventId).toBe('c1');
+
+    // Dismiss E2+C1
+    await tokenStore.addDismissed({ id: 'suggestion_e2_c1', emailId: 'e2', calendarId: 'c1' });
+
+    // Cycle 3: E3 (another new email) + same C1 → should surface again
+    const detector3 = createInterviewDetector({
+      gmailService: mockGmail([
+        makeEmailResult({ messageId: 'e3', score: 0.9 }),
+      ]),
+      calendarService: mockCalendar([
+        makeCalendarResult({ eventId: 'c1' }),
+      ]),
+      tokenStore,
+      idFn: fixedId,
+    });
+
+    const result3 = await detector3.detect();
+    expect(result3).toHaveLength(1);
+    expect(result3[0].emailMessageId).toBe('e3');
+    expect(result3[0].calendarEventId).toBe('c1');
+  });
+});

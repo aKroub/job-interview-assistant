@@ -1050,10 +1050,12 @@ describe('H9: dismissed-prefilter-skips-llm — dismissed items never reach extr
       'Interview 1', 'Interview 3', 'Interview 5', 'Interview 7', 'Interview 9',
     ]);
 
-    // 3 of 5 events dismissed → 2 extractor calls
-    expect(eventCalls).toHaveLength(2);
+    // All 5 events enriched — calendar events are never pre-filtered because
+    // a new email may cross-reference a dismissed event for company-name matching.
+    expect(eventCalls).toHaveLength(5);
     expect(eventCalls).toEqual([
-      'Calendar Interview 1', 'Calendar Interview 3',
+      'Calendar Interview 0', 'Calendar Interview 1', 'Calendar Interview 2',
+      'Calendar Interview 3', 'Calendar Interview 4',
     ]);
   });
 
@@ -1086,7 +1088,8 @@ describe('H9: dismissed-prefilter-skips-llm — dismissed items never reach extr
     const suggestions = await detector.detect();
 
     expect(emailCalls).toBe(0);
-    expect(eventCalls).toBe(0);
+    // Calendar event is still enriched (events are never pre-filtered)
+    expect(eventCalls).toBe(1);
     expect(suggestions).toEqual([]);
   });
 
@@ -1987,8 +1990,10 @@ describe('H19: LLM enrichment with dismissed calendarId', () => {
     expect(emailCalls).toHaveLength(1);
     expect(emailCalls[0]).toBe('Follow-up Interview');
 
-    // Calendar event was NOT enriched (calendarId is in dismissed set → pre-filter skips LLM)
-    expect(eventCalls).toHaveLength(0);
+    // Calendar event IS enriched — events are never pre-filtered because a new
+    // email may cross-reference a dismissed event and needs the enriched data.
+    expect(eventCalls).toHaveLength(1);
+    expect(eventCalls[0]).toBe('Interview at Acme');
 
     // Suggestion produced with LLM-enriched email data
     expect(suggestions).toHaveLength(1);

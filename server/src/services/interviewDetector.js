@@ -99,7 +99,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
    *
    * @param {Object[]} emails - regex-extracted email results
    * @param {Object[]} events - regex-extracted calendar results
-   * @param {{ emailIds?: Set<string>, calendarIds?: Set<string> }} [dismissed] - dismissed component IDs to skip LLM calls for
+   * @param {{ emailIds?: Set<string> }} [dismissed] - dismissed email IDs to skip LLM calls for
    * @returns {Promise<{ emails: Object[], events: Object[] }>}
    */
   /**
@@ -130,15 +130,16 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
       return { emails, events };
     }
 
-    // Build dismissed-ID sets for O(1) lookup. Items whose component IDs are
-    // dismissed skip the LLM call (they'll be filtered at the suggestion level)
-    // but remain in the arrays for cross-reference matching.
+    // Build dismissed-email-ID set for O(1) lookup. Emails whose messageId is
+    // dismissed skip the LLM call (they cannot produce any suggestion).
+    // Calendar events are always enriched even when their calendarId is
+    // dismissed, because a NEW email may cross-reference the same event
+    // and the enrichment is needed for company-name matching.
     const dismissedEmailIds = dismissed?.emailIds ?? new Set();
-    const dismissedCalendarIds = dismissed?.calendarIds ?? new Set();
 
     // Split items into cached (already extracted) vs uncached (need API call).
     // Cached items are merged immediately; uncached items go through the API.
-    // Dismissed items are kept as-is (no LLM call, no cache lookup needed).
+    // Dismissed emails are kept as-is (no LLM call, no cache lookup needed).
     const uncachedEmailIndices = [];
     const uncachedEventIndices = [];
 
@@ -151,7 +152,6 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
     });
 
     const enrichedEvents = events.map((event, i) => {
-      if (dismissedCalendarIds.has(event.eventId)) return event;
       const cached = extractionCache.get(`event:${event.eventId}`);
       if (cached) return mergeCalendarExtraction(event, cached);
       uncachedEventIndices.push(i);

@@ -2205,7 +2205,7 @@ describe('createInterviewDetector', () => {
   // Pre-LLM dismissed filtering
   // ---------------------------------------------------------------------------
   describe('detect — dismissed items skip LLM extraction', () => {
-    it('does not send dismissed emails or events to the LLM extractor', async () => {
+    it('does not send dismissed emails to the LLM extractor (events always enriched)', async () => {
       const emailCalls = [];
       const eventCalls = [];
       const extractor = {
@@ -2246,8 +2246,10 @@ describe('createInterviewDetector', () => {
 
       // Only the active email should have been sent to the LLM
       expect(emailCalls).toEqual(['Active Interview']);
-      // Only the active event should have been sent to the LLM
-      expect(eventCalls).toEqual(['Active Event']);
+      // Both events are enriched — calendar events are never pre-filtered
+      // because a new email may cross-reference a dismissed event and needs
+      // the enriched company name for matching.
+      expect(eventCalls).toEqual(['Dismissed Event', 'Active Event']);
     });
 
     it('pre-filter does not break suggestion output for non-dismissed items', async () => {

@@ -2142,6 +2142,90 @@ describe('createInterviewDetector', () => {
   // ---------------------------------------------------------------------------
   // Pre-LLM dismissed filtering
   // ---------------------------------------------------------------------------
+  describe('detect — dismissed items skip LLM extraction', () => {
+    it('does not send dismissed emails or events to the LLM extractor', async () => {
+      const emailCalls = [];
+      const eventCalls = [];
+      const extractor = {
+        extractFromEmail: async (subject) => {
+          emailCalls.push(subject);
+          return {
+            dryModePrompt: null,
+            extraction: { company_name: 'LlmCo', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          };
+        },
+        extractFromCalendarEvent: async (summary) => {
+          eventCalls.push(summary);
+          return {
+            dryModePrompt: null,
+            extraction: { company_name: 'LlmCo', interview_type: null },
+          };
+        },
+      };
+
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([
+          makeEmailResult({ messageId: 'dismissed-msg', subject: 'Dismissed Interview', score: 0.9 }),
+          makeEmailResult({ messageId: 'active-msg', subject: 'Active Interview', score: 0.9 }),
+        ]),
+        calendarService: mockCalendar([
+          makeCalendarResult({ eventId: 'dismissed-evt', summary: 'Dismissed Event', score: 0.9 }),
+          makeCalendarResult({ eventId: 'active-evt', summary: 'Active Event', organizerEmail: 'hr@other.com', date: '2025-02-01', time: '10:00', score: 0.9 }),
+        ]),
+        tokenStore: createMockTokenStore([
+          { id: 'x1', emailId: 'dismissed-msg', calendarId: '' },
+          { id: 'x2', emailId: '', calendarId: 'dismissed-evt' },
+        ]),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      await detector.detect();
+
+      // Only the active email should have been sent to the LLM
+      expect(emailCalls).toEqual(['Active Interview']);
+      // Only the active event should have been sent to the LLM
+      expect(eventCalls).toEqual(['Active Event']);
+    });
+
+    it('pre-filter does not break suggestion output for non-dismissed items', async () => {
+      const extractor = {
+        extractFromEmail: async () => ({
+          dryModePrompt: null,
+          extraction: { company_name: 'EnrichedCo', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        }),
+        extractFromCalendarEvent: async () => ({
+          dryModePrompt: null,
+          extraction: { company_name: 'EnrichedCo', interview_type: null },
+        }),
+      };
+
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([
+          makeEmailResult({ messageId: 'dismissed-msg', score: 0.9 }),
+          makeEmailResult({ messageId: 'active-msg', senderEmail: 'hr@active.com', senderDomain: 'active.com', companyName: 'active', score: 0.9, extractedDate: '2025-02-15' }),
+        ]),
+        calendarService: mockCalendar([
+          makeCalendarResult({ eventId: 'active-evt', organizerEmail: 'hr@active.com', date: '2025-02-15' }),
+        ]),
+        tokenStore: createMockTokenStore([
+          { id: 'x1', emailId: 'dismissed-msg', calendarId: '' },
+        ]),
+        idFn: fixedId,
+        llmExtractor: extractor,
+      });
+
+      const suggestions = await detector.detect();
+
+      // The active email + active event should produce a cross-ref suggestion
+      expect(suggestions).toHaveLength(1);
+      expect(suggestions[0].source).toBe('gmail+calendar');
+      expect(suggestions[0].emailMessageId).toBe('active-msg');
+      expect(suggestions[0].calendarEventId).toBe('active-evt');
+      expect(suggestions[0].companyName).toBe('EnrichedCo');
+    });
+  });
+
   describe('detect — dismissed items produce no suggestions', () => {
     it('dismissed email produces no email-only suggestion', async () => {
       const detector = createInterviewDetector({

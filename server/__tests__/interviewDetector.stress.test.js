@@ -978,7 +978,151 @@ describe('H8: matchWasDismissed prevents email-only leak', () => {
 // ---------------------------------------------------------------------------
 // H9: Dismissed items produce no suggestions even with LLM enrichment
 // ---------------------------------------------------------------------------
-describe('H9: dismissed items filtered at suggestion level', () => {
+describe('H9: dismissed-prefilter-skips-llm — dismissed items never reach extractor', () => {
+  it('10 emails + 5 events, half dismissed — extractor called only for non-dismissed', async () => {
+    const emailCalls = [];
+    const eventCalls = [];
+
+    const extractor = mockLlmExtractor({
+      emailHandler: (subject) => {
+        emailCalls.push(subject);
+        return {
+          dryModePrompt: null,
+          extraction: { company_name: 'LlmCo', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        };
+      },
+      eventHandler: (summary) => {
+        eventCalls.push(summary);
+        return {
+          dryModePrompt: null,
+          extraction: { company_name: 'LlmCo', interview_type: null },
+        };
+      },
+    });
+
+    const emails = [];
+    const events = [];
+    const dismissedRecords = [];
+
+    for (let i = 0; i < 10; i++) {
+      emails.push(makeEmailResult({
+        messageId: `msg${i}`,
+        companyName: `co${i}`,
+        senderEmail: `hr@co${i}.com`,
+        senderDomain: `co${i}.com`,
+        subject: `Interview ${i}`,
+        extractedDate: `2025-03-${String(i + 1).padStart(2, '0')}`,
+        score: 0.9,
+      }));
+      // Dismiss even-numbered emails
+      if (i % 2 === 0) {
+        dismissedRecords.push({ id: `x-email-${i}`, emailId: `msg${i}`, calendarId: '' });
+      }
+    }
+
+    for (let i = 0; i < 5; i++) {
+      events.push(makeCalendarResult({
+        eventId: `evt${i}`,
+        organizerEmail: `hr@evtco${i}.com`,
+        date: `2025-04-${String(i + 1).padStart(2, '0')}`,
+        summary: `Calendar Interview ${i}`,
+        score: 0.9,
+      }));
+      // Dismiss even-numbered events
+      if (i % 2 === 0) {
+        dismissedRecords.push({ id: `x-event-${i}`, emailId: '', calendarId: `evt${i}` });
+      }
+    }
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail(emails),
+      calendarService: mockCalendar(events),
+      tokenStore: createMockTokenStore(dismissedRecords),
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    await detector.detect();
+
+    // 5 of 10 emails dismissed → 5 extractor calls
+    expect(emailCalls).toHaveLength(5);
+    expect(emailCalls).toEqual([
+      'Interview 1', 'Interview 3', 'Interview 5', 'Interview 7', 'Interview 9',
+    ]);
+
+    // 3 of 5 events dismissed → 2 extractor calls
+    expect(eventCalls).toHaveLength(2);
+    expect(eventCalls).toEqual([
+      'Calendar Interview 1', 'Calendar Interview 3',
+    ]);
+  });
+
+  it('all items dismissed — zero extractor calls', async () => {
+    let emailCalls = 0;
+    let eventCalls = 0;
+
+    const extractor = mockLlmExtractor({
+      emailHandler: () => { emailCalls++; return null; },
+      eventHandler: () => { eventCalls++; return null; },
+    });
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([
+        makeEmailResult({ messageId: 'msg-a', score: 0.9 }),
+        makeEmailResult({ messageId: 'msg-b', score: 0.9 }),
+      ]),
+      calendarService: mockCalendar([
+        makeCalendarResult({ eventId: 'evt-a', score: 0.9 }),
+      ]),
+      tokenStore: createMockTokenStore([
+        { id: 'x1', emailId: 'msg-a', calendarId: '' },
+        { id: 'x2', emailId: 'msg-b', calendarId: '' },
+        { id: 'x3', emailId: '', calendarId: 'evt-a' },
+      ]),
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    const suggestions = await detector.detect();
+
+    expect(emailCalls).toBe(0);
+    expect(eventCalls).toBe(0);
+    expect(suggestions).toEqual([]);
+  });
+
+  it('non-dismissed items still enriched correctly after pre-filter', async () => {
+    const extractor = mockLlmExtractor({
+      emailHandler: () => ({
+        dryModePrompt: null,
+        extraction: { company_name: 'EnrichedFromLLM', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+      }),
+    });
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([
+        makeEmailResult({ messageId: 'dismissed-msg', companyName: 'dismissed', score: 0.9 }),
+        makeEmailResult({ messageId: 'active-msg', companyName: 'original', senderEmail: 'hr@active.com', senderDomain: 'active.com', score: 0.9, extractedDate: '2025-04-01' }),
+      ]),
+      calendarService: mockCalendar([
+        makeCalendarResult({ eventId: 'active-evt', organizerEmail: 'hr@active.com', date: '2025-04-01' }),
+      ]),
+      tokenStore: createMockTokenStore([
+        { id: 'x1', emailId: 'dismissed-msg', calendarId: '' },
+      ]),
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    const suggestions = await detector.detect();
+
+    // Only the active email+event pair should produce a suggestion
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0].companyName).toBe('EnrichedFromLLM');
+    expect(suggestions[0].emailMessageId).toBe('active-msg');
+  });
+});
+
+describe('H10: dismissed items filtered at suggestion level', () => {
   it('4 items, 2 dismissed — only 2 suggestions produced', async () => {
     const emails = [
       makeEmailResult({ messageId: 'msg0', companyName: 'co0', senderDomain: 'co0.com', senderEmail: 'hr@co0.com', subject: 'S0', extractedDate: '2025-03-01', score: 0.9 }),

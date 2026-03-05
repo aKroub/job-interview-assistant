@@ -1159,3 +1159,549 @@ describe('H10: dismissed items filtered at suggestion level', () => {
     expect(s3).toBeDefined();
   });
 });
+
+// ===========================================================================
+// H11: Composite-ID-only dismissal — pre-filter passthrough to LLM
+// ===========================================================================
+describe('H11: composite-ID-only dismissal — item passes through pre-filter to LLM', () => {
+  it('item dismissed only by composite suggestion ID (no emailId/calendarId) is still sent to LLM', async () => {
+    // The dismissed record has an id but empty emailId and calendarId.
+    // The pre-filter checks dismissedEmailIds.has(email.messageId) — which
+    // is false because no emailId was stored. So the item should go to LLM.
+    // However, the suggestion-level filter (dismissed.ids.has(suggestionId))
+    // should still suppress it.
+    const emailCalls = [];
+    const eventCalls = [];
+
+    const extractor = mockLlmExtractor({
+      emailHandler: (subject) => {
+        emailCalls.push(subject);
+        return {
+          dryModePrompt: null,
+          extraction: { company_name: 'LlmEnriched', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        };
+      },
+      eventHandler: (summary) => {
+        eventCalls.push(summary);
+        return {
+          dryModePrompt: null,
+          extraction: { company_name: 'LlmEnriched', interview_type: null },
+        };
+      },
+    });
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([
+        makeEmailResult({ messageId: 'msg1', subject: 'Interview A', score: 0.9 }),
+      ]),
+      calendarService: mockCalendar([
+        makeCalendarResult({ eventId: 'evt1', summary: 'Calendar A', score: 0.9 }),
+      ]),
+      // Dismissed by composite ID only — no emailId or calendarId stored
+      tokenStore: createMockTokenStore([
+        { id: 'suggestion_msg1_evt1', emailId: '', calendarId: '' },
+      ]),
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    const suggestions = await detector.detect();
+
+    // Pre-filter does NOT block — emailId/calendarId are empty in dismissed set
+    // So the LLM should be called for both the email and event
+    expect(emailCalls).toHaveLength(1);
+    expect(emailCalls[0]).toBe('Interview A');
+    expect(eventCalls).toHaveLength(1);
+    expect(eventCalls[0]).toBe('Calendar A');
+
+    // But the suggestion-level filter blocks the composite suggestion ID
+    expect(suggestions).toHaveLength(0);
+  });
+
+  it('mixed: one item dismissed by composite ID, another by component ID — correct filtering', async () => {
+    const emailCalls = [];
+
+    const extractor = mockLlmExtractor({
+      emailHandler: (subject) => {
+        emailCalls.push(subject);
+        return {
+          dryModePrompt: null,
+          extraction: { company_name: 'FromLLM', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        };
+      },
+      eventHandler: () => null,
+    });
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([
+        makeEmailResult({ messageId: 'msg-composite', subject: 'Composite Dismissed', senderDomain: 'a.com', senderEmail: 'hr@a.com', score: 0.9, extractedDate: '2025-05-01' }),
+        makeEmailResult({ messageId: 'msg-component', subject: 'Component Dismissed', senderDomain: 'b.com', senderEmail: 'hr@b.com', score: 0.9, extractedDate: '2025-05-02' }),
+        makeEmailResult({ messageId: 'msg-active', subject: 'Active', senderDomain: 'c.com', senderEmail: 'hr@c.com', score: 0.9, extractedDate: '2025-05-03' }),
+      ]),
+      calendarService: mockCalendar([
+        makeCalendarResult({ eventId: 'evt-a', organizerEmail: 'hr@a.com', date: '2025-05-01' }),
+        makeCalendarResult({ eventId: 'evt-b', organizerEmail: 'hr@b.com', date: '2025-05-02' }),
+        makeCalendarResult({ eventId: 'evt-c', organizerEmail: 'hr@c.com', date: '2025-05-03' }),
+      ]),
+      tokenStore: createMockTokenStore([
+        // Composite-only: pre-filter passes through, suggestion-level blocks
+        { id: 'suggestion_msg-composite_evt-a', emailId: '', calendarId: '' },
+        // Component-level: pre-filter blocks LLM call for this email
+        { id: 'some-old-suggestion', emailId: 'msg-component', calendarId: '' },
+      ]),
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    const suggestions = await detector.detect();
+
+    // msg-composite: LLM called (pre-filter passes through), but suggestion blocked by ids.has
+    // msg-component: LLM NOT called (pre-filter blocks), and suggestion blocked by isDismissedComponent
+    // msg-active: LLM called, suggestion produced
+    expect(emailCalls).toHaveLength(2); // msg-composite + msg-active
+    expect(emailCalls).toContain('Composite Dismissed');
+    expect(emailCalls).toContain('Active');
+    expect(emailCalls).not.toContain('Component Dismissed');
+
+    // Only the active item produces a suggestion
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0].emailMessageId).toBe('msg-active');
+  });
+});
+
+// ===========================================================================
+// H12: Mid-poll dismissal — item dismissed between two detect() calls
+// ===========================================================================
+describe('H12: mid-poll dismissal — LLM skipped on next cycle for newly dismissed item', () => {
+  it('item enriched in cycle 1, dismissed before cycle 2 — LLM skipped in cycle 2', async () => {
+    const emailCalls = [];
+
+    const extractor = mockLlmExtractor({
+      emailHandler: (subject) => {
+        emailCalls.push(subject);
+        return {
+          dryModePrompt: null,
+          extraction: { company_name: 'Enriched', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        };
+      },
+      eventHandler: () => null,
+    });
+
+    const tokenStore = createMockTokenStore();
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([
+        makeEmailResult({ messageId: 'msg1', subject: 'Interview', score: 0.9 }),
+      ]),
+      calendarService: mockCalendar([
+        makeCalendarResult({ eventId: 'evt1', score: 0.9 }),
+      ]),
+      tokenStore,
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    // Cycle 1: item is active — LLM called, cached, suggestion produced
+    const result1 = await detector.detect();
+    expect(emailCalls).toHaveLength(1);
+    expect(result1).toHaveLength(1);
+    expect(result1[0].companyName).toBe('Enriched');
+
+    // Dismiss the item between cycles (simulating user action)
+    await tokenStore.addDismissed({ id: 'suggestion_msg1_evt1', emailId: 'msg1', calendarId: 'evt1' });
+    emailCalls.length = 0;
+
+    // Cycle 2: item now dismissed — LLM should be SKIPPED (pre-filter),
+    // no suggestion produced
+    const result2 = await detector.detect();
+    expect(emailCalls).toHaveLength(0); // pre-filter skipped LLM
+    expect(result2).toHaveLength(0); // no suggestion
+  });
+
+  it('item dismissed mid-poll does not corrupt cache for other items', async () => {
+    const emailCalls = [];
+
+    const extractor = mockLlmExtractor({
+      emailHandler: (_subject, _body, sender) => {
+        emailCalls.push(sender);
+        return {
+          dryModePrompt: null,
+          extraction: { company_name: `LLM_${sender}`, date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        };
+      },
+      eventHandler: () => null,
+    });
+
+    const tokenStore = createMockTokenStore();
+
+    const email0 = makeEmailResult({ messageId: 'msg0', senderEmail: 'hr@a.com', senderDomain: 'a.com', companyName: 'a', score: 0.9 });
+    const email1 = makeEmailResult({ messageId: 'msg1', senderEmail: 'hr@b.com', senderDomain: 'b.com', companyName: 'b', score: 0.9, extractedDate: '2025-06-01' });
+    const evt0 = makeCalendarResult({ eventId: 'evt0', organizerEmail: 'hr@a.com', date: '2025-01-20' });
+    const evt1 = makeCalendarResult({ eventId: 'evt1', organizerEmail: 'hr@b.com', date: '2025-06-01' });
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([email0, email1]),
+      calendarService: mockCalendar([evt0, evt1]),
+      tokenStore,
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    // Cycle 1: both enriched
+    await detector.detect();
+    expect(emailCalls).toHaveLength(2);
+
+    // Dismiss msg0 between cycles
+    await tokenStore.addDismissed({ id: 'suggestion_msg0_evt0', emailId: 'msg0', calendarId: 'evt0' });
+    emailCalls.length = 0;
+
+    // Cycle 2: msg0 dismissed (pre-filter skips), msg1 cached (no LLM call)
+    const result2 = await detector.detect();
+    expect(emailCalls).toHaveLength(0); // msg0 skipped, msg1 cached
+    expect(result2).toHaveLength(1);
+    expect(result2[0].emailMessageId).toBe('msg1');
+    expect(result2[0].companyName).toBe('LLM_hr@b.com'); // from cache
+  });
+});
+
+// ===========================================================================
+// H13: Dismissed item's stale cache entry — dismiss then un-dismiss (reset)
+// ===========================================================================
+describe('H13: stale cache after dismiss-then-reset — cache entry reused on un-dismiss', () => {
+  it('cached → dismissed → reset: cache entry reused without new LLM call', async () => {
+    let emailCallCount = 0;
+
+    const extractor = mockLlmExtractor({
+      emailHandler: () => {
+        emailCallCount++;
+        return {
+          dryModePrompt: null,
+          extraction: { company_name: 'CachedCo', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        };
+      },
+      eventHandler: () => ({
+        dryModePrompt: null,
+        extraction: { company_name: null, interview_type: null },
+      }),
+    });
+
+    const tokenStore = createMockTokenStore();
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([makeEmailResult({ score: 0.9 })]),
+      calendarService: mockCalendar([makeCalendarResult()]),
+      tokenStore,
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    // Cycle 1: enriched and cached
+    const result1 = await detector.detect();
+    expect(emailCallCount).toBe(1);
+    expect(result1).toHaveLength(1);
+    expect(result1[0].companyName).toBe('CachedCo');
+
+    // Dismiss the item
+    await tokenStore.addDismissed({ id: 'suggestion_msg1_evt1', emailId: 'msg1', calendarId: 'evt1' });
+    emailCallCount = 0;
+
+    // Cycle 2: dismissed — LLM skipped (pre-filter), no suggestion
+    const result2 = await detector.detect();
+    expect(emailCallCount).toBe(0);
+    expect(result2).toHaveLength(0);
+
+    // Reset (un-dismiss)
+    await tokenStore.clearDismissed();
+    emailCallCount = 0;
+
+    // Cycle 3: un-dismissed — cache entry from cycle 1 should be reused
+    const result3 = await detector.detect();
+    expect(emailCallCount).toBe(0); // cache hit, no new LLM call
+    expect(result3).toHaveLength(1);
+    expect(result3[0].companyName).toBe('CachedCo'); // same cached extraction
+  });
+
+  it('cache entry evicted during dismissed period — LLM re-called after reset', async () => {
+    let emailCallCount = 0;
+
+    const extractor = mockLlmExtractor({
+      emailHandler: (_subject, _body, sender) => {
+        emailCallCount++;
+        return {
+          dryModePrompt: null,
+          extraction: { company_name: `LLM_${emailCallCount}`, date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        };
+      },
+      eventHandler: () => null,
+    });
+
+    const tokenStore = createMockTokenStore();
+
+    // maxCacheSize=1 so only the most recent entry survives
+    let currentEmails = [makeEmailResult({ messageId: 'msg-target', senderEmail: 'hr@target.com', senderDomain: 'target.com', companyName: 'target', score: 0.9 })];
+    let currentEvents = [makeCalendarResult({ eventId: 'evt-target', organizerEmail: 'hr@target.com' })];
+
+    const detector = createInterviewDetector({
+      gmailService: { scanForInterviews: async () => currentEmails },
+      calendarService: { scanForInterviews: async () => currentEvents },
+      tokenStore,
+      idFn: fixedId,
+      llmExtractor: extractor,
+      maxCacheSize: 1,
+    });
+
+    // Cycle 1: msg-target enriched and cached
+    await detector.detect();
+    expect(emailCallCount).toBe(1);
+
+    // Dismiss msg-target
+    await tokenStore.addDismissed({ id: 'suggestion_msg-target_evt-target', emailId: 'msg-target', calendarId: 'evt-target' });
+    emailCallCount = 0;
+
+    // Cycle 2: present a different email to evict msg-target's cache
+    currentEmails = [
+      makeEmailResult({ messageId: 'msg-target', senderEmail: 'hr@target.com', senderDomain: 'target.com', companyName: 'target', score: 0.9 }),
+      makeEmailResult({ messageId: 'msg-other', senderEmail: 'hr@other.com', senderDomain: 'other.com', companyName: 'other', score: 0.9, extractedDate: '2025-07-01' }),
+    ];
+    currentEvents = [
+      makeCalendarResult({ eventId: 'evt-target', organizerEmail: 'hr@target.com' }),
+      makeCalendarResult({ eventId: 'evt-other', organizerEmail: 'hr@other.com', date: '2025-07-01' }),
+    ];
+
+    await detector.detect();
+    // msg-target dismissed (LLM skipped), msg-other enriched (evicts msg-target cache, maxCacheSize=1)
+    expect(emailCallCount).toBe(1); // only msg-other
+
+    // Reset (un-dismiss)
+    await tokenStore.clearDismissed();
+    emailCallCount = 0;
+
+    // Cycle 3: msg-target no longer dismissed, but cache was evicted
+    // LLM should be called again
+    const result3 = await detector.detect();
+    expect(emailCallCount).toBe(1); // msg-target re-fetched (msg-other cached)
+    const targetSuggestion = result3.find(s => s.emailMessageId === 'msg-target');
+    expect(targetSuggestion).toBeDefined();
+  });
+});
+
+// ===========================================================================
+// H14: Race between dismissal snapshot and concurrent enrichment
+// ===========================================================================
+describe('H14: dismissal snapshot race — dismissed set read once at detect() start', () => {
+  it('dismissal during LLM enrichment still uses snapshot from before enrichment', async () => {
+    // The dismissed set is read once inside detect() before enrichWithLlm is
+    // called. If a user dismisses an item while the LLM calls are in-flight,
+    // the snapshot does NOT change — the suggestion is still produced.
+    //
+    // To test this, we hook into the LLM extractor to mutate the token store
+    // mid-enrichment. Because getDismissed() was already called with the old
+    // snapshot, the cross-reference code still uses the stale snapshot.
+    const emailCalls = [];
+    const tokenStore = createMockTokenStore();
+
+    const extractor = {
+      extractFromEmail: async (subject) => {
+        emailCalls.push(subject);
+        // Dismiss the item DURING enrichment — this mutates the token store
+        // but detect() already captured its snapshot before calling enrichWithLlm
+        await tokenStore.addDismissed({ id: 'suggestion_msg1_evt1', emailId: 'msg1', calendarId: 'evt1' });
+        return {
+          dryModePrompt: null,
+          extraction: { company_name: 'SlowLLM', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        };
+      },
+      extractFromCalendarEvent: async () => ({
+        dryModePrompt: null,
+        extraction: { company_name: null, interview_type: null },
+      }),
+    };
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([makeEmailResult({ messageId: 'msg1', score: 0.9 })]),
+      calendarService: mockCalendar([makeCalendarResult({ eventId: 'evt1' })]),
+      tokenStore,
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    const result = await detector.detect();
+
+    // LLM was called because the snapshot taken before enrichWithLlm had no dismissals
+    expect(emailCalls).toHaveLength(1);
+
+    // The suggestion is produced because the cross-reference code uses the
+    // stale snapshot captured at the start of detect(), not the live store
+    expect(result).toHaveLength(1);
+    expect(result[0].companyName).toBe('SlowLLM');
+
+    // Verify the token store was actually mutated
+    const dismissed = tokenStore.getDismissed();
+    expect(dismissed.emailIds.has('msg1')).toBe(true);
+  });
+
+  it('next detect() call uses updated dismissed set correctly', async () => {
+    const emailCalls = [];
+
+    const tokenStore = createMockTokenStore();
+
+    const extractor = {
+      extractFromEmail: async (subject) => {
+        emailCalls.push(subject);
+        return {
+          dryModePrompt: null,
+          extraction: { company_name: 'LLMCo', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        };
+      },
+      extractFromCalendarEvent: async () => ({
+        dryModePrompt: null,
+        extraction: { company_name: null, interview_type: null },
+      }),
+    };
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([makeEmailResult({ messageId: 'msg1', score: 0.9 })]),
+      calendarService: mockCalendar([makeCalendarResult({ eventId: 'evt1' })]),
+      tokenStore,
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    // Cycle 1: no dismissals — suggestion produced
+    const result1 = await detector.detect();
+    expect(result1).toHaveLength(1);
+    expect(emailCalls).toHaveLength(1);
+
+    // Dismiss between cycles
+    await tokenStore.addDismissed({ id: 'suggestion_msg1_evt1', emailId: 'msg1', calendarId: 'evt1' });
+    emailCalls.length = 0;
+
+    // Cycle 2: dismissed set updated — pre-filter skips LLM, no suggestion
+    const result2 = await detector.detect();
+    expect(emailCalls).toHaveLength(0);
+    expect(result2).toHaveLength(0);
+  });
+});
+
+// ===========================================================================
+// H15: Pre-filter + circuit breaker interaction — dismissed items reduce
+//      effective batch size for breaker counting
+// ===========================================================================
+describe('H15: pre-filter + circuit breaker — dismissed items not counted in breaker', () => {
+  it('breaker threshold reached with smaller effective batch (dismissed items excluded)', async () => {
+    let emailCallIdx = 0;
+
+    const extractor = mockLlmExtractor({
+      emailHandler: () => {
+        emailCallIdx++;
+        // All LLM calls fail (null extraction)
+        return { dryModePrompt: null, extraction: null };
+      },
+      eventHandler: () => null,
+    });
+
+    const tokenStore = createMockTokenStore([
+      // Dismiss 3 of 4 emails — only 1 goes to LLM per cycle
+      { id: 'x1', emailId: 'msg0', calendarId: '' },
+      { id: 'x2', emailId: 'msg1', calendarId: '' },
+      { id: 'x3', emailId: 'msg2', calendarId: '' },
+    ]);
+
+    let currentEmails = [
+      makeEmailResult({ messageId: 'msg0', senderEmail: 'hr@a.com', senderDomain: 'a.com', companyName: 'a', score: 0.9 }),
+      makeEmailResult({ messageId: 'msg1', senderEmail: 'hr@b.com', senderDomain: 'b.com', companyName: 'b', score: 0.9, extractedDate: '2025-08-01' }),
+      makeEmailResult({ messageId: 'msg2', senderEmail: 'hr@c.com', senderDomain: 'c.com', companyName: 'c', score: 0.9, extractedDate: '2025-08-02' }),
+      makeEmailResult({ messageId: 'msg3', senderEmail: 'hr@d.com', senderDomain: 'd.com', companyName: 'd', score: 0.9, extractedDate: '2025-08-03' }),
+    ];
+    let currentEvents = [
+      makeCalendarResult({ eventId: 'evt0', organizerEmail: 'hr@a.com', date: '2025-01-20' }),
+      makeCalendarResult({ eventId: 'evt1', organizerEmail: 'hr@b.com', date: '2025-08-01' }),
+      makeCalendarResult({ eventId: 'evt2', organizerEmail: 'hr@c.com', date: '2025-08-02' }),
+      makeCalendarResult({ eventId: 'evt3', organizerEmail: 'hr@d.com', date: '2025-08-03' }),
+    ];
+
+    const detector = createInterviewDetector({
+      gmailService: { scanForInterviews: async () => currentEmails },
+      calendarService: { scanForInterviews: async () => currentEvents },
+      tokenStore,
+      idFn: fixedId,
+      llmExtractor: extractor,
+      breakerThreshold: 2,
+    });
+
+    // Cycle 1: only msg3 goes to LLM (others dismissed), fails → all-fail batch #1
+    await detector.detect();
+    expect(emailCallIdx).toBe(1);
+
+    // Cycle 2: msg3 again (not cached — extraction was null), fails → all-fail batch #2
+    // After this cycle, breaker should be open
+    await detector.detect();
+    expect(emailCallIdx).toBe(2);
+
+    // Cycle 3: breaker OPEN — skips LLM entirely, even for msg3
+    const preBreakerCount = emailCallIdx;
+    await detector.detect();
+    expect(emailCallIdx).toBe(preBreakerCount); // no new calls
+
+    // Cycle 4: breaker reset — msg3 retried (still fails)
+    await detector.detect();
+    expect(emailCallIdx).toBe(preBreakerCount + 1);
+  });
+
+  it('dismissed items produce zero batchApiCalls — all-dismissed batch does not trip breaker', async () => {
+    let emailCallIdx = 0;
+
+    const extractor = mockLlmExtractor({
+      emailHandler: () => {
+        emailCallIdx++;
+        return {
+          dryModePrompt: null,
+          extraction: { company_name: 'Good', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        };
+      },
+      eventHandler: () => null,
+    });
+
+    const tokenStore = createMockTokenStore([
+      { id: 'x1', emailId: 'msg-dismissed', calendarId: '' },
+    ]);
+
+    // Only dismissed items — no LLM calls, batchApiCalls = 0
+    // The breaker should NOT be affected (batchApiCalls > 0 check prevents counting)
+    let currentEmails = [
+      makeEmailResult({ messageId: 'msg-dismissed', senderEmail: 'hr@a.com', senderDomain: 'a.com', companyName: 'a', score: 0.9 }),
+    ];
+    let currentEvents = [
+      makeCalendarResult({ eventId: 'evt1', organizerEmail: 'hr@a.com', date: '2025-01-20' }),
+    ];
+
+    const detector = createInterviewDetector({
+      gmailService: { scanForInterviews: async () => currentEmails },
+      calendarService: { scanForInterviews: async () => currentEvents },
+      tokenStore,
+      idFn: fixedId,
+      llmExtractor: extractor,
+      breakerThreshold: 1,
+    });
+
+    // Run 5 cycles with all items dismissed — breaker should never open
+    for (let i = 0; i < 5; i++) {
+      await detector.detect();
+    }
+    expect(emailCallIdx).toBe(0); // no LLM calls at all
+
+    // Now add an active item — LLM should be called (breaker never opened)
+    await tokenStore.clearDismissed();
+    currentEmails = [
+      makeEmailResult({ messageId: 'msg-active', senderEmail: 'hr@b.com', senderDomain: 'b.com', companyName: 'b', score: 0.9, extractedDate: '2025-09-01' }),
+    ];
+    currentEvents = [
+      makeCalendarResult({ eventId: 'evt-active', organizerEmail: 'hr@b.com', date: '2025-09-01' }),
+    ];
+
+    const result = await detector.detect();
+    expect(emailCallIdx).toBe(1); // LLM called — breaker was never tripped
+    expect(result).toHaveLength(1);
+    expect(result[0].companyName).toBe('Good');
+  });
+});

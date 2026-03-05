@@ -304,9 +304,14 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
           const actionPrefix = action === 'add' ? '' : `${action}_`;
           const suggestionId = `suggestion_${actionPrefix}${email.messageId}_${event.eventId}`;
 
-          // Skip if this suggestion or any of its components was dismissed
+          // Skip if this suggestion was dismissed or the EMAIL itself was
+          // dismissed. Deliberately NOT checking the calendarId here: when a
+          // new email arrives for the same calendar event, the user should see
+          // the suggestion and decide whether to dismiss or accept it. The
+          // calendar-only and email-only loops still check their own component
+          // IDs, and matchedEventIds prevents the event leaking as calendar-only.
           if (dismissed.ids.has(suggestionId) ||
-              isDismissedComponent(dismissed, email.messageId, event.eventId)) {
+              isDismissedComponent(dismissed, email.messageId, '')) {
             matchWasDismissed = true;
             continue;
           }

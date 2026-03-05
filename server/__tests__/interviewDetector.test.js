@@ -245,8 +245,10 @@ describe('createInterviewDetector', () => {
       expect(suggestions).toEqual([]);
     });
 
-    it('calendar-only dismissed → cross-ref with same calendarId is skipped', async () => {
-      // User dismissed calendar-only suggestion, then email arrived
+    it('calendar-only dismissed → cross-ref with NEW email still surfaces', async () => {
+      // User dismissed calendar-only suggestion for evt1, then a new email
+      // arrived referencing the same calendar event. The user should see
+      // the cross-ref suggestion so they can decide to accept or dismiss.
       const detector = createInterviewDetector({
         gmailService: mockGmail([makeEmailResult()]),
         calendarService: mockCalendar([makeCalendarResult()]),
@@ -257,7 +259,10 @@ describe('createInterviewDetector', () => {
       });
 
       const suggestions = await detector.detect();
-      expect(suggestions).toEqual([]);
+      expect(suggestions).toHaveLength(1);
+      expect(suggestions[0].source).toBe('gmail+calendar');
+      expect(suggestions[0].emailMessageId).toBe('msg1');
+      expect(suggestions[0].calendarEventId).toBe('evt1');
     });
 
     it('cross-ref dismissed → email-only with same emailId is skipped', async () => {
@@ -309,6 +314,63 @@ describe('createInterviewDetector', () => {
       const suggestions = await detector.detect();
       expect(suggestions.length).toBe(1);
       expect(suggestions[0].emailMessageId).toBe('msg2');
+    });
+
+    it('new email for a dismissed calendar event produces a cross-ref suggestion', async () => {
+      // User dismissed cross-ref suggestion_msg1_evt1 (storing calendarId=evt1).
+      // A new email (msg2) arrives from the same company for the same calendar
+      // event. The user should see this new cross-ref because msg2 is new
+      // information — the user gets to decide whether to accept or dismiss.
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ messageId: 'msg2' })]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: createMockTokenStore([
+          { id: 'suggestion_msg1_evt1', emailId: 'msg1', calendarId: 'evt1' },
+        ]),
+        idFn: fixedId,
+      });
+
+      const suggestions = await detector.detect();
+      expect(suggestions).toHaveLength(1);
+      expect(suggestions[0].source).toBe('gmail+calendar');
+      expect(suggestions[0].emailMessageId).toBe('msg2');
+      expect(suggestions[0].calendarEventId).toBe('evt1');
+    });
+
+    it('dismissed calendar event does NOT leak as calendar-only when new email cross-refs it', async () => {
+      // Same scenario as above — the event is consumed by the cross-ref,
+      // so it must not also appear as a calendar-only suggestion.
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult({ messageId: 'msg2' })]),
+        calendarService: mockCalendar([makeCalendarResult({ score: 0.7 })]),
+        tokenStore: createMockTokenStore([
+          { id: 'suggestion_msg1_evt1', emailId: 'msg1', calendarId: 'evt1' },
+        ]),
+        idFn: fixedId,
+      });
+
+      const suggestions = await detector.detect();
+      // Only the cross-ref, no calendar-only duplicate
+      expect(suggestions).toHaveLength(1);
+      expect(suggestions[0].source).toBe('gmail+calendar');
+      const calOnly = suggestions.find((s) => s.source === 'calendar');
+      expect(calOnly).toBeUndefined();
+    });
+
+    it('dismissed email still blocks cross-ref even when calendarId is not checked', async () => {
+      // Ensures the emailId check still works: if the EMAIL was dismissed,
+      // the cross-ref is still blocked regardless of calendarId.
+      const detector = createInterviewDetector({
+        gmailService: mockGmail([makeEmailResult()]),
+        calendarService: mockCalendar([makeCalendarResult()]),
+        tokenStore: createMockTokenStore([
+          { id: 'old-suggestion', emailId: 'msg1', calendarId: '' },
+        ]),
+        idFn: fixedId,
+      });
+
+      const suggestions = await detector.detect();
+      expect(suggestions).toEqual([]);
     });
   });
 

@@ -937,19 +937,20 @@ describe('H5: reset clears tokenStore dismissed state but NOT extraction cache',
       llmExtractor: extractor,
     });
 
-    // Cycle 1: dismissed — no suggestions, but LLM extraction still happens and is cached
+    // Cycle 1: dismissed — no suggestions. LLM extraction is SKIPPED for
+    // dismissed items (pre-filter optimisation), so nothing is cached.
     const result1 = await detector.detect();
     expect(result1).toHaveLength(0);
-    expect(emailCallCount).toBe(1); // LLM was called (enrichment happens before dismiss filter)
+    expect(emailCallCount).toBe(0); // LLM skipped for dismissed items
 
     // Simulate reset: clear dismissed state
     await tokenStore.clearDismissed();
 
-    // Cycle 2: after reset — suggestion reappears, using CACHED extraction (no new LLM call)
+    // Cycle 2: after reset — item is no longer dismissed, LLM is called now
     const result2 = await detector.detect();
     expect(result2).toHaveLength(1);
-    expect(result2[0].companyName).toBe('LlmExtracted'); // from cache
-    expect(emailCallCount).toBe(1); // no new LLM call — cache is intact
+    expect(result2[0].companyName).toBe('LlmExtracted'); // freshly extracted
+    expect(emailCallCount).toBe(1); // LLM called this cycle (first time for this item)
   });
 
   it('reset followed by new items: cached items skip LLM, new items call LLM', async () => {
@@ -984,9 +985,9 @@ describe('H5: reset clears tokenStore dismissed state but NOT extraction cache',
       llmExtractor: extractor,
     });
 
-    // Cycle 1: msg0 dismissed but extracted + cached
+    // Cycle 1: msg0 dismissed — LLM skipped (pre-filter optimisation)
     await detector.detect();
-    expect(emailCallCount).toBe(1);
+    expect(emailCallCount).toBe(0); // dismissed items skip LLM
 
     // Reset dismissed state
     await tokenStore.clearDismissed();
@@ -999,15 +1000,15 @@ describe('H5: reset clears tokenStore dismissed state but NOT extraction cache',
     currentEvents = [evt0, evt1];
     emailCallCount = 0;
 
-    // Cycle 2: msg0 from cache (no call), msg1 new (1 call)
+    // Cycle 2: msg0 no longer dismissed → LLM called (1 call); msg1 new (1 call)
     const result = await detector.detect();
-    expect(emailCallCount).toBe(1); // only msg1
+    expect(emailCallCount).toBe(2); // both msg0 and msg1
     expect(result).toHaveLength(2);
 
     const s0 = result.find(s => s.emailMessageId === 'msg0');
     const s1 = result.find(s => s.emailMessageId === 'msg1');
-    expect(s0.companyName).toBe('LLM_hr@a.com'); // from cache
-    expect(s1.companyName).toBe('LLM_hr@b.com'); // fresh
+    expect(s0.companyName).toBe('LLM_hr@a.com'); // freshly extracted
+    expect(s1.companyName).toBe('LLM_hr@b.com'); // freshly extracted
   });
 
   it('extraction cache survives multiple reset cycles', async () => {

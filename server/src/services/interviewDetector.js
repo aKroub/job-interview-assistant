@@ -99,6 +99,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
    *
    * @param {Object[]} emails - regex-extracted email results
    * @param {Object[]} events - regex-extracted calendar results
+   * @param {{ emailIds?: Set<string>, calendarIds?: Set<string> }} [dismissed] - dismissed component IDs to skip LLM calls for
    * @returns {Promise<{ emails: Object[], events: Object[] }>}
    */
   /**
@@ -113,7 +114,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
     }
   }
 
-  async function enrichWithLlm(emails, events) {
+  async function enrichWithLlm(emails, events, dismissed) {
     if (!llmExtractor) return { emails, events };
 
     // Circuit breaker: skip LLM enrichment when the API is persistently down.
@@ -129,12 +130,20 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
       return { emails, events };
     }
 
+    // Build dismissed-ID sets for O(1) lookup. Items whose component IDs are
+    // dismissed skip the LLM call (they'll be filtered at the suggestion level)
+    // but remain in the arrays for cross-reference matching.
+    const dismissedEmailIds = dismissed?.emailIds ?? new Set();
+    const dismissedCalendarIds = dismissed?.calendarIds ?? new Set();
+
     // Split items into cached (already extracted) vs uncached (need API call).
     // Cached items are merged immediately; uncached items go through the API.
+    // Dismissed items are kept as-is (no LLM call, no cache lookup needed).
     const uncachedEmailIndices = [];
     const uncachedEventIndices = [];
 
     const enrichedEmails = emails.map((email, i) => {
+      if (dismissedEmailIds.has(email.messageId)) return email;
       const cached = extractionCache.get(`email:${email.messageId}`);
       if (cached) return mergeEmailExtraction(email, cached);
       uncachedEmailIndices.push(i);
@@ -142,6 +151,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
     });
 
     const enrichedEvents = events.map((event, i) => {
+      if (dismissedCalendarIds.has(event.eventId)) return event;
       const cached = extractionCache.get(`event:${event.eventId}`);
       if (cached) return mergeCalendarExtraction(event, cached);
       uncachedEventIndices.push(i);
@@ -250,12 +260,12 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
 
     const dismissed = tokenStore.getDismissed();
 
-    // Enrich with LLM. The extraction cache inside enrichWithLlm ensures
-    // each item is only sent to the API once; successful extractions are
-    // cached and reused on subsequent polls. Regex re-runs every cycle
-    // (cheap) — only the LLM I/O is cached.
+    // Enrich with LLM. Dismissed component IDs are passed through so the
+    // enrichment step can skip API calls for items the user already dealt
+    // with, without removing them from the arrays (they must remain for
+    // cross-reference matching and matchWasDismissed tracking).
     const { emails: emailResults, events: calendarResults } =
-      await enrichWithLlm(rawEmails, rawEvents);
+      await enrichWithLlm(rawEmails, rawEvents, dismissed);
     const suggestions = [];
     const usedEventIds = new Set();
     const usedMessageIds = new Set();

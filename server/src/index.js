@@ -74,6 +74,7 @@ export function createApp(deps = {}) {
           model: config.llmModel,
           maxConcurrency: config.llmMaxConcurrency,
           maxRetries: config.llmMaxRetries,
+          logLevel: config.logLevel,
         })
       : null
   );

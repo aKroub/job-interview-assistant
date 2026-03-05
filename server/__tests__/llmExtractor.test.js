@@ -617,7 +617,7 @@ describe('createLlmExtractor (stats)', () => {
 // createLlmExtractor — API call logging
 // ---------------------------------------------------------------------------
 describe('createLlmExtractor (logging)', () => {
-  it('logs request and response for successful API calls', async () => {
+  it('logs request and response for successful API calls (debug level)', async () => {
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
     const mockClient = {
       messages: {
@@ -632,6 +632,7 @@ describe('createLlmExtractor (logging)', () => {
       dryMode: false,
       anthropicClient: mockClient,
       model: 'claude-haiku-4-5',
+      logLevel: 'debug',
     });
 
     await extractor.extractFromEmail('Interview', 'interview body', 'a@b.com');
@@ -641,6 +642,35 @@ describe('createLlmExtractor (logging)', () => {
     expect(logs.some((l) => l.includes('[llmExtractor] RESPONSE #1:') && l.includes('stop_reason=end_turn'))).toBe(true);
     expect(logs.some((l) => l.includes('input:100') && l.includes('output:25'))).toBe(true);
     expect(logs.some((l) => l.includes('extracted=') && l.includes('"company_name":"Acme"'))).toBe(true);
+
+    logSpy.mockRestore();
+  });
+
+  it('hides API usage metadata at default info log level', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const mockClient = {
+      messages: {
+        create: jest.fn().mockResolvedValue({
+          content: [{ type: 'text', text: '{"company_name": "Acme"}' }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 100, output_tokens: 25 },
+        }),
+      },
+    };
+    const extractor = createLlmExtractor({
+      dryMode: false,
+      anthropicClient: mockClient,
+    });
+
+    await extractor.extractFromEmail('Interview', 'interview body', 'a@b.com');
+
+    const logs = logSpy.mock.calls.map((c) => c[0]);
+    // REQUEST and extracted= are still logged at info level
+    expect(logs.some((l) => l.includes('[llmExtractor] REQUEST #1:'))).toBe(true);
+    expect(logs.some((l) => l.includes('extracted='))).toBe(true);
+    // But stop_reason/usage metadata is hidden
+    expect(logs.some((l) => l.includes('stop_reason=end_turn'))).toBe(false);
+    expect(logs.some((l) => l.includes('input:100'))).toBe(false);
 
     logSpy.mockRestore();
   });

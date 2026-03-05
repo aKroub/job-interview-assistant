@@ -157,6 +157,7 @@ export function parseJsonResponse(text) {
  * @param {string} [options.model='claude-haiku-4-5'] - Claude model ID
  * @param {number} [options.maxConcurrency=2] - max simultaneous API calls
  * @param {number} [options.maxRetries=3] - max retry attempts for transient errors (passed to SDK)
+ * @param {string} [options.logLevel='info'] - log verbosity ('debug' shows API usage metadata)
  * @param {Object} [options.anthropicClient] - injectable Anthropic client for testing
  * @returns {{
  *   extractFromEmail: (subject: string, body: string, senderEmail: string) => Promise<Object|null>,
@@ -171,6 +172,7 @@ export function createLlmExtractor(options = {}) {
     model = 'claude-haiku-4-5',
     maxConcurrency = 2,
     maxRetries = 3,
+    logLevel = 'info',
     anthropicClient,
   } = options;
 
@@ -211,11 +213,13 @@ export function createLlmExtractor(options = {}) {
         messages: [{ role: 'user', content: userContent }],
       });
 
-      const inputTokens = response.usage?.input_tokens ?? '?';
-      const outputTokens = response.usage?.output_tokens ?? '?';
-      console.log(
-        `[llmExtractor] RESPONSE #${callId}: stop_reason=${response.stop_reason}, usage={input:${inputTokens}, output:${outputTokens}}`
-      );
+      if (logLevel === 'debug') {
+        const inputTokens = response.usage?.input_tokens ?? '?';
+        const outputTokens = response.usage?.output_tokens ?? '?';
+        console.log(
+          `[llmExtractor] RESPONSE #${callId}: stop_reason=${response.stop_reason}, usage={input:${inputTokens}, output:${outputTokens}}`
+        );
+      }
 
       const textBlock = response.content.find((b) => b.type === 'text');
       if (!textBlock) {

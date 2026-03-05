@@ -9,7 +9,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
  *
  * @param {Object} [env=process.env] - injectable env source for testing
  * @param {string} [envPath] - optional path to .env file (defaults to server/.env)
- * @returns {{ clientId: string, clientSecret: string, port: number, pollIntervalMs: number, emailLookbackDays: number, calendarLookaheadDays: number, redirectUri: string, anthropicApiKey: string, llmDryMode: boolean, llmModel: string, llmMaxConcurrency: number, llmMaxRetries: number, scanCooldownMs: number }}
+ * @returns {{ clientId: string, clientSecret: string, port: number, pollIntervalMs: number, emailLookbackDays: number, calendarLookaheadDays: number, redirectUri: string, anthropicApiKey: string, llmDryMode: boolean, llmModel: string, llmMaxConcurrency: number, llmMaxRetries: number, scanCooldownMs: number, logLevel: string }}
  * @throws {Error} if required env vars are missing
  */
 export function loadConfig(env = process.env, envPath) {
@@ -54,6 +54,9 @@ export function loadConfig(env = process.env, envPath) {
   const llmMaxRetries       = parseInt(env.LLM_MAX_RETRIES, 10) || 3;
   const scanCooldownMs      = parseInt(env.SCAN_COOLDOWN_MS, 10) || 30_000;
 
+  // Logging config
+  const logLevel = (env.LOG_LEVEL || 'info').toLowerCase();
+
   return {
     clientId,
     clientSecret,
@@ -68,5 +71,6 @@ export function loadConfig(env = process.env, envPath) {
     llmMaxConcurrency,
     llmMaxRetries,
     scanCooldownMs,
+    logLevel,
   };
 }

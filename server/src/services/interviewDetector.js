@@ -99,6 +99,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
    *
    * @param {Object[]} emails - regex-extracted email results
    * @param {Object[]} events - regex-extracted calendar results
+   * @param {{ emailIds?: Set<string>, calendarIds?: Set<string> }} [dismissed] - dismissed component IDs to skip LLM calls for
    * @returns {Promise<{ emails: Object[], events: Object[] }>}
    */
   /**

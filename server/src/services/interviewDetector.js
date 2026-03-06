@@ -86,6 +86,15 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
   const extractionCache = new Map();
 
   /**
+   * In-memory sets of email/event IDs that went through the full scoring
+   * pipeline but did not produce a suggestion. These items are skipped in
+   * subsequent LLM enrichment cycles to avoid wasting API calls.
+   * Reset on server restart.
+   */
+  const lowScoreEmailIds = new Set();
+  const lowScoreEventIds = new Set();
+
+  /**
    * Enriches email and calendar results with LLM-extracted fields.
    * Uses Promise.allSettled so individual failures do not abort the batch.
    * Returns new arrays with enriched items (originals are not mutated).
@@ -139,12 +148,15 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
 
     // Split items into cached (already extracted) vs uncached (need API call).
     // Cached items are merged immediately; uncached items go through the API.
-    // Dismissed emails are kept as-is (no LLM call, no cache lookup needed).
+    // Dismissed and low-score emails are kept as-is (no LLM call needed).
     const uncachedEmailIndices = [];
     const uncachedEventIndices = [];
+    let lowScoreEmailSkips = 0;
+    let lowScoreEventSkips = 0;
 
     const enrichedEmails = emails.map((email, i) => {
       if (dismissedEmailIds.has(email.messageId)) return email;
+      if (lowScoreEmailIds.has(email.messageId)) { lowScoreEmailSkips++; return email; }
       const cached = extractionCache.get(`email:${email.messageId}`);
       if (cached) return mergeEmailExtraction(email, cached);
       uncachedEmailIndices.push(i);
@@ -152,11 +164,18 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
     });
 
     const enrichedEvents = events.map((event, i) => {
+      if (lowScoreEventIds.has(event.eventId)) { lowScoreEventSkips++; return event; }
       const cached = extractionCache.get(`event:${event.eventId}`);
       if (cached) return mergeCalendarExtraction(event, cached);
       uncachedEventIndices.push(i);
       return event; // placeholder — will be replaced after API call
     });
+
+    if (lowScoreEmailSkips > 0 || lowScoreEventSkips > 0) {
+      console.log(
+        `[interviewDetector] Skipped LLM extraction for ${lowScoreEmailSkips} low-score email(s) and ${lowScoreEventSkips} low-score event(s)`
+      );
+    }
 
     // If everything is cached, no API calls needed
     if (uncachedEmailIndices.length === 0 && uncachedEventIndices.length === 0) {
@@ -166,11 +185,11 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
     // Call LLM only for uncached items
     const emailPromises = uncachedEmailIndices.map((i) => {
       const email = emails[i];
-      return llmExtractor.extractFromEmail(email.subject, email.bodyText || email.snippet, email.senderEmail);
+      return llmExtractor.extractFromEmail(email.subject, email.bodyText || email.snippet, email.senderEmail, `email:${email.messageId}`);
     });
     const eventPromises = uncachedEventIndices.map((i) => {
       const event = events[i];
-      return llmExtractor.extractFromCalendarEvent(event.summary, event.description, event.location, event.organizerEmail);
+      return llmExtractor.extractFromCalendarEvent(event.summary, event.description, event.location, event.organizerEmail, `event:${event.eventId}`);
     });
 
     const [emailSettled, eventSettled] = await Promise.all([
@@ -457,6 +476,40 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
     // Sort by interview date ascending (soonest first) so the most urgent
     // interview is always at the top of the suggestions list.
     suggestions.sort(compareSuggestionsByDate);
+
+    // --- Track low-score items ---
+    // Items that went through the full pipeline but did not produce any
+    // suggestion are added to in-memory exclusion sets so subsequent cycles
+    // skip their LLM extraction (saves API calls). Dismissed items are
+    // already handled separately and are not added here.
+    const suggestionEmailIds = new Set(suggestions.map((s) => s.emailMessageId).filter(Boolean));
+    const suggestionEventIds = new Set(suggestions.map((s) => s.calendarEventId).filter(Boolean));
+
+    for (const email of emailResults) {
+      if (suggestionEmailIds.has(email.messageId)) continue;
+      if (dismissed.emailIds.has(email.messageId)) continue;
+      if (lowScoreEmailIds.has(email.messageId)) continue;
+      lowScoreEmailIds.add(email.messageId);
+      console.log(
+        `[interviewDetector] LOW-SCORE email (will skip future LLM extraction): ` +
+        `messageId=${email.messageId}, subject="${email.subject || 'N/A'}", ` +
+        `sender=${email.senderEmail || 'N/A'}, company=${email.companyName || 'N/A'}, ` +
+        `score=${email.score}, date=${email.extractedDate || 'N/A'}`
+      );
+    }
+
+    for (const event of calendarResults) {
+      if (suggestionEventIds.has(event.eventId)) continue;
+      if (dismissed.calendarIds.has(event.eventId)) continue;
+      if (lowScoreEventIds.has(event.eventId)) continue;
+      lowScoreEventIds.add(event.eventId);
+      console.log(
+        `[interviewDetector] LOW-SCORE event (will skip future LLM extraction): ` +
+        `eventId=${event.eventId}, summary="${event.summary || 'N/A'}", ` +
+        `organizer=${event.organizerEmail || 'N/A'}, company=${event.companyName || 'N/A'}, ` +
+        `score=${event.score}, date=${event.date || 'N/A'}`
+      );
+    }
 
     return suggestions;
   }

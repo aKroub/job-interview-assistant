@@ -195,15 +195,16 @@ export function createLlmExtractor(options = {}) {
    *
    * @param {string} systemPrompt - system-level instructions (trusted)
    * @param {string} userContent - untrusted content from email/event
+   * @param {string} itemId - identifier for the item being processed (e.g. 'email:abc123')
    * @returns {Promise<Object|null>} parsed extraction, or null on failure
    */
-  async function callLlm(systemPrompt, userContent) {
+  async function callLlm(systemPrompt, userContent, itemId) {
     await semaphore.acquire();
     stats.total++;
     const callId = stats.total;
     try {
       console.log(
-        `[llmExtractor] REQUEST #${callId}: model=${model}, systemPromptLen=${systemPrompt.length}, userContentLen=${userContent.length}, max_tokens=512`
+        `[llmExtractor] REQUEST #${callId} (${itemId}): model=${model}, systemPromptLen=${systemPrompt.length}, userContentLen=${userContent.length}, max_tokens=512`
       );
 
       const response = await getClient().messages.create({
@@ -217,13 +218,13 @@ export function createLlmExtractor(options = {}) {
         const inputTokens = response.usage?.input_tokens ?? '?';
         const outputTokens = response.usage?.output_tokens ?? '?';
         console.log(
-          `[llmExtractor] RESPONSE #${callId}: stop_reason=${response.stop_reason}, usage={input:${inputTokens}, output:${outputTokens}}`
+          `[llmExtractor] RESPONSE #${callId} (${itemId}): stop_reason=${response.stop_reason}, usage={input:${inputTokens}, output:${outputTokens}}`
         );
       }
 
       const textBlock = response.content.find((b) => b.type === 'text');
       if (!textBlock) {
-        console.warn(`[llmExtractor] RESPONSE #${callId}: no text block in response`);
+        console.warn(`[llmExtractor] RESPONSE #${callId} (${itemId}): no text block in response`);
         stats.failed++;
         return null;
       }
@@ -231,16 +232,16 @@ export function createLlmExtractor(options = {}) {
       const result = parseJsonResponse(textBlock.text);
       if (result) {
         stats.succeeded++;
-        console.log(`[llmExtractor] RESPONSE #${callId}: extracted=${JSON.stringify(result)}`);
+        console.log(`[llmExtractor] RESPONSE #${callId} (${itemId}): extracted=${JSON.stringify(result)}`);
       } else {
         stats.failed++;
-        console.warn(`[llmExtractor] RESPONSE #${callId}: JSON parse failed, raw=${textBlock.text.slice(0, 200)}`);
+        console.warn(`[llmExtractor] RESPONSE #${callId} (${itemId}): JSON parse failed, raw=${textBlock.text.slice(0, 200)}`);
       }
       return result;
     } catch (err) {
       stats.failed++;
       const status = err.status ?? 'N/A';
-      console.error(`[llmExtractor] REQUEST #${callId} FAILED (status=${status}): ${err.message}`);
+      console.error(`[llmExtractor] REQUEST #${callId} (${itemId}) FAILED (status=${status}): ${err.message}`);
       return null;
     } finally {
       semaphore.release();
@@ -253,12 +254,13 @@ export function createLlmExtractor(options = {}) {
    * @param {string} subject - email subject
    * @param {string} body - plain-text email body
    * @param {string} senderEmail - sender's email
+   * @param {string} [itemId=''] - identifier for logging (e.g. 'email:abc123')
    * @returns {Promise<{ dryModePrompt: string|null, extraction: Object|null }|null>}
    *   Returns null if the privacy gate rejects the email (no "interview" keyword).
    *   In dry mode: { dryModePrompt: <prompt>, extraction: null }
    *   In wet mode: { dryModePrompt: null, extraction: { company_name, date, ... } }
    */
-  async function extractFromEmail(subject, body, senderEmail) {
+  async function extractFromEmail(subject, body, senderEmail, itemId = '') {
     if (!containsInterviewKeyword(subject, body, senderEmail)) {
       return null;
     }
@@ -269,7 +271,7 @@ export function createLlmExtractor(options = {}) {
       return { dryModePrompt: `[System]\n${EMAIL_SYSTEM_PROMPT}\n\n[User]\n${userContent}`, extraction: null };
     }
 
-    const extraction = await callLlm(EMAIL_SYSTEM_PROMPT, userContent);
+    const extraction = await callLlm(EMAIL_SYSTEM_PROMPT, userContent, itemId);
     return { dryModePrompt: null, extraction };
   }
 
@@ -280,12 +282,13 @@ export function createLlmExtractor(options = {}) {
    * @param {string} description - event description
    * @param {string} location - event location
    * @param {string} organizerEmail - organizer's email
+   * @param {string} [itemId=''] - identifier for logging (e.g. 'event:xyz789')
    * @returns {Promise<{ dryModePrompt: string|null, extraction: Object|null }|null>}
    *   Returns null if the privacy gate rejects the event (no "interview" keyword).
    *   In dry mode: { dryModePrompt: <prompt>, extraction: null }
    *   In wet mode: { dryModePrompt: null, extraction: { company_name, interview_type } }
    */
-  async function extractFromCalendarEvent(summary, description, location, organizerEmail) {
+  async function extractFromCalendarEvent(summary, description, location, organizerEmail, itemId = '') {
     if (!containsInterviewKeyword(summary, description, location, organizerEmail)) {
       return null;
     }
@@ -296,7 +299,7 @@ export function createLlmExtractor(options = {}) {
       return { dryModePrompt: `[System]\n${CALENDAR_SYSTEM_PROMPT}\n\n[User]\n${userContent}`, extraction: null };
     }
 
-    const extraction = await callLlm(CALENDAR_SYSTEM_PROMPT, userContent);
+    const extraction = await callLlm(CALENDAR_SYSTEM_PROMPT, userContent, itemId);
     return { dryModePrompt: null, extraction };
   }
 

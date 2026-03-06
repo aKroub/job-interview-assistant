@@ -97,6 +97,29 @@ After writing a plan and before calling `ExitPlanMode`, invoke the `review-plan`
 
 ---
 
+## Agent Teams for Full-Stack Features
+
+When a feature involves **both frontend and backend development** and is expected to touch **4+ files on each side**, use the `/build-with-agent-team` command to orchestrate a team of agents instead of building sequentially.
+
+**Why:** Frontend and backend work are independently buildable once the API contract (endpoint URLs, request/response shapes, SSE event formats) is defined. A team lets both sides build in parallel, with the lead agent mediating contract changes.
+
+**Workflow:**
+1. Plan the feature as usual (plan mode → `review-plan` → `ExitPlanMode`)
+2. After the user approves the plan, invoke `/build-with-agent-team [plan-path] 2` (frontend + backend agents)
+3. The command handles: contract definition, agent spawning, collaboration, and end-to-end validation
+
+**When to use:**
+- Full-stack features touching 4+ files on each side (e.g. new API endpoint + route + service + tests on backend, new hook + component + apiService + tests on frontend)
+- Features where the frontend and backend can be built to a shared API contract without constant back-and-forth
+
+**When NOT to use:**
+- Single-layer changes (frontend-only or backend-only)
+- Small full-stack features (< 4 files per side) — a single agent handles these faster than the team coordination overhead
+- Bug fixes — investigation is inherently sequential
+- Features where the frontend can't start until the backend is fully built (tight sequential dependency)
+
+---
+
 ## Pre-Merge Checklist
 
 Before opening any PR, confirm every item:

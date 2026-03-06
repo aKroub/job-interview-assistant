@@ -3,6 +3,7 @@ name: ui-ux-improve
 description: Analyze and improve UI/UX of React components. Use when the user asks to improve, polish, redesign, or review the UI/UX of any part of the application — including layout, accessibility, responsiveness, visual hierarchy, consistency, micro-interactions, and performance.
 argument-hint: "[component-or-area]"
 allowed-tools: Read, Grep, Glob, Edit, Write, Bash(npm run build*, npm run lint*, npm test*)
+context: fork
 ---
 
 # UI/UX Improvement Skill

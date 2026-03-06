@@ -100,13 +100,39 @@ Before opening any PR, confirm every item:
 
 ---
 
-## Post-PR Review, Stress Test & Docs Audit (mandatory)
+## Post-PR Review Pipeline (mandatory)
 
-After every PR is created and quality gates pass, run the three global skills **in order** before requesting user approval:
+After every PR is created and quality gates pass, run the following skills **in order** before requesting user approval. Each skill (except write-docs) runs as an **isolated sub-agent** with `context: fork` — this prevents cognitive bias between review stages and keeps verbose output contained. Only summaries bubble up to the main session.
 
-### Step 1: Code Review (`code-review` skill)
+### Step 1: UI/UX Review (`ui-ux-improve` skill — sub-agent, forked context)
 
-Invoke the `code-review` skill against the PR diff. The review must:
+Invoke the `ui-ux-improve` skill in an isolated sub-agent against the changed components:
+
+1. Audit all changed frontend components and their surrounding UI context
+2. Evaluate across all 10 categories: visual hierarchy, consistency, accessibility, responsive design, user feedback, simplicity, performance, typography, color, navigation
+3. Classify findings by severity (critical / major / minor)
+4. **Fix all findings** rated major or above immediately — commit the fixes to the same branch
+5. Fix minor findings as well unless there's a clear reason to defer
+6. Push the fixes and re-run quality gates before proceeding
+
+**Skip this step** if the PR contains no frontend/component changes.
+
+### Step 2: Security Review (`security` skill — sub-agent, forked context)
+
+After any UI/UX fixes are committed, invoke the `security` skill in an isolated sub-agent:
+
+1. Scope the PR diff for security-relevant changes (auth, config, tokens, API endpoints, storage, dependencies, LLM integration)
+2. Audit against all 6 security categories: credential protection, Google API security, Express endpoint security, LLM integration security, data persistence security, dependency security
+3. Classify findings by severity (CRITICAL / HIGH / MEDIUM / LOW)
+4. **Fix all findings** rated HIGH or above immediately — commit the fixes to the same branch
+5. Fix MEDIUM/LOW findings as well unless there's a clear reason to defer
+6. Push the fixes and re-run quality gates before proceeding
+
+**Skip this step** if the PR contains no security-relevant changes (pure UI-only, docs-only, or test-only PRs).
+
+### Step 3: Code Review (`code-review` skill — sub-agent, forked context)
+
+After any security fixes are committed, invoke the `code-review` skill in an isolated sub-agent:
 
 1. Scope the full diff (`git diff main...HEAD`)
 2. Read all changed files in full (not just hunks) for context
@@ -116,9 +142,9 @@ Invoke the `code-review` skill against the PR diff. The review must:
 6. Fix MEDIUM/LOW findings as well unless there's a clear reason to defer
 7. Push the fixes and re-run quality gates before proceeding
 
-### Step 2: Stress Testing (`debug-mode` skill)
+### Step 4: Stress Testing (`debug-mode` skill — sub-agent, forked context)
 
-After the code review fixes are committed, invoke the `debug-mode` skill:
+After the code review fixes are committed, invoke the `debug-mode` skill in an isolated sub-agent:
 
 1. Create an isolated debug branch from the feature branch
 2. Generate 3-5 hypotheses about what could break (edge cases, race conditions, data corruption, state bugs)
@@ -129,9 +155,9 @@ After the code review fixes are committed, invoke the `debug-mode` skill:
 7. Clean up the debug branch
 8. Push and re-run full quality gates
 
-### Step 3: Documentation Audit (`write-docs` skill)
+### Step 5: Documentation Audit (`write-docs` skill — main agent, shared context)
 
-After code review and stress testing pass, invoke the `write-docs` skill with the `audit` operation:
+After all isolated reviews pass, invoke the `write-docs` skill **in the main agent context** (not forked) with the `audit` operation. This runs in shared context so it can see the full history of what was reviewed, fixed, and tested:
 
 1. Audit all three documentation files (README.md, CLAUDE.md, SETUP.md) against the current codebase
 2. Check for gaps introduced by the PR: new files, new dependencies, changed descriptions, updated test counts, new env vars, new APIs
@@ -139,7 +165,7 @@ After code review and stress testing pass, invoke the `write-docs` skill with th
 4. **Fix all findings** — commit the doc updates to the same branch (or a separate `feature/update-docs-*` branch if the PR is already open)
 5. Push and re-run quality gates
 
-### Step 4: Skill Version Control
+### Step 6: Skill Version Control
 
 After all reviews pass, check for any new or modified skills that aren't tracked by git:
 
@@ -154,16 +180,34 @@ git ls-files --others --modified .claude/skills/
 
 All skills in `.claude/skills/` must be committed to the repo so they are versioned alongside the codebase.
 
+### Why This Order
+
+The pipeline is ordered to maximize independent analysis and minimize bias:
+
+1. **UI/UX first** — catches presentation issues before deeper code analysis
+2. **Security second** — runs in isolation so it's not influenced by UI review findings; catches vulnerabilities before general code review
+3. **Code review third** — reviews the full codebase quality independently, unbiased by prior security or UI findings
+4. **Stress testing fourth** — tests independently without anchoring to any review findings; forms its own hypotheses
+5. **Docs last (shared context)** — intentionally runs in shared context so it can document what all prior steps found and fixed
+
+Steps 1-4 run as isolated sub-agents (`context: fork`) to prevent cognitive anchoring between review stages. Step 5 runs in the main agent context because documentation benefits from seeing the full picture.
+
+### Git Operations During the Pipeline
+
+Any step in the pipeline may require non-trivial git operations (rebasing after fixes, resolving conflicts, cherry-picking stress tests, merging branches). For simple operations (`git add`, `git commit`, `git push`), use git directly. For complex operations (rebasing, conflict resolution, cascade syncing, cherry-picking across branches), invoke the **`git-ops` skill** which provides structured safety checks, rollback plans, and conflict resolution workflows.
+
 ### Output
 
-All four steps produce a structured summary for the user showing:
+All six steps produce a structured summary for the user showing:
+- UI/UX audit findings (with severity) and what was fixed
+- Security review findings (with severity) and what was fixed
 - Code review findings (with severity) and what was fixed
 - Hypothesis table with CONFIRMED/REFUTED verdicts
 - Documentation audit findings and what was updated
 - Any newly tracked skill files
 - Final test count and quality gate results
 
-Only after all four steps pass cleanly should the PR be presented to the user for merge approval.
+Only after all six steps pass cleanly should the PR be presented to the user for merge approval.
 
 ---
 

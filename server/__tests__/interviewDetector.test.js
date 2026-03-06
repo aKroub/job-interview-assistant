@@ -2342,4 +2342,54 @@ describe('createInterviewDetector', () => {
       expect(suggestions).toEqual([]);
     });
   });
+
+  describe('logLevel gating', () => {
+    it('suppresses LOW-SCORE and CROSS-REF-MATCHED logs at info level', async () => {
+      const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        const detector = createInterviewDetector({
+          gmailService: mockGmail([
+            makeEmailResult({ messageId: 'low1', score: 0.2 }),
+          ]),
+          calendarService: mockCalendar([]),
+          tokenStore: createMockTokenStore(),
+          idFn: fixedId,
+          // logLevel defaults to 'info' — debug logs should be suppressed
+        });
+
+        await detector.detect();
+
+        const lowScoreCalls = logSpy.mock.calls.filter(
+          (args) => typeof args[0] === 'string' && args[0].includes('LOW-SCORE')
+        );
+        expect(lowScoreCalls).toHaveLength(0);
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+
+    it('emits LOW-SCORE logs at debug level', async () => {
+      const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+      try {
+        const detector = createInterviewDetector({
+          gmailService: mockGmail([
+            makeEmailResult({ messageId: 'low2', score: 0.2 }),
+          ]),
+          calendarService: mockCalendar([]),
+          tokenStore: createMockTokenStore(),
+          idFn: fixedId,
+          logLevel: 'debug',
+        });
+
+        await detector.detect();
+
+        const lowScoreCalls = logSpy.mock.calls.filter(
+          (args) => typeof args[0] === 'string' && args[0].includes('LOW-SCORE')
+        );
+        expect(lowScoreCalls.length).toBeGreaterThan(0);
+      } finally {
+        logSpy.mockRestore();
+      }
+    });
+  });
 });

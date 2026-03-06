@@ -2318,6 +2318,7 @@ describe('H23: concurrent-detect-low-score — no duplicate low-score tracking',
       tokenStore: createMockTokenStore(),
       idFn: fixedId,
       llmExtractor: extractor,
+      logLevel: 'debug',
     });
 
     await detector.detect();
@@ -2469,7 +2470,7 @@ describe('H24: item-id-in-llm-logs — itemId propagated to all log lines', () =
 // ---------------------------------------------------------------------------
 describe('H25: low-score-skip-log — summary log on subsequent cycles', () => {
   it('logs skip count on second cycle when low-score items exist', async () => {
-    const logSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
     const extractor = mockLlmExtractor();
     const detector = createInterviewDetector({
@@ -2481,6 +2482,7 @@ describe('H25: low-score-skip-log — summary log on subsequent cycles', () => {
       tokenStore: createMockTokenStore(),
       idFn: fixedId,
       llmExtractor: extractor,
+      logLevel: 'debug',
     });
 
     // Cycle 1: items enriched, then marked low-score
@@ -2506,7 +2508,7 @@ describe('H25: low-score-skip-log — summary log on subsequent cycles', () => {
 // ---------------------------------------------------------------------------
 describe('H26: CROSS-REF-MATCHED log — fires when dismissed cross-ref leaves event with no suggestion', () => {
   it('logs CROSS-REF-MATCHED when email+event match is dismissed; includes eventId, summary, organizer, company, score, date', async () => {
-    const logSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
     const detector = createInterviewDetector({
       gmailService: mockGmail([
@@ -2533,6 +2535,7 @@ describe('H26: CROSS-REF-MATCHED log — fires when dismissed cross-ref leaves e
         { id: 'suggestion_msg-dismissed_evt-cross-ref', emailId: 'msg-dismissed', calendarId: '' },
       ]),
       idFn: fixedId,
+      logLevel: 'debug',
     });
 
     await detector.detect();
@@ -2635,7 +2638,7 @@ describe('H26: CROSS-REF-MATCHED log — fires when dismissed cross-ref leaves e
   });
 
   it('multiple dismissed cross-refs produce one CROSS-REF-MATCHED log per affected event', async () => {
-    const logSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
     const detector = createInterviewDetector({
       gmailService: mockGmail([
@@ -2651,6 +2654,7 @@ describe('H26: CROSS-REF-MATCHED log — fires when dismissed cross-ref leaves e
         { id: 'suggestion_msg-b_evt-b', emailId: 'msg-b', calendarId: '' },
       ]),
       idFn: fixedId,
+      logLevel: 'debug',
     });
 
     await detector.detect();
@@ -2809,7 +2813,7 @@ describe('H28: CROSS-REF-MATCHED guard runs before DISMISSED — correct orderin
     // - The cross-ref is dismissed (email dismissed via isDismissedComponent)
     // - The event is also independently dismissed as a calendarId
     // The matchedEventIds `continue` runs first → CROSS-REF-MATCHED fires, not DISMISSED
-    const logSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
     const detector = createInterviewDetector({
       gmailService: mockGmail([
@@ -2834,6 +2838,7 @@ describe('H28: CROSS-REF-MATCHED guard runs before DISMISSED — correct orderin
         { id: 'suggestion_msg-dismissed_evt-both', emailId: 'msg-dismissed', calendarId: 'evt-both' },
       ]),
       idFn: fixedId,
+      logLevel: 'debug',
     });
 
     await detector.detect();
@@ -2930,6 +2935,7 @@ describe('H29: events in successful cross-ref skip all low-score-tracking logs',
       ]),
       tokenStore: createMockTokenStore(),
       idFn: fixedId,
+      logLevel: 'debug',
     });
 
     await detector.detect();
@@ -3062,6 +3068,7 @@ describe('H30: DISMISSED event log fires exactly once per cycle, not accumulated
         { id: 'suggestion_calendar_evt-dismissed-mix', emailId: '', calendarId: 'evt-dismissed-mix' },
       ]),
       idFn: fixedId,
+      logLevel: 'debug',
     });
 
     // Cycle 1: dismissed logs DISMISSED, low-score logs LOW-SCORE

@@ -78,7 +78,7 @@ export function createApp(deps = {}) {
         })
       : null
   );
-  const detector        = deps.detector        || createInterviewDetector({ gmailService, calendarService, tokenStore, llmExtractor });
+  const detector        = deps.detector        || createInterviewDetector({ gmailService, calendarService, tokenStore, llmExtractor, logLevel: config.logLevel });
   const driveService    = deps.driveService    || createDriveService(authClient);
 
   const app = express();

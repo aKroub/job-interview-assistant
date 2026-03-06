@@ -56,9 +56,10 @@ const CALENDAR_ONLY_CONFIDENCE_FACTOR = 0.6;
  * @param {{ getDismissed: Function }} deps.tokenStore
  * @param {Function} [deps.idFn=Date.now] - injectable ID generator for testing
  * @param {Object|null} [deps.llmExtractor=null] - optional LLM extractor for enrichment
+ * @param {string} [deps.logLevel='info'] - log verbosity ('debug' shows per-cycle diagnostic logs)
  * @returns {{ detect: () => Promise<Object[]> }}
  */
-export function createInterviewDetector({ gmailService, calendarService, tokenStore, idFn = Date.now, llmExtractor = null, breakerThreshold = 2, maxCacheSize = 500 }) {
+export function createInterviewDetector({ gmailService, calendarService, tokenStore, idFn = Date.now, llmExtractor = null, breakerThreshold = 2, maxCacheSize = 500, logLevel = 'info' }) {
 
   /**
    * Circuit breaker state for LLM enrichment.
@@ -171,8 +172,8 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
       return event; // placeholder — will be replaced after API call
     });
 
-    if (lowScoreEmailSkips > 0 || lowScoreEventSkips > 0) {
-      console.debug(
+    if ((lowScoreEmailSkips > 0 || lowScoreEventSkips > 0) && logLevel === 'debug') {
+      console.log(
         `[interviewDetector] Skipped LLM extraction for ${lowScoreEmailSkips} low-score email(s) and ${lowScoreEventSkips} low-score event(s)`
       );
     }
@@ -491,12 +492,14 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
       if (dismissed.emailIds.has(email.messageId)) continue;
       if (lowScoreEmailIds.has(email.messageId)) continue;
       lowScoreEmailIds.add(email.messageId);
-      console.log(
-        `[interviewDetector] LOW-SCORE email (will skip future LLM extraction): ` +
-        `messageId=${email.messageId}, subject="${email.subject || 'N/A'}", ` +
-        `sender=${email.senderEmail || 'N/A'}, company=${email.companyName || 'N/A'}, ` +
-        `score=${email.score}, date=${email.extractedDate || 'N/A'}`
-      );
+      if (logLevel === 'debug') {
+        console.log(
+          `[interviewDetector] LOW-SCORE email (will skip future LLM extraction): ` +
+          `messageId=${email.messageId}, subject="${email.subject || 'N/A'}", ` +
+          `sender=${email.senderEmail || 'N/A'}, company=${email.companyName || 'N/A'}, ` +
+          `score=${email.score}, date=${email.extractedDate || 'N/A'}`
+        );
+      }
     }
 
     for (const event of calendarResults) {
@@ -510,12 +513,14 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
       // with future emails. Fires every cycle by design (no dedup guard, unlike
       // LOW-SCORE) — the extraction cache prevents repeated LLM API calls.
       if (matchedEventIds.has(event.eventId)) {
-        console.debug(
-          `[interviewDetector] CROSS-REF-MATCHED event (matched email in cross-referencing, no standalone suggestion): ` +
-          `eventId=${event.eventId}, summary="${event.summary || 'N/A'}", ` +
-          `organizer=${event.organizerEmail || 'N/A'}, company=${event.companyName || 'N/A'}, ` +
-          `score=${event.score}, date=${event.date || 'N/A'}`
-        );
+        if (logLevel === 'debug') {
+          console.log(
+            `[interviewDetector] CROSS-REF-MATCHED event (matched email in cross-referencing, no standalone suggestion): ` +
+            `eventId=${event.eventId}, summary="${event.summary || 'N/A'}", ` +
+            `organizer=${event.organizerEmail || 'N/A'}, company=${event.companyName || 'N/A'}, ` +
+            `score=${event.score}, date=${event.date || 'N/A'}`
+          );
+        }
         continue;
       }
 
@@ -536,12 +541,14 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
 
       if (lowScoreEventIds.has(event.eventId)) continue;
       lowScoreEventIds.add(event.eventId);
-      console.log(
-        `[interviewDetector] LOW-SCORE event (will skip future LLM extraction): ` +
-        `eventId=${event.eventId}, summary="${event.summary || 'N/A'}", ` +
-        `organizer=${event.organizerEmail || 'N/A'}, company=${event.companyName || 'N/A'}, ` +
-        `score=${event.score}, date=${event.date || 'N/A'}`
-      );
+      if (logLevel === 'debug') {
+        console.log(
+          `[interviewDetector] LOW-SCORE event (will skip future LLM extraction): ` +
+          `eventId=${event.eventId}, summary="${event.summary || 'N/A'}", ` +
+          `organizer=${event.organizerEmail || 'N/A'}, company=${event.companyName || 'N/A'}, ` +
+          `score=${event.score}, date=${event.date || 'N/A'}`
+        );
+      }
     }
 
     return suggestions;

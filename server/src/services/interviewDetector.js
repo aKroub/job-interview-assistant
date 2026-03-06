@@ -487,6 +487,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
 
     for (const email of emailResults) {
       if (suggestionEmailIds.has(email.messageId)) continue;
+      if (usedMessageIds.has(email.messageId)) continue;
       if (dismissed.emailIds.has(email.messageId)) continue;
       if (lowScoreEmailIds.has(email.messageId)) continue;
       lowScoreEmailIds.add(email.messageId);
@@ -500,6 +501,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
 
     for (const event of calendarResults) {
       if (suggestionEventIds.has(event.eventId)) continue;
+      if (usedEventIds.has(event.eventId) || matchedEventIds.has(event.eventId)) continue;
       if (dismissed.calendarIds.has(event.eventId)) continue;
       if (lowScoreEventIds.has(event.eventId)) continue;
       lowScoreEventIds.add(event.eventId);

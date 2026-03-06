@@ -81,6 +81,22 @@ Zero tolerance for warnings in the build and lint output. Fix them, don't suppre
 
 ---
 
+## Plan Review (mandatory)
+
+After writing a plan and before calling `ExitPlanMode`, invoke the `review-plan` skill as an **isolated sub-agent** (`context: fork`). The sub-agent independently reviews the plan across all 7 dimensions (simplicity, alternatives, error-prone patterns, UX, backwards compatibility, rollout, architecture) and returns findings with concrete, implementable suggestions.
+
+**Workflow:**
+1. Write the plan as usual
+2. Before calling `ExitPlanMode`, spawn a sub-agent with the `review-plan` skill and pass it the plan file path
+3. The sub-agent returns a structured review with findings and suggested fixes
+4. **Fix all BLOCKER and HIGH findings** — apply the sub-agent's suggested plan revisions
+5. Fix MEDIUM findings as well unless there's a clear reason to defer
+6. Only then call `ExitPlanMode` to present the improved plan to the user
+
+**Skip this step** for trivial plans (single-file changes, obvious fixes, purely mechanical refactors).
+
+---
+
 ## Pre-Merge Checklist
 
 Before opening any PR, confirm every item:

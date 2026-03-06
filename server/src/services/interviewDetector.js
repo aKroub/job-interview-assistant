@@ -172,7 +172,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
     });
 
     if (lowScoreEmailSkips > 0 || lowScoreEventSkips > 0) {
-      console.log(
+      console.debug(
         `[interviewDetector] Skipped LLM extraction for ${lowScoreEmailSkips} low-score email(s) and ${lowScoreEventSkips} low-score event(s)`
       );
     }
@@ -510,7 +510,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
       // with future emails. Fires every cycle by design (no dedup guard, unlike
       // LOW-SCORE) — the extraction cache prevents repeated LLM API calls.
       if (matchedEventIds.has(event.eventId)) {
-        console.log(
+        console.debug(
           `[interviewDetector] CROSS-REF-MATCHED event (matched email in cross-referencing, no standalone suggestion): ` +
           `eventId=${event.eventId}, summary="${event.summary || 'N/A'}", ` +
           `organizer=${event.organizerEmail || 'N/A'}, company=${event.companyName || 'N/A'}, ` +

@@ -501,8 +501,39 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
 
     for (const event of calendarResults) {
       if (suggestionEventIds.has(event.eventId)) continue;
-      if (usedEventIds.has(event.eventId) || matchedEventIds.has(event.eventId)) continue;
-      if (dismissed.calendarIds.has(event.eventId)) continue;
+      if (usedEventIds.has(event.eventId)) continue;
+
+      // Events that matched an email in cross-referencing but didn't produce a
+      // suggestion (e.g. the cross-ref was dismissed). Log them so the user can
+      // see why they didn't become suggestions. These are NOT added to
+      // lowScoreEventIds because they may still be needed for cross-referencing
+      // with future emails. Fires every cycle by design (no dedup guard, unlike
+      // LOW-SCORE) — the extraction cache prevents repeated LLM API calls.
+      if (matchedEventIds.has(event.eventId)) {
+        console.log(
+          `[interviewDetector] CROSS-REF-MATCHED event (matched email in cross-referencing, no standalone suggestion): ` +
+          `eventId=${event.eventId}, summary="${event.summary || 'N/A'}", ` +
+          `organizer=${event.organizerEmail || 'N/A'}, company=${event.companyName || 'N/A'}, ` +
+          `score=${event.score}, date=${event.date || 'N/A'}`
+        );
+        continue;
+      }
+
+      // Dismissed events are always enriched (for future cross-ref potential)
+      // but cannot produce calendar-only suggestions. Log them so the user
+      // sees why they went through LLM extraction without producing output.
+      // Fires every cycle by design (no dedup guard, unlike LOW-SCORE) — the
+      // extraction cache prevents repeated LLM API calls.
+      if (dismissed.calendarIds.has(event.eventId)) {
+        console.log(
+          `[interviewDetector] DISMISSED event (calendarId dismissed, enriched for cross-ref potential): ` +
+          `eventId=${event.eventId}, summary="${event.summary || 'N/A'}", ` +
+          `organizer=${event.organizerEmail || 'N/A'}, company=${event.companyName || 'N/A'}, ` +
+          `score=${event.score}, date=${event.date || 'N/A'}`
+        );
+        continue;
+      }
+
       if (lowScoreEventIds.has(event.eventId)) continue;
       lowScoreEventIds.add(event.eventId);
       console.log(

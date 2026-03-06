@@ -2499,3 +2499,587 @@ describe('H25: low-score-skip-log — summary log on subsequent cycles', () => {
     logSpy.mockRestore();
   });
 });
+
+// ---------------------------------------------------------------------------
+// H26: CROSS-REF-MATCHED log — fires for events whose cross-ref was dismissed
+//      and contains all expected fields
+// ---------------------------------------------------------------------------
+describe('H26: CROSS-REF-MATCHED log — fires when dismissed cross-ref leaves event with no suggestion', () => {
+  it('logs CROSS-REF-MATCHED when email+event match is dismissed; includes eventId, summary, organizer, company, score, date', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([
+        makeEmailResult({
+          messageId: 'msg-dismissed',
+          senderEmail: 'hr@acme.com',
+          senderDomain: 'acme.com',
+          companyName: 'acme',
+          score: 0.9,
+        }),
+      ]),
+      calendarService: mockCalendar([
+        makeCalendarResult({
+          eventId: 'evt-cross-ref',
+          summary: 'Acme Technical Interview',
+          organizerEmail: 'hr@acme.com',
+          companyName: 'acme',
+          score: 0.75,
+          date: '2025-01-20',
+        }),
+      ]),
+      tokenStore: createMockTokenStore([
+        // Dismiss by emailId — matchWasDismissed=true, no cross-ref suggestion
+        { id: 'suggestion_msg-dismissed_evt-cross-ref', emailId: 'msg-dismissed', calendarId: '' },
+      ]),
+      idFn: fixedId,
+    });
+
+    await detector.detect();
+
+    const allLogs = logSpy.mock.calls.map((c) => c[0]).filter((l) => typeof l === 'string');
+    const crossRefLogs = allLogs.filter((l) => l.includes('CROSS-REF-MATCHED'));
+
+    // Should fire exactly one CROSS-REF-MATCHED log for evt-cross-ref
+    expect(crossRefLogs).toHaveLength(1);
+    expect(crossRefLogs[0]).toContain('eventId=evt-cross-ref');
+    expect(crossRefLogs[0]).toContain('summary="Acme Technical Interview"');
+    expect(crossRefLogs[0]).toContain('organizer=hr@acme.com');
+    expect(crossRefLogs[0]).toContain('company=acme');
+    expect(crossRefLogs[0]).toContain('score=0.75');
+    expect(crossRefLogs[0]).toContain('date=2025-01-20');
+
+    // Event should NOT appear as LOW-SCORE (it matched an email)
+    const lowScoreLogs = allLogs.filter((l) => l.includes('LOW-SCORE event') && l.includes('evt-cross-ref'));
+    expect(lowScoreLogs).toHaveLength(0);
+
+    logSpy.mockRestore();
+  });
+
+  it('CROSS-REF-MATCHED event is NOT added to lowScoreEventIds — still participates in cross-ref on a new detector', async () => {
+    const eventCalls = [];
+    const extractor = mockLlmExtractor({
+      emailHandler: () => ({
+        dryModePrompt: null,
+        extraction: { company_name: null, date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+      }),
+      eventHandler: (summary) => {
+        eventCalls.push(summary);
+        return {
+          dryModePrompt: null,
+          extraction: { company_name: 'AcmeLlm', interview_type: null },
+        };
+      },
+    });
+
+    const dismissedTokenStore = createMockTokenStore([
+      { id: 'suggestion_msg-old_evt-match', emailId: 'msg-old', calendarId: '' },
+    ]);
+
+    // Detector with dismissed cross-ref — evt-match ends up in CROSS-REF-MATCHED state
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([
+        makeEmailResult({
+          messageId: 'msg-old',
+          senderEmail: 'hr@acme.com',
+          senderDomain: 'acme.com',
+          score: 0.9,
+        }),
+      ]),
+      calendarService: mockCalendar([
+        makeCalendarResult({
+          eventId: 'evt-match',
+          organizerEmail: 'hr@acme.com',
+          summary: 'Acme Interview',
+          date: '2025-01-20',
+          score: 0.7,
+        }),
+      ]),
+      tokenStore: dismissedTokenStore,
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    await detector.detect();
+    expect(eventCalls).toHaveLength(1);
+
+    // Fresh detector (simulating next server restart) with no dismissals:
+    // event is still cross-referable
+    eventCalls.length = 0;
+    const freshDetector = createInterviewDetector({
+      gmailService: mockGmail([
+        makeEmailResult({
+          messageId: 'msg-new',
+          senderEmail: 'hr@acme.com',
+          senderDomain: 'acme.com',
+          score: 0.9,
+        }),
+      ]),
+      calendarService: mockCalendar([
+        makeCalendarResult({
+          eventId: 'evt-match',
+          organizerEmail: 'hr@acme.com',
+          date: '2025-01-20',
+          score: 0.7,
+        }),
+      ]),
+      tokenStore: createMockTokenStore(), // no dismissals
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    const suggestions = await freshDetector.detect();
+    // Cross-ref should succeed (evt-match not in lowScoreEventIds of freshDetector)
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0].source).toBe('gmail+calendar');
+  });
+
+  it('multiple dismissed cross-refs produce one CROSS-REF-MATCHED log per affected event', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([
+        makeEmailResult({ messageId: 'msg-a', senderEmail: 'hr@a.com', senderDomain: 'a.com', score: 0.9 }),
+        makeEmailResult({ messageId: 'msg-b', senderEmail: 'hr@b.com', senderDomain: 'b.com', score: 0.9, extractedDate: '2025-02-01' }),
+      ]),
+      calendarService: mockCalendar([
+        makeCalendarResult({ eventId: 'evt-a', organizerEmail: 'hr@a.com', date: '2025-01-20', score: 0.7 }),
+        makeCalendarResult({ eventId: 'evt-b', organizerEmail: 'hr@b.com', date: '2025-02-01', score: 0.65 }),
+      ]),
+      tokenStore: createMockTokenStore([
+        { id: 'suggestion_msg-a_evt-a', emailId: 'msg-a', calendarId: '' },
+        { id: 'suggestion_msg-b_evt-b', emailId: 'msg-b', calendarId: '' },
+      ]),
+      idFn: fixedId,
+    });
+
+    await detector.detect();
+
+    const crossRefLogs = logSpy.mock.calls
+      .map((c) => c[0])
+      .filter((l) => typeof l === 'string' && l.includes('CROSS-REF-MATCHED'));
+
+    // One log per matched-but-dismissed event
+    expect(crossRefLogs).toHaveLength(2);
+    expect(crossRefLogs.some((l) => l.includes('evt-a'))).toBe(true);
+    expect(crossRefLogs.some((l) => l.includes('evt-b'))).toBe(true);
+
+    logSpy.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// H27: DISMISSED event log — fires only for calendarId-dismissed events that
+//      did not match any email, are not in usedEventIds or matchedEventIds
+// ---------------------------------------------------------------------------
+describe('H27: DISMISSED event log — fires for dismissed events not matched or used', () => {
+  it('logs DISMISSED for calendar-only-dismissed event and includes all expected fields', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([]), // no emails — event cannot be cross-referenced
+      calendarService: mockCalendar([
+        makeCalendarResult({
+          eventId: 'evt-dismissed',
+          summary: 'Dismissed Interview',
+          organizerEmail: 'hr@dismissed.com',
+          companyName: 'dismissedco',
+          score: 0.6,
+          date: '2025-03-15',
+        }),
+      ]),
+      tokenStore: createMockTokenStore([
+        { id: 'suggestion_calendar_evt-dismissed', emailId: '', calendarId: 'evt-dismissed' },
+      ]),
+      idFn: fixedId,
+    });
+
+    await detector.detect();
+
+    const allLogs = logSpy.mock.calls.map((c) => c[0]).filter((l) => typeof l === 'string');
+    const dismissedLogs = allLogs.filter((l) => l.includes('DISMISSED event'));
+
+    expect(dismissedLogs).toHaveLength(1);
+    expect(dismissedLogs[0]).toContain('eventId=evt-dismissed');
+    expect(dismissedLogs[0]).toContain('summary="Dismissed Interview"');
+    expect(dismissedLogs[0]).toContain('organizer=hr@dismissed.com');
+    expect(dismissedLogs[0]).toContain('company=dismissedco');
+    expect(dismissedLogs[0]).toContain('score=0.6');
+    expect(dismissedLogs[0]).toContain('date=2025-03-15');
+
+    // Must not appear in LOW-SCORE or CROSS-REF-MATCHED logs
+    const lowScore = allLogs.filter((l) => l.includes('LOW-SCORE event') && l.includes('evt-dismissed'));
+    const crossRef = allLogs.filter((l) => l.includes('CROSS-REF-MATCHED') && l.includes('evt-dismissed'));
+    expect(lowScore).toHaveLength(0);
+    expect(crossRef).toHaveLength(0);
+
+    logSpy.mockRestore();
+  });
+
+  it('dismissed event that produced a successful cross-ref suggestion does NOT trigger DISMISSED log', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    // Event dismissed by calendarId, but new email arrives → cross-ref suggestion produced
+    // Event goes into usedEventIds → the outer loop's first `continue` fires before DISMISSED log
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([
+        makeEmailResult({
+          messageId: 'fresh-email',
+          senderEmail: 'hr@acme.com',
+          senderDomain: 'acme.com',
+          score: 0.9,
+          extractedDate: '2025-01-20',
+        }),
+      ]),
+      calendarService: mockCalendar([
+        makeCalendarResult({
+          eventId: 'evt-cal-dismissed',
+          organizerEmail: 'hr@acme.com',
+          date: '2025-01-20',
+          score: 0.7,
+        }),
+      ]),
+      tokenStore: createMockTokenStore([
+        // Only calendarId dismissed — new email can still cross-ref
+        { id: 'old-suggestion', emailId: '', calendarId: 'evt-cal-dismissed' },
+      ]),
+      idFn: fixedId,
+    });
+
+    const suggestions = await detector.detect();
+
+    // Cross-ref suggestion should be produced
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0].source).toBe('gmail+calendar');
+
+    const allLogs = logSpy.mock.calls.map((c) => c[0]).filter((l) => typeof l === 'string');
+
+    // Event used in suggestion → in usedEventIds → DISMISSED log must NOT fire
+    const dismissedLogs = allLogs.filter((l) => l.includes('DISMISSED event') && l.includes('evt-cal-dismissed'));
+    expect(dismissedLogs).toHaveLength(0);
+
+    logSpy.mockRestore();
+  });
+
+  it('dismissed event with missing optional fields logs N/A placeholders correctly', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([]),
+      calendarService: mockCalendar([
+        makeCalendarResult({
+          eventId: 'evt-sparse',
+          summary: '',        // empty → should log N/A
+          organizerEmail: '', // empty → should log N/A
+          companyName: '',    // empty → should log N/A
+          date: '',           // empty → should log N/A
+          score: 0.5,
+        }),
+      ]),
+      tokenStore: createMockTokenStore([
+        { id: 'suggestion_calendar_evt-sparse', emailId: '', calendarId: 'evt-sparse' },
+      ]),
+      idFn: fixedId,
+    });
+
+    await detector.detect();
+
+    const allLogs = logSpy.mock.calls.map((c) => c[0]).filter((l) => typeof l === 'string');
+    const dismissedLogs = allLogs.filter((l) => l.includes('DISMISSED event') && l.includes('evt-sparse'));
+
+    expect(dismissedLogs).toHaveLength(1);
+    // Fields that are empty should use N/A fallback
+    expect(dismissedLogs[0]).toContain('summary="N/A"');
+    expect(dismissedLogs[0]).toContain('organizer=N/A');
+    expect(dismissedLogs[0]).toContain('company=N/A');
+    expect(dismissedLogs[0]).toContain('date=N/A');
+
+    logSpy.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// H28: CROSS-REF-MATCHED guard runs before DISMISSED guard — ordering is
+//      correct when an event is both in matchedEventIds and calendarIds
+// ---------------------------------------------------------------------------
+describe('H28: CROSS-REF-MATCHED guard runs before DISMISSED — correct ordering', () => {
+  it('event matched AND calendarId-dismissed logs CROSS-REF-MATCHED (not DISMISSED)', async () => {
+    // An event that appears in both matchedEventIds and dismissed.calendarIds:
+    // - The email cross-refs the event → matchedEventIds.add(event.eventId)
+    // - The cross-ref is dismissed (email dismissed via isDismissedComponent)
+    // - The event is also independently dismissed as a calendarId
+    // The matchedEventIds `continue` runs first → CROSS-REF-MATCHED fires, not DISMISSED
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([
+        makeEmailResult({
+          messageId: 'msg-dismissed',
+          senderEmail: 'hr@acme.com',
+          senderDomain: 'acme.com',
+          score: 0.9,
+        }),
+      ]),
+      calendarService: mockCalendar([
+        makeCalendarResult({
+          eventId: 'evt-both',
+          organizerEmail: 'hr@acme.com',
+          date: '2025-01-20',
+          summary: 'Acme Interview',
+          score: 0.7,
+        }),
+      ]),
+      tokenStore: createMockTokenStore([
+        // Both emailId dismissed AND calendarId dismissed
+        { id: 'suggestion_msg-dismissed_evt-both', emailId: 'msg-dismissed', calendarId: 'evt-both' },
+      ]),
+      idFn: fixedId,
+    });
+
+    await detector.detect();
+
+    const allLogs = logSpy.mock.calls.map((c) => c[0]).filter((l) => typeof l === 'string');
+
+    // matchedEventIds check runs first → CROSS-REF-MATCHED fires
+    const crossRefLogs = allLogs.filter((l) => l.includes('CROSS-REF-MATCHED') && l.includes('evt-both'));
+    expect(crossRefLogs).toHaveLength(1);
+
+    // DISMISSED log must NOT fire for this event (blocked by the earlier `continue`)
+    const dismissedLogs = allLogs.filter((l) => l.includes('DISMISSED event') && l.includes('evt-both'));
+    expect(dismissedLogs).toHaveLength(0);
+
+    // LOW-SCORE log must NOT fire either
+    const lowScoreLogs = allLogs.filter((l) => l.includes('LOW-SCORE event') && l.includes('evt-both'));
+    expect(lowScoreLogs).toHaveLength(0);
+
+    logSpy.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// H29: Events used in a successful cross-ref suggestion are not logged at all
+//      in the low-score tracking section (usedEventIds early-continue fires)
+// ---------------------------------------------------------------------------
+describe('H29: events in successful cross-ref skip all low-score-tracking logs', () => {
+  it('cross-ref suggestion event does not appear in CROSS-REF-MATCHED, DISMISSED, or LOW-SCORE logs', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([
+        makeEmailResult({
+          messageId: 'msg-active',
+          senderEmail: 'hr@acme.com',
+          senderDomain: 'acme.com',
+          score: 0.9,
+          extractedDate: '2025-01-20',
+        }),
+      ]),
+      calendarService: mockCalendar([
+        makeCalendarResult({
+          eventId: 'evt-used',
+          organizerEmail: 'hr@acme.com',
+          date: '2025-01-20',
+          score: 0.8,
+        }),
+      ]),
+      tokenStore: createMockTokenStore(), // no dismissals
+      idFn: fixedId,
+    });
+
+    const suggestions = await detector.detect();
+
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions[0].source).toBe('gmail+calendar');
+    expect(suggestions[0].calendarEventId).toBe('evt-used');
+
+    const allLogs = logSpy.mock.calls.map((c) => c[0]).filter((l) => typeof l === 'string');
+
+    const logsForEvt = allLogs.filter((l) => l.includes('evt-used'));
+    // No log of any kind for the used event
+    expect(logsForEvt).toHaveLength(0);
+
+    logSpy.mockRestore();
+  });
+
+  it('when one event is used and another is low-score, only the low-score event is logged', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([
+        makeEmailResult({
+          messageId: 'msg1',
+          senderEmail: 'hr@acme.com',
+          senderDomain: 'acme.com',
+          score: 0.9,
+          extractedDate: '2025-01-20',
+        }),
+      ]),
+      calendarService: mockCalendar([
+        makeCalendarResult({
+          eventId: 'evt-used',
+          organizerEmail: 'hr@acme.com',
+          date: '2025-01-20',
+          score: 0.8,
+        }),
+        makeCalendarResult({
+          eventId: 'evt-lowscore',
+          organizerEmail: 'hr@other.com',
+          date: '2025-03-01',
+          score: 0.3, // below CALENDAR_ONLY_MIN_SCORE
+        }),
+      ]),
+      tokenStore: createMockTokenStore(),
+      idFn: fixedId,
+    });
+
+    await detector.detect();
+
+    const allLogs = logSpy.mock.calls.map((c) => c[0]).filter((l) => typeof l === 'string');
+
+    // Used event: no log
+    const usedLogs = allLogs.filter((l) => l.includes('evt-used'));
+    expect(usedLogs).toHaveLength(0);
+
+    // Low-score event: exactly one LOW-SCORE log
+    const lowScoreLogs = allLogs.filter((l) => l.includes('LOW-SCORE event') && l.includes('evt-lowscore'));
+    expect(lowScoreLogs).toHaveLength(1);
+
+    logSpy.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// H30: DISMISSED event log fires once per cycle and once per item total —
+//      dismissed events are NOT added to lowScoreEventIds, so no double-log
+// ---------------------------------------------------------------------------
+describe('H30: DISMISSED event log fires exactly once per cycle, not accumulated across cycles', () => {
+  it('repeated detect() cycles each emit one DISMISSED log per dismissed event', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([]),
+      calendarService: mockCalendar([
+        makeCalendarResult({
+          eventId: 'evt-repeat-dismissed',
+          summary: 'Repeat Interview',
+          organizerEmail: 'hr@repeat.com',
+          companyName: 'repeatco',
+          score: 0.6,
+          date: '2025-04-01',
+        }),
+      ]),
+      tokenStore: createMockTokenStore([
+        { id: 'suggestion_calendar_evt-repeat-dismissed', emailId: '', calendarId: 'evt-repeat-dismissed' },
+      ]),
+      idFn: fixedId,
+    });
+
+    await detector.detect();
+    await detector.detect();
+    await detector.detect();
+
+    const allLogs = logSpy.mock.calls.map((c) => c[0]).filter((l) => typeof l === 'string');
+    const dismissedLogs = allLogs.filter((l) => l.includes('DISMISSED event') && l.includes('evt-repeat-dismissed'));
+
+    // One log per cycle (3 cycles = 3 logs) — not deduped (unlike LOW-SCORE)
+    // because dismissed events are intentionally not added to lowScoreEventIds
+    expect(dismissedLogs).toHaveLength(3);
+
+    // LOW-SCORE log must never fire for this event (the `continue` after DISMISSED prevents it)
+    const lowScoreLogs = allLogs.filter((l) => l.includes('LOW-SCORE event') && l.includes('evt-repeat-dismissed'));
+    expect(lowScoreLogs).toHaveLength(0);
+
+    logSpy.mockRestore();
+  });
+
+  it('dismissed events bypass lowScoreEventIds — LLM called on first cycle, cache used thereafter', async () => {
+    // Dismissed events are NOT added to lowScoreEventIds (the `continue` after the
+    // DISMISSED log prevents it). However, the LLM extraction result IS cached after
+    // the first successful call, so subsequent cycles use the cache rather than re-calling
+    // the LLM. The key distinction: a low-score event is gated out via lowScoreEventIds
+    // (never passes the cache check), while a dismissed event always reaches the cache
+    // check and benefits from the cached result on cycles 2+.
+    let eventCallCount = 0;
+    const extractor = mockLlmExtractor({
+      eventHandler: () => {
+        eventCallCount++;
+        return {
+          dryModePrompt: null,
+          extraction: { company_name: 'LlmCo', interview_type: null },
+        };
+      },
+    });
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([]),
+      calendarService: mockCalendar([
+        makeCalendarResult({
+          eventId: 'evt-dismissed-repeat',
+          summary: 'Dismissed Interview',
+          score: 0.6,
+        }),
+      ]),
+      tokenStore: createMockTokenStore([
+        { id: 'suggestion_calendar_evt-dismissed-repeat', emailId: '', calendarId: 'evt-dismissed-repeat' },
+      ]),
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    // Cycle 1: LLM called, result cached
+    await detector.detect();
+    expect(eventCallCount).toBe(1);
+
+    // Cycles 2 and 3: cache hit — LLM NOT called again, but event is NOT in
+    // lowScoreEventIds so it still goes through enrichWithLlm (just hits the cache)
+    await detector.detect();
+    await detector.detect();
+    expect(eventCallCount).toBe(1); // still 1 — cache used, not low-scored out
+  });
+
+  it('mixed: one dismissed event and one low-score event — each follows its own path', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([]),
+      calendarService: mockCalendar([
+        makeCalendarResult({
+          eventId: 'evt-dismissed-mix',
+          summary: 'Dismissed Mix',
+          organizerEmail: 'hr@dismissed.com',
+          score: 0.6,
+          date: '2025-05-01',
+        }),
+        makeCalendarResult({
+          eventId: 'evt-lowscore-mix',
+          summary: 'Low Score Mix',
+          organizerEmail: 'hr@lowscore.com',
+          score: 0.3, // below CALENDAR_ONLY_MIN_SCORE (0.5)
+          date: '2025-05-02',
+        }),
+      ]),
+      tokenStore: createMockTokenStore([
+        { id: 'suggestion_calendar_evt-dismissed-mix', emailId: '', calendarId: 'evt-dismissed-mix' },
+      ]),
+      idFn: fixedId,
+    });
+
+    // Cycle 1: dismissed logs DISMISSED, low-score logs LOW-SCORE
+    await detector.detect();
+
+    // Cycle 2: dismissed logs DISMISSED again, low-score is now in set (skipped)
+    await detector.detect();
+
+    const allLogs = logSpy.mock.calls.map((c) => c[0]).filter((l) => typeof l === 'string');
+
+    // Dismissed event: 2 DISMISSED logs (one per cycle)
+    const dismissedLogs = allLogs.filter((l) => l.includes('DISMISSED event') && l.includes('evt-dismissed-mix'));
+    expect(dismissedLogs).toHaveLength(2);
+
+    // Low-score event: 1 LOW-SCORE log (only on cycle 1; cycle 2 skips via lowScoreEventIds)
+    const lowScoreLogs = allLogs.filter((l) => l.includes('LOW-SCORE event') && l.includes('evt-lowscore-mix'));
+    expect(lowScoreLogs).toHaveLength(1);
+
+    logSpy.mockRestore();
+  });
+});

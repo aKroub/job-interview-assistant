@@ -1,6 +1,7 @@
 ---
 name: debug-mode
 description: Use when encountering any bug, test failure, or unexpected behavior - aggressive auto-reproduction with instrumented logging, hypothesis-driven debugging, and mandatory regression tests
+context: fork
 ---
 
 # Debug Mode

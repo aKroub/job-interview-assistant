@@ -5,6 +5,7 @@ description: >
   or says "review", "code review", "PR review", "check my code", "look over this",
   "audit", "what do you think of this code", "review these changes", "is this ready to merge".
   Also use proactively after completing a multi-file implementation before committing.
+context: fork
 ---
 
 # Code Review

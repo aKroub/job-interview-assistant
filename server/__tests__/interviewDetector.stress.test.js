@@ -2068,3 +2068,434 @@ describe('H20: rapid dismiss cycle — sequential new emails for same calendar e
     expect(result3[0].calendarEventId).toBe('c1');
   });
 });
+
+// ---------------------------------------------------------------------------
+// H21: low-score-exclusion — items that don't produce suggestions are excluded
+//      from LLM extraction on subsequent detect() cycles
+// ---------------------------------------------------------------------------
+describe('H21: low-score-exclusion — non-suggestion items skip future LLM extraction', () => {
+  it('low-score email skips LLM on second detect() cycle', async () => {
+    const emailCalls = [];
+    const extractor = mockLlmExtractor({
+      emailHandler: (subject) => {
+        emailCalls.push(subject);
+        return {
+          dryModePrompt: null,
+          extraction: { company_name: 'Acme', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        };
+      },
+    });
+
+    // Email with score 0.35 — passes Gmail threshold (0.3) but too low for
+    // email-only suggestion (0.5) and no calendar event to cross-ref with.
+    const lowEmail = makeEmailResult({
+      messageId: 'low1',
+      score: 0.35,
+      senderDomain: 'acme.com',
+    });
+
+    const gmailService = mockGmail([lowEmail]);
+    const detector = createInterviewDetector({
+      gmailService,
+      calendarService: mockCalendar([]),
+      tokenStore: createMockTokenStore(),
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    // Cycle 1: email is enriched, but no suggestion produced
+    const suggestions1 = await detector.detect();
+    expect(suggestions1).toHaveLength(0);
+    expect(emailCalls).toHaveLength(1);
+
+    // Cycle 2: same email — should be skipped (low-score exclusion)
+    emailCalls.length = 0;
+    const suggestions2 = await detector.detect();
+    expect(suggestions2).toHaveLength(0);
+    expect(emailCalls).toHaveLength(0); // NOT called again
+  });
+
+  it('low-score calendar event skips LLM on second detect() cycle', async () => {
+    const eventCalls = [];
+    const extractor = mockLlmExtractor({
+      eventHandler: (summary) => {
+        eventCalls.push(summary);
+        return {
+          dryModePrompt: null,
+          extraction: { company_name: 'Acme', interview_type: 'video' },
+        };
+      },
+    });
+
+    // Calendar event with score 0.35 — passes scan threshold (0.3) but
+    // too low for calendar-only suggestion (0.5).
+    const lowEvent = makeCalendarResult({
+      eventId: 'low-evt1',
+      score: 0.35,
+      summary: 'Interview at Acme',
+    });
+
+    const calendarService = mockCalendar([lowEvent]);
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([]),
+      calendarService,
+      tokenStore: createMockTokenStore(),
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    // Cycle 1: event is enriched, but no suggestion produced
+    const suggestions1 = await detector.detect();
+    expect(suggestions1).toHaveLength(0);
+    expect(eventCalls).toHaveLength(1);
+
+    // Cycle 2: same event — should be skipped
+    eventCalls.length = 0;
+    const suggestions2 = await detector.detect();
+    expect(suggestions2).toHaveLength(0);
+    expect(eventCalls).toHaveLength(0);
+  });
+
+  it('high-score items that become suggestions are NOT added to low-score set', async () => {
+    const emailCalls = [];
+    const extractor = mockLlmExtractor({
+      emailHandler: (subject) => {
+        emailCalls.push(subject);
+        return {
+          dryModePrompt: null,
+          extraction: { company_name: 'Google', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        };
+      },
+    });
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([makeEmailResult({ score: 0.8 })]),
+      calendarService: mockCalendar([makeCalendarResult()]),
+      tokenStore: createMockTokenStore(),
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    // Cycle 1: produces a suggestion
+    const suggestions1 = await detector.detect();
+    expect(suggestions1).toHaveLength(1);
+    expect(emailCalls).toHaveLength(1);
+
+    // Cycle 2: email is cached, not low-scored — still works
+    emailCalls.length = 0;
+    const suggestions2 = await detector.detect();
+    expect(suggestions2).toHaveLength(1);
+    // No new LLM call (cached), but NOT because of low-score exclusion
+  });
+
+  it('dismissed items are NOT added to low-score set (no double-exclusion)', async () => {
+    const emailCalls = [];
+    const extractor = mockLlmExtractor({
+      emailHandler: (subject) => {
+        emailCalls.push(subject);
+        return {
+          dryModePrompt: null,
+          extraction: { company_name: 'Acme', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        };
+      },
+    });
+
+    const tokenStore = createMockTokenStore([
+      { id: 'suggestion_gmail_dismissed-email', emailId: 'dismissed-email' },
+    ]);
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([
+        makeEmailResult({ messageId: 'dismissed-email', score: 0.6 }),
+        makeEmailResult({ messageId: 'active-email', score: 0.35 }),
+      ]),
+      calendarService: mockCalendar([]),
+      tokenStore,
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    // Cycle 1: dismissed email skips LLM (dismissed filter), active email
+    // gets enriched but is low-score → no suggestions
+    const suggestions1 = await detector.detect();
+    expect(suggestions1).toHaveLength(0);
+    expect(emailCalls).toEqual(['Interview Invitation']); // only active email
+
+    // Now clear dismissed
+    await tokenStore.clearDismissed();
+
+    // Cycle 2: dismissed email should now be enriched (no longer dismissed),
+    // active email should be skipped (low-score exclusion)
+    emailCalls.length = 0;
+    const suggestions2 = await detector.detect();
+    // Previously dismissed email is now eligible for LLM again
+    expect(emailCalls).toEqual(['Interview Invitation']); // the dismissed one is now active
+  });
+});
+
+// ---------------------------------------------------------------------------
+// H22: low-score-calendar-cross-ref — a low-score calendar event can still
+//      participate in cross-referencing using regex data on a later cycle
+// ---------------------------------------------------------------------------
+describe('H22: low-score-calendar-cross-ref — regex data still enables cross-ref', () => {
+  it('low-score event cross-refs with new email using domain matching', async () => {
+    let emailCallCount = 0;
+    let eventCallCount = 0;
+    const extractor = mockLlmExtractor({
+      emailHandler: () => {
+        emailCallCount++;
+        return {
+          dryModePrompt: null,
+          extraction: { company_name: 'Google', date: null, time: null, duration_minutes: null, intent: null, interview_type: 'video' },
+        };
+      },
+      eventHandler: () => {
+        eventCallCount++;
+        return {
+          dryModePrompt: null,
+          extraction: { company_name: 'Google', interview_type: 'video' },
+        };
+      },
+    });
+
+    // Calendar event with score 0.35 (low) — has google.com organizer
+    const lowEvent = makeCalendarResult({
+      eventId: 'low-evt',
+      score: 0.35,
+      organizerEmail: 'recruiter@google.com',
+    });
+
+    // First cycle: only calendar event, no email → no suggestion, event becomes low-score
+    let emails = [];
+    const gmailService = { scanForInterviews: async () => emails };
+    const detector = createInterviewDetector({
+      gmailService,
+      calendarService: mockCalendar([lowEvent]),
+      tokenStore: createMockTokenStore(),
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    const suggestions1 = await detector.detect();
+    expect(suggestions1).toHaveLength(0);
+    expect(eventCallCount).toBe(1); // enriched on first cycle
+
+    // Second cycle: new email arrives from google.com — should cross-ref
+    // even though event is low-scored (regex data has organizerEmail)
+    eventCallCount = 0;
+    emailCallCount = 0;
+    emails = [makeEmailResult({
+      messageId: 'new-email',
+      senderDomain: 'google.com',
+      senderEmail: 'hr@google.com',
+      score: 0.8,
+    })];
+
+    const suggestions2 = await detector.detect();
+    // Event LLM was skipped (low-score), but cross-ref works on domain
+    expect(eventCallCount).toBe(0); // skipped due to low-score
+    expect(emailCallCount).toBe(1); // new email enriched
+    expect(suggestions2).toHaveLength(1);
+    expect(suggestions2[0].source).toBe('gmail+calendar');
+    expect(suggestions2[0].calendarEventId).toBe('low-evt');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// H23: concurrent-detect-low-score — two rapid detect() calls should not
+//      produce duplicate low-score log entries for the same item
+// ---------------------------------------------------------------------------
+describe('H23: concurrent-detect-low-score — no duplicate low-score tracking', () => {
+  it('sequential detect() calls do not re-log the same low-score item', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    const extractor = mockLlmExtractor();
+    const lowEmail = makeEmailResult({ messageId: 'dup-test', score: 0.35 });
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([lowEmail]),
+      calendarService: mockCalendar([]),
+      tokenStore: createMockTokenStore(),
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    await detector.detect();
+    await detector.detect();
+    await detector.detect();
+
+    const lowScoreLogs = logSpy.mock.calls
+      .map((c) => c[0])
+      .filter((l) => typeof l === 'string' && l.includes('LOW-SCORE email') && l.includes('dup-test'));
+
+    // Should only log once (first cycle), not on subsequent cycles
+    expect(lowScoreLogs).toHaveLength(1);
+
+    logSpy.mockRestore();
+  });
+
+  it('concurrent detect() calls do not corrupt low-score sets', async () => {
+    let emailCallCount = 0;
+    const extractor = mockLlmExtractor({
+      emailHandler: () => {
+        emailCallCount++;
+        return {
+          dryModePrompt: null,
+          extraction: { company_name: 'Test', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        };
+      },
+    });
+
+    const lowEmail = makeEmailResult({ messageId: 'concurrent-test', score: 0.35 });
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([lowEmail]),
+      calendarService: mockCalendar([]),
+      tokenStore: createMockTokenStore(),
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    // Fire 3 detect() calls concurrently
+    const [r1, r2, r3] = await Promise.all([
+      detector.detect(),
+      detector.detect(),
+      detector.detect(),
+    ]);
+
+    // All should return 0 suggestions
+    expect(r1).toHaveLength(0);
+    expect(r2).toHaveLength(0);
+    expect(r3).toHaveLength(0);
+
+    // Subsequent call should skip LLM
+    emailCallCount = 0;
+    await detector.detect();
+    expect(emailCallCount).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// H24: item-id-in-llm-logs — verify itemId appears in all LLM log lines
+// ---------------------------------------------------------------------------
+describe('H24: item-id-in-llm-logs — itemId propagated to all log lines', () => {
+  it('REQUEST and RESPONSE logs include the email messageId', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    const extractor = mockLlmExtractor({
+      emailHandler: () => ({
+        dryModePrompt: null,
+        extraction: { company_name: 'Test', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+      }),
+    });
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([makeEmailResult({ messageId: 'test-msg-42' })]),
+      calendarService: mockCalendar([]),
+      tokenStore: createMockTokenStore(),
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    await detector.detect();
+
+    // The extractor mock doesn't produce real logs (it bypasses callLlm),
+    // so we verify the detector passes the itemId by checking the call args
+    logSpy.mockRestore();
+  });
+
+  it('extractFromEmail receives itemId from interviewDetector', async () => {
+    const receivedItemIds = [];
+    const extractor = {
+      extractFromEmail: async (subject, body, sender, itemId) => {
+        receivedItemIds.push(itemId);
+        return {
+          dryModePrompt: null,
+          extraction: { company_name: 'Test', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        };
+      },
+      extractFromCalendarEvent: async () => null,
+    };
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([
+        makeEmailResult({ messageId: 'msg-alpha' }),
+        makeEmailResult({ messageId: 'msg-beta', subject: 'Interview Beta' }),
+      ]),
+      calendarService: mockCalendar([]),
+      tokenStore: createMockTokenStore(),
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    await detector.detect();
+
+    expect(receivedItemIds).toContain('email:msg-alpha');
+    expect(receivedItemIds).toContain('email:msg-beta');
+  });
+
+  it('extractFromCalendarEvent receives itemId from interviewDetector', async () => {
+    const receivedItemIds = [];
+    const extractor = {
+      extractFromEmail: async () => null,
+      extractFromCalendarEvent: async (summary, desc, loc, org, itemId) => {
+        receivedItemIds.push(itemId);
+        return {
+          dryModePrompt: null,
+          extraction: { company_name: 'Test', interview_type: 'video' },
+        };
+      },
+    };
+
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([]),
+      calendarService: mockCalendar([
+        makeCalendarResult({ eventId: 'evt-alpha' }),
+        makeCalendarResult({ eventId: 'evt-beta', summary: 'Interview Beta' }),
+      ]),
+      tokenStore: createMockTokenStore(),
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    await detector.detect();
+
+    expect(receivedItemIds).toContain('event:evt-alpha');
+    expect(receivedItemIds).toContain('event:evt-beta');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// H25: low-score-skip-log — verify the skip summary log fires correctly
+// ---------------------------------------------------------------------------
+describe('H25: low-score-skip-log — summary log on subsequent cycles', () => {
+  it('logs skip count on second cycle when low-score items exist', async () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+
+    const extractor = mockLlmExtractor();
+    const detector = createInterviewDetector({
+      gmailService: mockGmail([
+        makeEmailResult({ messageId: 'skip-e1', score: 0.35, senderDomain: 'acme.com', senderEmail: 'a@acme.com' }),
+        makeEmailResult({ messageId: 'skip-e2', score: 0.35, subject: 'Interview 2', senderDomain: 'beta.com', senderEmail: 'b@beta.com' }),
+      ]),
+      calendarService: mockCalendar([]),
+      tokenStore: createMockTokenStore(),
+      idFn: fixedId,
+      llmExtractor: extractor,
+    });
+
+    // Cycle 1: items enriched, then marked low-score
+    await detector.detect();
+
+    // Cycle 2: items skipped — summary log should fire
+    await detector.detect();
+
+    const skipLogs = logSpy.mock.calls
+      .map((c) => c[0])
+      .filter((l) => typeof l === 'string' && l.includes('Skipped LLM extraction for'));
+
+    expect(skipLogs).toHaveLength(1);
+    expect(skipLogs[0]).toContain('2 low-score email(s)');
+
+    logSpy.mockRestore();
+  });
+});

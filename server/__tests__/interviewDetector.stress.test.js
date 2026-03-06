@@ -2469,7 +2469,7 @@ describe('H24: item-id-in-llm-logs — itemId propagated to all log lines', () =
 // ---------------------------------------------------------------------------
 describe('H25: low-score-skip-log — summary log on subsequent cycles', () => {
   it('logs skip count on second cycle when low-score items exist', async () => {
-    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const logSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
 
     const extractor = mockLlmExtractor();
     const detector = createInterviewDetector({
@@ -2506,7 +2506,7 @@ describe('H25: low-score-skip-log — summary log on subsequent cycles', () => {
 // ---------------------------------------------------------------------------
 describe('H26: CROSS-REF-MATCHED log — fires when dismissed cross-ref leaves event with no suggestion', () => {
   it('logs CROSS-REF-MATCHED when email+event match is dismissed; includes eventId, summary, organizer, company, score, date', async () => {
-    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const logSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
 
     const detector = createInterviewDetector({
       gmailService: mockGmail([
@@ -2635,7 +2635,7 @@ describe('H26: CROSS-REF-MATCHED log — fires when dismissed cross-ref leaves e
   });
 
   it('multiple dismissed cross-refs produce one CROSS-REF-MATCHED log per affected event', async () => {
-    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const logSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
 
     const detector = createInterviewDetector({
       gmailService: mockGmail([
@@ -2809,7 +2809,7 @@ describe('H28: CROSS-REF-MATCHED guard runs before DISMISSED — correct orderin
     // - The cross-ref is dismissed (email dismissed via isDismissedComponent)
     // - The event is also independently dismissed as a calendarId
     // The matchedEventIds `continue` runs first → CROSS-REF-MATCHED fires, not DISMISSED
-    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const logSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
 
     const detector = createInterviewDetector({
       gmailService: mockGmail([

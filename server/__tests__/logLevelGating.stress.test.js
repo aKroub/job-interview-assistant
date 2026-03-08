@@ -357,12 +357,12 @@ describe('H2: default logLevel is info — no debug logs without explicit opt-in
 });
 
 // ===========================================================================
-// H3: DISMISSED event log (not gated) still fires correctly at info level
+// H3: DISMISSED event log is gated behind logLevel === 'debug'
 //
-// The DISMISSED event log on lines 533-540 is intentionally NOT gated by
-// logLevel — it should fire at both 'info' and 'debug' levels.
+// The DISMISSED event log is gated by logLevel — it should only fire at
+// 'debug' level, not at 'info' (the default).
 // ===========================================================================
-describe('H3: DISMISSED event log fires regardless of logLevel', () => {
+describe('H3: DISMISSED event log is gated behind logLevel debug', () => {
   /**
    * Creates a detector with a dismissed calendar-only event that triggers the
    * DISMISSED event log path. The event must:
@@ -394,14 +394,13 @@ describe('H3: DISMISSED event log fires regardless of logLevel', () => {
     return createInterviewDetector(opts);
   }
 
-  it('fires DISMISSED log at default logLevel (info)', async () => {
+  it('does NOT fire DISMISSED log at default logLevel (info)', async () => {
     const detector = createDismissedEventScenario();
 
     await detector.detect();
 
     const calls = logCallsContaining('DISMISSED event');
-    expect(calls.length).toBeGreaterThanOrEqual(1);
-    expect(calls[0][0]).toContain('dismissed-evt-h3');
+    expect(calls).toHaveLength(0);
   });
 
   it('fires DISMISSED log at logLevel debug', async () => {
@@ -414,14 +413,13 @@ describe('H3: DISMISSED event log fires regardless of logLevel', () => {
     expect(calls[0][0]).toContain('dismissed-evt-h3');
   });
 
-  it('fires DISMISSED log at explicit logLevel info', async () => {
+  it('does NOT fire DISMISSED log at explicit logLevel info', async () => {
     const detector = createDismissedEventScenario('info');
 
     await detector.detect();
 
     const calls = logCallsContaining('DISMISSED event');
-    expect(calls.length).toBeGreaterThanOrEqual(1);
-    expect(calls[0][0]).toContain('dismissed-evt-h3');
+    expect(calls).toHaveLength(0);
   });
 });
 

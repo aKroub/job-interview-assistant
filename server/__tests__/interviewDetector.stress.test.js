@@ -2696,6 +2696,7 @@ describe('H27: DISMISSED event log — fires for dismissed events not matched or
         { id: 'suggestion_calendar_evt-dismissed', emailId: '', calendarId: 'evt-dismissed' },
       ]),
       idFn: fixedId,
+      logLevel: 'debug',
     });
 
     await detector.detect();
@@ -2784,6 +2785,7 @@ describe('H27: DISMISSED event log — fires for dismissed events not matched or
         { id: 'suggestion_calendar_evt-sparse', emailId: '', calendarId: 'evt-sparse' },
       ]),
       idFn: fixedId,
+      logLevel: 'debug',
     });
 
     await detector.detect();
@@ -2978,6 +2980,7 @@ describe('H30: DISMISSED event log fires exactly once per cycle, not accumulated
         { id: 'suggestion_calendar_evt-repeat-dismissed', emailId: '', calendarId: 'evt-repeat-dismissed' },
       ]),
       idFn: fixedId,
+      logLevel: 'debug',
     });
 
     await detector.detect();

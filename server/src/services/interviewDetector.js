@@ -530,12 +530,14 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
       // Fires every cycle by design (no dedup guard, unlike LOW-SCORE) — the
       // extraction cache prevents repeated LLM API calls.
       if (dismissed.calendarIds.has(event.eventId)) {
-        console.log(
-          `[interviewDetector] DISMISSED event (calendarId dismissed, enriched for cross-ref potential): ` +
-          `eventId=${event.eventId}, summary="${event.summary || 'N/A'}", ` +
-          `organizer=${event.organizerEmail || 'N/A'}, company=${event.companyName || 'N/A'}, ` +
-          `score=${event.score}, date=${event.date || 'N/A'}`
-        );
+        if (logLevel === 'debug') {
+          console.log(
+            `[interviewDetector] DISMISSED event (calendarId dismissed, enriched for cross-ref potential): ` +
+            `eventId=${event.eventId}, summary="${event.summary || 'N/A'}", ` +
+            `organizer=${event.organizerEmail || 'N/A'}, company=${event.companyName || 'N/A'}, ` +
+            `score=${event.score}, date=${event.date || 'N/A'}`
+          );
+        }
         continue;
       }
 

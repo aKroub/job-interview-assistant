@@ -61,7 +61,7 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit }) {
       {/* Time + duration */}
       {interview.time && (
         <div className="flex items-center gap-1 text-sm font-semibold text-gray-800 mb-1 pr-12">
-          <Clock size={12} className="text-gray-500" />
+          <Clock size={12} className="text-gray-500" aria-hidden="true" />
           <span>{interview.time}</span>
           {interview.duration && (
             <span className="text-xs font-normal text-gray-400 whitespace-nowrap">

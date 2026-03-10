@@ -19,10 +19,12 @@ const TABS = [
 export function TabNav({ activeTab, onTabChange }) {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-6">
-      <div className="flex">
+      <div className="flex" role="tablist" aria-label="Main navigation">
         {TABS.map(({ id, label, Icon, rounded }) => (
           <button
             key={id}
+            role="tab"
+            aria-selected={activeTab === id}
             onClick={() => onTabChange(id)}
             className={`flex-1 px-6 py-3 font-medium transition ${
               activeTab === id
@@ -30,7 +32,7 @@ export function TabNav({ activeTab, onTabChange }) {
                 : 'text-gray-600 hover:bg-gray-50'
             } ${rounded}`}
           >
-            <Icon size={20} className="inline mr-2" />
+            <Icon size={20} className="inline mr-2" aria-hidden="true" />
             {label}
           </button>
         ))}

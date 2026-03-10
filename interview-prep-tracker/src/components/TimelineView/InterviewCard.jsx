@@ -52,7 +52,7 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit }) {
         <button
           onClick={handleDelete}
           className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-600 transition"
-          aria-label="Delete interview"
+          aria-label={`Delete ${interview.companyName} interview`}
         >
           <Trash2 size={12} />
         </button>

@@ -35,29 +35,38 @@ export function useCloudSync({
   /** Ref for the success-to-idle auto-reset timeout. */
   const resetTimerRef = useRef(null);
 
+  /** Refs to always read the latest state without stale closures. */
+  const companiesRef     = useRef(companies);
+  const seenQuestionsRef = useRef(seenQuestions);
+  companiesRef.current     = companies;
+  seenQuestionsRef.current = seenQuestions;
+
+  /** Prevents concurrent save/load operations. */
+  const busyRef = useRef(false);
+
   /** Clears any pending auto-reset timer. */
-  function clearResetTimer() {
+  const clearResetTimer = useCallback(() => {
     if (resetTimerRef.current) {
       clearTimeout(resetTimerRef.current);
       resetTimerRef.current = null;
     }
-  }
+  }, []);
 
   /**
    * Sets syncStatus to 'success' and auto-resets to 'idle' after 3 seconds.
    */
-  function setSuccessWithAutoReset() {
+  const setSuccessWithAutoReset = useCallback(() => {
     clearResetTimer();
     setSyncStatus('success');
     resetTimerRef.current = setTimeout(() => {
       setSyncStatus('idle');
     }, 3000);
-  }
+  }, [clearResetTimer]);
 
   // Cleanup timer on unmount
   useEffect(() => {
     return () => clearResetTimer();
-  }, []);
+  }, [clearResetTimer]);
 
   // Fetch list of backups on mount when authenticated
   useEffect(() => {
@@ -85,14 +94,17 @@ export function useCloudSync({
    * Saves the current app state to Google Drive as a new backup version.
    */
   const saveToDrive = useCallback(async () => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+
     clearResetTimer();
     setSyncStatus('saving');
     setSyncError(null);
 
     try {
       const payload = {
-        companies,
-        seenQuestions: [...seenQuestions],
+        companies: companiesRef.current,
+        seenQuestions: [...seenQuestionsRef.current],
       };
       const result = await api.saveToDrive(payload);
       if (Array.isArray(result.backups)) {
@@ -102,8 +114,10 @@ export function useCloudSync({
     } catch (err) {
       setSyncStatus('error');
       setSyncError(err.message);
+    } finally {
+      busyRef.current = false;
     }
-  }, [companies, seenQuestions, api]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [api, clearResetTimer, setSuccessWithAutoReset]);
 
   /**
    * Loads app state from a specific backup version on Google Drive.
@@ -111,6 +125,9 @@ export function useCloudSync({
    * @param {string} fileId - the Google Drive file ID to load
    */
   const loadFromDrive = useCallback(async (fileId) => {
+    if (busyRef.current) return;
+    busyRef.current = true;
+
     clearResetTimer();
     setSyncStatus('loading');
     setSyncError(null);
@@ -130,8 +147,10 @@ export function useCloudSync({
     } catch (err) {
       setSyncStatus('error');
       setSyncError(err.message);
+    } finally {
+      busyRef.current = false;
     }
-  }, [api, replaceCompanies, replaceSeenQuestions]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [api, replaceCompanies, replaceSeenQuestions, clearResetTimer, setSuccessWithAutoReset]);
 
   return {
     syncStatus,

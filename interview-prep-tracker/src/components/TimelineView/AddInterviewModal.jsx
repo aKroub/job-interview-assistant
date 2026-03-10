@@ -108,11 +108,15 @@ export function AddInterviewModal({
   return (
     <div
       className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="interview-modal-title"
       onClick={handleOverlayClick}
+      onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}
       data-testid="modal-overlay"
     >
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
-        <h3 className="text-xl font-bold text-gray-800 mb-4">
+        <h3 id="interview-modal-title" className="text-xl font-bold text-gray-800 mb-4">
           {isEditMode ? 'Edit Interview' : 'Schedule Interview'}
         </h3>
 

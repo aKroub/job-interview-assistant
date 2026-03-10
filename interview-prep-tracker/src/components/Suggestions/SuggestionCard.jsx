@@ -91,7 +91,7 @@ export function SuggestionCard({ suggestion, onDismiss, onAccept }) {
       onClick={handleCardClick}
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleCardClick(); }}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleCardClick(); } }}
       aria-label={`${config.ariaVerb} ${suggestion.companyName} interview`}
     >
 

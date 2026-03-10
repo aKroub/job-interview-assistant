@@ -67,38 +67,47 @@ export function useCompanies(storage = localStorageService) {
     }
   }, [storage]);
 
-  /** Persist and update state together to keep them in sync. */
-  function persist(updated) {
-    setCompanies(updated);
-    storage.setItem(STORAGE_KEY, JSON.stringify(updated));
+  /**
+   * Apply a transform to the current companies state, persist the result,
+   * and update React state — all via a functional updater so the transform
+   * always reads the latest state (no stale closure).
+   *
+   * @param {(prev: Object[]) => Object[]} transform
+   */
+  function persistWith(transform) {
+    setCompanies(prev => {
+      const updated = transform(prev);
+      storage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      return updated;
+    });
   }
 
   function addCompany(draft) {
-    persist([...companies, createCompany(draft)]);
+    persistWith(prev => [...prev, createCompany(draft)]);
   }
 
   function updateCompanyStage(companyId, newStage) {
-    persist(applyStageUpdate(companies, companyId, newStage));
+    persistWith(prev => applyStageUpdate(prev, companyId, newStage));
   }
 
   function deleteCompany(companyId) {
-    persist(applyDelete(companies, companyId));
+    persistWith(prev => applyDelete(prev, companyId));
   }
 
   function addInterview(companyId, interview) {
-    persist(applyAddInterview(companies, companyId, interview));
+    persistWith(prev => applyAddInterview(prev, companyId, interview));
   }
 
   function deleteInterview(companyId, interviewId) {
-    persist(applyDeleteInterview(companies, companyId, interviewId));
+    persistWith(prev => applyDeleteInterview(prev, companyId, interviewId));
   }
 
   function updateInterviewStatus(companyId, interviewId, status) {
-    persist(applyInterviewStatusUpdate(companies, companyId, interviewId, status));
+    persistWith(prev => applyInterviewStatusUpdate(prev, companyId, interviewId, status));
   }
 
   function updateInterview(companyId, interviewId, updates) {
-    persist(applyInterviewUpdate(companies, companyId, interviewId, updates));
+    persistWith(prev => applyInterviewUpdate(prev, companyId, interviewId, updates));
   }
 
   /**
@@ -112,7 +121,7 @@ export function useCompanies(storage = localStorageService) {
     if (!Array.isArray(companiesArray) || !companiesArray.every(isValidCompany)) {
       return;
     }
-    persist(migrateCompanies(companiesArray, DEFAULT_PIPELINE));
+    persistWith(() => migrateCompanies(companiesArray, DEFAULT_PIPELINE));
   }
 
   return {

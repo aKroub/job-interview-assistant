@@ -62,7 +62,7 @@ describe('InterviewCard — rendering', () => {
 
   it('renders the delete button', () => {
     setup();
-    expect(screen.getByLabelText(/delete interview/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/delete .+ interview/i)).toBeInTheDocument();
   });
 });
 
@@ -134,14 +134,14 @@ describe('InterviewCard — delete button', () => {
   it('calls onDeleteInterview after confirmation', () => {
     window.confirm = jest.fn(() => true);
     const { onDeleteInterview } = setup();
-    userEvent.click(screen.getByLabelText(/delete interview/i));
+    userEvent.click(screen.getByLabelText(/delete .+ interview/i));
     expect(onDeleteInterview).toHaveBeenCalledWith('c1', 'i1');
   });
 
   it('does not call onDeleteInterview when confirmation is cancelled', () => {
     window.confirm = jest.fn(() => false);
     const { onDeleteInterview } = setup();
-    userEvent.click(screen.getByLabelText(/delete interview/i));
+    userEvent.click(screen.getByLabelText(/delete .+ interview/i));
     expect(onDeleteInterview).not.toHaveBeenCalled();
   });
 });

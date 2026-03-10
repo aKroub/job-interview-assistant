@@ -21,22 +21,24 @@ function makeCompany(overrides = {}) {
 }
 
 function setup(companyOverrides = {}, handlers = {}, { pipelineLabels = PIPELINE_LABELS } = {}) {
-  const company    = makeCompany(companyOverrides);
-  const onDelete   = handlers.onDelete   ?? jest.fn();
-  const onDragStart = handlers.onDragStart ?? jest.fn();
-  const onDragEnd  = handlers.onDragEnd  ?? jest.fn();
+  const company      = makeCompany(companyOverrides);
+  const onDelete     = handlers.onDelete     ?? jest.fn();
+  const onStageChange = handlers.onStageChange ?? jest.fn();
+  const onDragStart  = handlers.onDragStart  ?? jest.fn();
+  const onDragEnd    = handlers.onDragEnd    ?? jest.fn();
 
   render(
     <CompanyCard
       company={company}
       onDelete={onDelete}
+      onStageChange={onStageChange}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       pipelineLabels={pipelineLabels}
     />
   );
 
-  return { company, onDelete, onDragStart, onDragEnd };
+  return { company, onDelete, onStageChange, onDragStart, onDragEnd };
 }
 
 // ---------------------------------------------------------------------------
@@ -100,8 +102,9 @@ describe('CompanyCard — draggable', () => {
 
 describe('CompanyCard — callbacks', () => {
   it('calls onDelete with the company id when delete button is clicked', async () => {
+    window.confirm = jest.fn(() => true);
     const { onDelete } = setup();
-    userEvent.click(screen.getByRole('button', { name: /delete acme corp/i }));
+    await userEvent.click(screen.getByRole('button', { name: /delete acme corp/i }));
     expect(onDelete).toHaveBeenCalledWith('c1');
   });
 });

@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import { google } from 'googleapis';
 import { loadConfig } from './config.js';
 import { createTokenStore } from './services/tokenStore.js';
@@ -83,13 +84,16 @@ export function createApp(deps = {}) {
 
   const app = express();
   
+  // Security headers
+  app.use(helmet());
+
   // CORS middleware
   app.use(cors({
     origin: 'http://localhost:3000',
     credentials: true,
   }));
-  
-  app.use(express.json());
+
+  app.use(express.json({ limit: '1mb' }));
 
   // Auth routes
   app.use('/api/auth', createAuthRouter(googleAuth));

@@ -96,6 +96,21 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
   const lowScoreEventIds = new Set();
 
   /**
+   * Prunes a Set to `maxCacheSize` by removing the oldest entries (insertion order).
+   * @param {Set<string>} set
+   */
+  function pruneSet(set) {
+    if (set.size <= maxCacheSize) return;
+    const excess = set.size - maxCacheSize;
+    let removed = 0;
+    for (const val of set) {
+      if (removed >= excess) break;
+      set.delete(val);
+      removed++;
+    }
+  }
+
+  /**
    * Enriches email and calendar results with LLM-extracted fields.
    * Uses Promise.allSettled so individual failures do not abort the batch.
    * Returns new arrays with enriched items (originals are not mutated).
@@ -492,6 +507,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
       if (dismissed.emailIds.has(email.messageId)) continue;
       if (lowScoreEmailIds.has(email.messageId)) continue;
       lowScoreEmailIds.add(email.messageId);
+      pruneSet(lowScoreEmailIds);
       if (logLevel === 'debug') {
         console.log(
           `[interviewDetector] LOW-SCORE email (will skip future LLM extraction): ` +
@@ -543,6 +559,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
 
       if (lowScoreEventIds.has(event.eventId)) continue;
       lowScoreEventIds.add(event.eventId);
+      pruneSet(lowScoreEventIds);
       if (logLevel === 'debug') {
         console.log(
           `[interviewDetector] LOW-SCORE event (will skip future LLM extraction): ` +

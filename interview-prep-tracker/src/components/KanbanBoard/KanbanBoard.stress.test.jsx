@@ -336,6 +336,7 @@ describe('Stress — rapid toggle', () => {
 
 describe('Stress — delete closed company', () => {
   it('calls onDeleteCompany when delete button is clicked on a closed card', async () => {
+    window.confirm = jest.fn(() => true);
     const companies = [
       makeCompany({ id: 'c-del', name: 'DeleteMe', stage: 'rejected' }),
     ];

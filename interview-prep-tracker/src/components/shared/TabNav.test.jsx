@@ -17,9 +17,9 @@ describe('TabNav — rendering', () => {
     expect(screen.getByText('Prep Content')).toBeInTheDocument();
   });
 
-  it('renders three buttons', () => {
+  it('renders three tabs', () => {
     setup();
-    expect(screen.getAllByRole('button')).toHaveLength(3);
+    expect(screen.getAllByRole('tab')).toHaveLength(3);
   });
 });
 

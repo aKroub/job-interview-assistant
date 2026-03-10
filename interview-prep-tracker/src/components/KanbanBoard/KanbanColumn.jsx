@@ -28,7 +28,8 @@ export function KanbanColumn({ stage, label, companies, onDelete, onUpdateStage,
     setIsDragOver(true);
   }
 
-  function handleDragLeave() {
+  function handleDragLeave(e) {
+    if (e.currentTarget.contains(e.relatedTarget)) return;
     setIsDragOver(false);
   }
 

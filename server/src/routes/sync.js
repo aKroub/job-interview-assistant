@@ -30,7 +30,8 @@ export function createSyncRouter({ driveService, googleAuth }) {
       const result = await driveService.listBackups();
       res.json(result);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[sync] operation failed:', err.message);
+      res.status(500).json({ error: 'Sync operation failed' });
     }
   });
 
@@ -60,7 +61,8 @@ export function createSyncRouter({ driveService, googleAuth }) {
       const { backups } = await driveService.listBackups();
       res.json({ saved: true, savedAt, backups });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[sync] operation failed:', err.message);
+      res.status(500).json({ error: 'Sync operation failed' });
     }
   });
 
@@ -79,6 +81,9 @@ export function createSyncRouter({ driveService, googleAuth }) {
     if (!fileId) {
       return res.status(400).json({ error: 'fileId query parameter is required' });
     }
+    if (typeof fileId !== 'string' || !/^[\w-]{10,80}$/.test(fileId)) {
+      return res.status(400).json({ error: 'Invalid fileId format' });
+    }
 
     try {
       const state = await driveService.loadState(fileId);
@@ -87,7 +92,8 @@ export function createSyncRouter({ driveService, googleAuth }) {
       }
       res.json(state);
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[sync] operation failed:', err.message);
+      res.status(500).json({ error: 'Sync operation failed' });
     }
   });
 

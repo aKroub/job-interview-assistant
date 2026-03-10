@@ -57,6 +57,9 @@ export function loadConfig(env = process.env, envPath) {
   // Logging config
   const logLevel = (env.LOG_LEVEL || 'info').toLowerCase();
 
+  // CORS origin (default: frontend dev server)
+  const corsOrigin = env.CORS_ORIGIN || 'http://localhost:3000';
+
   return {
     clientId,
     clientSecret,
@@ -72,5 +75,6 @@ export function loadConfig(env = process.env, envPath) {
     llmMaxRetries,
     scanCooldownMs,
     logLevel,
+    corsOrigin,
   };
 }

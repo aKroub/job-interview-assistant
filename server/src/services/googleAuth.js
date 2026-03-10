@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { google } from 'googleapis';
 
 /**
@@ -42,17 +43,39 @@ export function createGoogleAuth(config, tokenStore) {
     oauth2Client.setCredentials(merged);
   });
 
+  /** Pending CSRF state token — consumed once in verifyState(). */
+  let pendingState = null;
+
   /**
    * Generates the Google OAuth consent URL that the user visits to authorize access.
+   * Includes a random `state` parameter to prevent CSRF attacks.
    *
    * @returns {string} The authorization URL
    */
   function getAuthUrl() {
+    pendingState = randomBytes(32).toString('hex');
     return oauth2Client.generateAuthUrl({
       access_type: 'offline',
       scope: SCOPES,
       prompt: 'consent',
+      state: pendingState,
     });
+  }
+
+  /**
+   * Verifies that the state parameter from the OAuth callback matches the
+   * one generated in getAuthUrl(). Consumes the token so it can only be
+   * used once.
+   *
+   * @param {string} state - the state parameter from the callback query
+   * @returns {boolean} true if valid, false otherwise
+   */
+  function verifyState(state) {
+    if (!pendingState || !state || state !== pendingState) {
+      return false;
+    }
+    pendingState = null;
+    return true;
   }
 
   /**
@@ -98,5 +121,5 @@ export function createGoogleAuth(config, tokenStore) {
     oauth2Client.setCredentials({});
   }
 
-  return { getAuthUrl, handleCallback, isAuthenticated, getAuthClient, disconnect };
+  return { getAuthUrl, handleCallback, isAuthenticated, getAuthClient, disconnect, verifyState };
 }

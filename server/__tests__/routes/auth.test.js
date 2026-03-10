@@ -12,13 +12,14 @@ function createMockGoogleAuth(overrides = {}) {
 
   return {
     isAuthenticated: () => authenticated,
-    getAuthUrl: () => 'https://accounts.google.com/o/oauth2/v2/auth?mock=true',
+    getAuthUrl: () => 'https://accounts.google.com/o/oauth2/v2/auth?mock=true&state=valid-state',
     handleCallback: async (code) => {
       if (code === 'invalid-code') {
         throw new Error('Invalid authorization code');
       }
       authenticated = true;
     },
+    verifyState: (state) => state === 'valid-state',
     disconnect: async () => { authenticated = false; },
     _setAuthenticated: (val) => { authenticated = val; },
     ...overrides,
@@ -74,14 +75,26 @@ describe('Auth routes', () => {
       expect(res.text).toContain('No authorization code');
     });
 
-    it('returns success HTML when a valid code is provided', async () => {
-      const res = await request(app).get('/api/auth/callback?code=valid-code');
+    it('returns success HTML when a valid code and state are provided', async () => {
+      const res = await request(app).get('/api/auth/callback?code=valid-code&state=valid-state');
       expect(res.status).toBe(200);
       expect(res.text).toContain('Connected');
     });
 
+    it('returns 403 when state parameter is missing', async () => {
+      const res = await request(app).get('/api/auth/callback?code=valid-code');
+      expect(res.status).toBe(403);
+      expect(res.text).toContain('Invalid or expired state parameter');
+    });
+
+    it('returns 403 when state parameter is invalid', async () => {
+      const res = await request(app).get('/api/auth/callback?code=valid-code&state=wrong-state');
+      expect(res.status).toBe(403);
+      expect(res.text).toContain('Invalid or expired state parameter');
+    });
+
     it('returns 500 when handleCallback throws', async () => {
-      const res = await request(app).get('/api/auth/callback?code=invalid-code');
+      const res = await request(app).get('/api/auth/callback?code=invalid-code&state=valid-state');
       expect(res.status).toBe(500);
       expect(res.text).toContain('Connection Failed');
       expect(res.text).toContain('Invalid authorization code');
@@ -95,7 +108,7 @@ describe('Auth routes', () => {
       });
       const xssApp = createTestApp(xssAuth);
 
-      const res = await request(xssApp).get('/api/auth/callback?code=any');
+      const res = await request(xssApp).get('/api/auth/callback?code=any&state=valid-state');
 
       expect(res.status).toBe(500);
       expect(res.text).not.toContain('<script>');

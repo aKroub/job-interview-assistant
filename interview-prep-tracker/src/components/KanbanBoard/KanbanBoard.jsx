@@ -77,6 +77,7 @@ export function KanbanBoard({
             <button
               key={p}
               onClick={() => onPipelineChange(p)}
+              aria-pressed={p === activePipeline}
               className={`px-4 py-1.5 rounded-full text-sm font-medium transition ${
                 p === activePipeline
                   ? 'bg-purple-600 text-white shadow-sm'
@@ -108,7 +109,7 @@ export function KanbanBoard({
       )}
 
       {/* Active stages grid */}
-      <div className="grid grid-cols-6 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
         {stages.map((stage) => (
           <KanbanColumn
             key={stage}

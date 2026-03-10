@@ -46,7 +46,7 @@ export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_D
     try {
       await access(dir);
     } catch {
-      await mkdir(dir, { recursive: true });
+      await mkdir(dir, { recursive: true, mode: 0o700 });
     }
   }
 
@@ -84,7 +84,7 @@ export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_D
   async function saveTokens(tokens) {
     tokensCache = tokens;
     await ensureDir();
-    await writeFile(tokensPath, JSON.stringify(tokens, null, 2), 'utf-8');
+    await writeFile(tokensPath, JSON.stringify(tokens, null, 2), { encoding: 'utf-8', mode: 0o600 });
   }
 
   /**
@@ -97,7 +97,7 @@ export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_D
     tokensCache = null;
     try {
       await ensureDir();
-      await writeFile(tokensPath, '{}', 'utf-8');
+      await writeFile(tokensPath, '{}', { encoding: 'utf-8', mode: 0o600 });
     } catch {
       // File may not exist — that's fine
     }
@@ -197,7 +197,7 @@ export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_D
     }
 
     await ensureDir();
-    await writeFile(dismissedPath, JSON.stringify(dismissedCache, null, 2), 'utf-8');
+    await writeFile(dismissedPath, JSON.stringify(dismissedCache, null, 2), { encoding: 'utf-8', mode: 0o600 });
   }
 
   /**
@@ -210,7 +210,7 @@ export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_D
     dismissedCache = [];
     try {
       await ensureDir();
-      await writeFile(dismissedPath, '[]', 'utf-8');
+      await writeFile(dismissedPath, '[]', { encoding: 'utf-8', mode: 0o600 });
     } catch {
       // File may not exist — that's fine
     }
@@ -286,7 +286,7 @@ export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_D
     surfacedCache.calendarIds = [...calendarSet].slice(-DEFAULT_MAX_SURFACED);
 
     await ensureDir();
-    await writeFile(surfacedPath, JSON.stringify(surfacedCache, null, 2), 'utf-8');
+    await writeFile(surfacedPath, JSON.stringify(surfacedCache, null, 2), { encoding: 'utf-8', mode: 0o600 });
   }
 
   /**
@@ -299,7 +299,7 @@ export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_D
     surfacedCache = { emailIds: [], calendarIds: [] };
     try {
       await ensureDir();
-      await writeFile(surfacedPath, JSON.stringify(surfacedCache, null, 2), 'utf-8');
+      await writeFile(surfacedPath, JSON.stringify(surfacedCache, null, 2), { encoding: 'utf-8', mode: 0o600 });
     } catch {
       // File may not exist — that's fine
     }

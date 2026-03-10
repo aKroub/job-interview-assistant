@@ -99,7 +99,7 @@ describe('H1 — drag closed company back to active column', () => {
 
     // Find the card and the target column (e.g., "Applied" column)
     const card = screen.getByText('ClosedCo').closest('[draggable]');
-    const appliedColumn = screen.getByText(STAGE_LABELS.applied).closest('div[class*="rounded-lg"]');
+    const appliedColumn = screen.getAllByText(STAGE_LABELS.applied)[0].closest('div[class*="rounded-lg"]');
 
     simulateDragAndDrop(card, appliedColumn, 'c-closed');
 
@@ -114,7 +114,7 @@ describe('H1 — drag closed company back to active column', () => {
     const card = screen.getByText('ClosedCo').closest('[draggable]');
 
     // Drop onto the "Offer" column
-    const offerColumn = screen.getByText(STAGE_LABELS.offer).closest('div[class*="rounded-lg"]');
+    const offerColumn = screen.getAllByText(STAGE_LABELS.offer)[0].closest('div[class*="rounded-lg"]');
     simulateDragAndDrop(card, offerColumn, 'c-closed');
 
     expect(onUpdateStage).toHaveBeenCalledWith('c-closed', 'offer');
@@ -280,7 +280,7 @@ describe('Stress — large dataset', () => {
 
     // Active columns should render without error
     ACTIVE_STAGES.forEach((stage) => {
-      expect(screen.getByText(STAGE_LABELS[stage])).toBeInTheDocument();
+      expect(screen.getAllByText(STAGE_LABELS[stage]).length).toBeGreaterThan(0);
     });
 
     // Expand closed row

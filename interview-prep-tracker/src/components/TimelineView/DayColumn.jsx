@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatDayHeader } from '../../utils/calendarUtils';
+import { formatDayHeader, formatFullDate } from '../../utils/calendarUtils';
 import { InterviewCard } from './InterviewCard';
 
 /**
@@ -27,6 +27,7 @@ export function DayColumn({ date, interviews, isToday, onDeleteInterview, onEdit
   return (
     <div
       className={`rounded-lg border min-h-[140px] flex flex-col ${columnClasses}`}
+      aria-label={formatFullDate(date)}
       data-testid={`day-column-${date.getDay()}`}
     >
       {/* Day header */}

@@ -5,6 +5,7 @@ import {
   shiftWeek,
   isSameDay,
   formatDayHeader,
+  formatFullDate,
   formatWeekRange,
   toDateString,
 } from './calendarUtils';
@@ -245,6 +246,22 @@ describe('formatDayHeader', () => {
   it('uses single digit for dates below 10', () => {
     const d = new Date(2026, 2, 1); // March 1 (Sunday)
     expect(formatDayHeader(d)).toBe('Sun 1');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatFullDate
+// ---------------------------------------------------------------------------
+
+describe('formatFullDate', () => {
+  it('formats a date with full weekday, month, day, and year', () => {
+    const d = new Date(2026, 1, 18); // Wednesday, February 18, 2026
+    expect(formatFullDate(d)).toBe('Wednesday, February 18, 2026');
+  });
+
+  it('formats a Sunday', () => {
+    const d = new Date(2026, 2, 1); // Sunday, March 1, 2026
+    expect(formatFullDate(d)).toBe('Sunday, March 1, 2026');
   });
 });
 

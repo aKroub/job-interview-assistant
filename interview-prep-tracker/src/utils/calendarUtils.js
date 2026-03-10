@@ -126,6 +126,21 @@ export function formatWeekRange(weekStart) {
 }
 
 /**
+ * Formats a date as a full accessible label (e.g. "Wednesday, February 19, 2026").
+ *
+ * @param {Date} date
+ * @returns {string}
+ */
+export function formatFullDate(date) {
+  return date.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+  });
+}
+
+/**
  * Converts a Date to a YYYY-MM-DD string in local time.
  * Used as a key for groupInterviewsByDate lookups.
  *

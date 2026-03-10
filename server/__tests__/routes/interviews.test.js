@@ -1,4 +1,4 @@
-import { describe, it, expect } from '@jest/globals';
+import { describe, it, expect, jest } from '@jest/globals';
 import express from 'express';
 import request from 'supertest';
 import { createInterviewsRouter } from '../../src/routes/interviews.js';
@@ -165,6 +165,62 @@ describe('Interviews routes', () => {
       // After reset
       expect(store.getDismissed().ids.size).toBe(0);
     });
+  });
+
+  describe('Poll loop overlap guard', () => {
+    it('does not start a second poll loop when reconnect happens during in-flight poll', async () => {
+      let detectCallCount = 0;
+      let maxConcurrent = 0;
+      let activeCalls = 0;
+
+      const slowDetector = {
+        detect: jest.fn(async () => {
+          activeCalls++;
+          detectCallCount++;
+          maxConcurrent = Math.max(maxConcurrent, activeCalls);
+          await new Promise((r) => setTimeout(r, 200));
+          activeCalls--;
+          return [];
+        }),
+      };
+
+      const app = createTestApp(slowDetector, createMockTokenStore(), 50);
+
+      // Client A connects — starts poll loop
+      const clientA = await new Promise((resolve) => {
+        const req = request(app).get('/api/interviews/suggestions');
+        req.buffer(false).end(() => {});
+        req.on('response', (res) => {
+          resolve({ req, res });
+        });
+      });
+
+      // Wait for poll to start executing
+      await new Promise((r) => setTimeout(r, 50));
+
+      // Client A disconnects while poll is in-flight
+      clientA.res.destroy();
+      await new Promise((r) => setTimeout(r, 20));
+
+      // Client B connects immediately — should NOT start a second poll loop
+      const clientB = await new Promise((resolve) => {
+        const req = request(app).get('/api/interviews/suggestions');
+        req.buffer(false).end(() => {});
+        req.on('response', (res) => {
+          resolve({ req, res });
+        });
+      });
+
+      // Wait for the original poll to finish + one more cycle
+      await new Promise((r) => setTimeout(r, 400));
+
+      // Cleanup
+      clientB.res.destroy();
+      await new Promise((r) => setTimeout(r, 50));
+
+      // At no point should two detect() calls have been running concurrently
+      expect(maxConcurrent).toBe(1);
+    }, 5000);
   });
 
   describe('GET /api/interviews/suggestions (SSE)', () => {

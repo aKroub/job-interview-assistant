@@ -134,7 +134,7 @@ describe('Interviews routes', () => {
       const res = await request(app).post('/api/interviews/scan');
 
       expect(res.status).toBe(500);
-      expect(res.body.error).toContain('API failure');
+      expect(res.body.error).toBe('Scan failed');
     });
   });
 

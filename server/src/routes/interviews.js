@@ -33,7 +33,11 @@ export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, g
   function broadcast(event, data) {
     const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
     for (const client of clients) {
-      client.write(payload);
+      try {
+        client.write(payload);
+      } catch {
+        clients.delete(client);
+      }
     }
   }
 
@@ -192,7 +196,8 @@ export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, g
       const suggestions = await detector.detect();
       res.json({ suggestions });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[interviews] scan failed:', err.message);
+      res.status(500).json({ error: 'Scan failed' });
     }
   });
 
@@ -211,7 +216,8 @@ export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, g
       await tokenStore.clearDismissed();
       res.json({ reset: true });
     } catch (err) {
-      res.status(500).json({ error: err.message });
+      console.error('[interviews] reset failed:', err.message);
+      res.status(500).json({ error: 'Reset failed' });
     }
   });
 

@@ -375,7 +375,7 @@ describe('H4: Rapid reset calls via HTTP', () => {
 
     const res = await request(app).post('/api/interviews/reset');
     expect(res.status).toBe(500);
-    expect(res.body.error).toContain('Disk full');
+    expect(res.body.error).toBe('Reset failed');
   });
 });
 

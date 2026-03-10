@@ -101,6 +101,6 @@ describe('POST /api/interviews/scan (cooldown)', () => {
     const res = await request(app).post('/api/interviews/scan');
 
     expect(res.status).toBe(500);
-    expect(res.body.error).toBe('Gmail API down');
+    expect(res.body.error).toBe('Scan failed');
   });
 });

@@ -54,7 +54,8 @@ export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, g
       }
     } catch (err) {
       // Broadcast the error so the frontend can show a status message
-      broadcast('error', { message: err.message });
+      console.error('[interviews] poll error:', err.message);
+      broadcast('error', { message: 'Detection cycle failed' });
     }
   }
 

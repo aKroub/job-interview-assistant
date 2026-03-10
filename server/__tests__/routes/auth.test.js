@@ -93,14 +93,14 @@ describe('Auth routes', () => {
       expect(res.text).toContain('Invalid or expired state parameter');
     });
 
-    it('returns 500 when handleCallback throws', async () => {
+    it('returns 500 with generic message when handleCallback throws', async () => {
       const res = await request(app).get('/api/auth/callback?code=invalid-code&state=valid-state');
       expect(res.status).toBe(500);
       expect(res.text).toContain('Connection Failed');
-      expect(res.text).toContain('Invalid authorization code');
+      expect(res.text).toContain('Could not complete the authorization');
     });
 
-    it('escapes HTML in error messages to prevent XSS', async () => {
+    it('does not leak error details in the HTML response', async () => {
       const xssAuth = createMockGoogleAuth({
         handleCallback: async () => {
           throw new Error('<script>alert("XSS")</script>');
@@ -112,7 +112,8 @@ describe('Auth routes', () => {
 
       expect(res.status).toBe(500);
       expect(res.text).not.toContain('<script>');
-      expect(res.text).toContain('&lt;script&gt;');
+      expect(res.text).not.toContain('alert');
+      expect(res.text).toContain('Connection Failed');
     });
   });
 

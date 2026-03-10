@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FieldLabel } from '../shared/FieldLabel';
 import { FormError } from '../shared/FormError';
 
@@ -32,6 +32,34 @@ export function AddCompanyModal({
   pipelineLabels,
 }) {
   const [submitted, setSubmitted] = useState(false);
+  const modalRef = useRef(null);
+
+  useEffect(() => {
+    const modal = modalRef.current;
+    if (!modal) return;
+
+    const selector = 'input:not([disabled]), select:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const firstFocusable = modal.querySelector(selector);
+    if (firstFocusable) firstFocusable.focus();
+
+    function handleTab(e) {
+      if (e.key !== 'Tab') return;
+      const focusables = [...modal.querySelectorAll(selector)];
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+
+    modal.addEventListener('keydown', handleTab);
+    return () => modal.removeEventListener('keydown', handleTab);
+  }, []);
 
   const errors = {
     name:     !draft.name.trim()                     ? 'Company name is required'          : null,
@@ -75,7 +103,7 @@ export function AddCompanyModal({
       onKeyDown={(e) => { if (e.key === 'Escape') handleClose(); }}
       onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
     >
-      <div className="bg-white rounded-lg p-6 w-full max-w-md">
+      <div ref={modalRef} className="bg-white rounded-lg p-6 w-full max-w-md">
         <h3 id="add-company-title" className="text-xl font-bold text-gray-800 mb-4">Add Company</h3>
 
         <div className="space-y-4">

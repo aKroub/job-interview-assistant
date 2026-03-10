@@ -198,6 +198,33 @@ describe('AddInterviewModal — submission', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Focus management
+// ---------------------------------------------------------------------------
+
+describe('AddInterviewModal — focus management', () => {
+  it('focuses the first input on mount', () => {
+    setup();
+    expect(document.activeElement).toBe(screen.getByLabelText(/company/i));
+  });
+
+  it('traps focus forward from the last button to the first input', () => {
+    setup();
+    const cancelBtn = screen.getByRole('button', { name: /cancel/i });
+    cancelBtn.focus();
+    userEvent.tab();
+    expect(document.activeElement).toBe(screen.getByLabelText(/company/i));
+  });
+
+  it('traps focus backward from the first input to the last button', () => {
+    setup();
+    const companySelect = screen.getByLabelText(/company/i);
+    companySelect.focus();
+    userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: /cancel/i }));
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Close behavior
 // ---------------------------------------------------------------------------
 

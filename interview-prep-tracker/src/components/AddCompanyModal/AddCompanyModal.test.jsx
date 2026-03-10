@@ -168,6 +168,33 @@ describe('AddCompanyModal — validation', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Focus management
+// ---------------------------------------------------------------------------
+
+describe('AddCompanyModal — focus management', () => {
+  it('focuses the first input on mount', () => {
+    setup();
+    expect(document.activeElement).toBe(screen.getByLabelText(/company name/i));
+  });
+
+  it('traps focus forward from the last button to the first input', () => {
+    setup();
+    const cancelBtn = screen.getByRole('button', { name: /cancel/i });
+    cancelBtn.focus();
+    userEvent.tab();
+    expect(document.activeElement).toBe(screen.getByLabelText(/company name/i));
+  });
+
+  it('traps focus backward from the first input to the last button', () => {
+    setup();
+    const nameInput = screen.getByLabelText(/company name/i);
+    nameInput.focus();
+    userEvent.tab({ shift: true });
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: /cancel/i }));
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Callbacks
 // ---------------------------------------------------------------------------
 

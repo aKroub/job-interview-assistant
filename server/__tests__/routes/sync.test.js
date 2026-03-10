@@ -65,7 +65,7 @@ describe('Sync routes', () => {
     });
 
     it('GET /api/sync/load returns 401 when not authenticated', async () => {
-      const res = await request(app).get('/api/sync/load?fileId=abc');
+      const res = await request(app).get('/api/sync/load?fileId=abc-test-id-1234');
       expect(res.status).toBe(401);
       expect(res.body).toEqual({ error: 'Not authenticated' });
     });
@@ -106,7 +106,7 @@ describe('Sync routes', () => {
       const res = await request(app).get('/api/sync/status');
 
       expect(res.status).toBe(500);
-      expect(res.body).toEqual({ error: 'Drive unavailable' });
+      expect(res.body).toEqual({ error: 'Sync operation failed' });
     });
   });
 
@@ -181,7 +181,7 @@ describe('Sync routes', () => {
         .send({ companies: [], seenQuestions: [] });
 
       expect(res.status).toBe(500);
-      expect(res.body).toEqual({ error: 'Upload failed' });
+      expect(res.body).toEqual({ error: 'Sync operation failed' });
     });
   });
 
@@ -204,11 +204,11 @@ describe('Sync routes', () => {
         seenQuestions: ['q1'],
       };
       driveService.loadState = async (fileId) => {
-        expect(fileId).toBe('file-abc');
+        expect(fileId).toBe('file-abc-test-1234');
         return storedState;
       };
 
-      const res = await request(app).get('/api/sync/load?fileId=file-abc');
+      const res = await request(app).get('/api/sync/load?fileId=file-abc-test-1234');
 
       expect(res.status).toBe(200);
       expect(res.body).toEqual(storedState);
@@ -228,10 +228,10 @@ describe('Sync routes', () => {
       googleAuth._setAuthenticated(true);
       driveService.loadState = async () => { throw new Error('Download failed'); };
 
-      const res = await request(app).get('/api/sync/load?fileId=file-abc');
+      const res = await request(app).get('/api/sync/load?fileId=file-abc-test-1234');
 
       expect(res.status).toBe(500);
-      expect(res.body).toEqual({ error: 'Download failed' });
+      expect(res.body).toEqual({ error: 'Sync operation failed' });
     });
   });
 });

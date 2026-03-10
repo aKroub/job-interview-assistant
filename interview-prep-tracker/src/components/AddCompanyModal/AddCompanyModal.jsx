@@ -116,7 +116,7 @@ export function AddCompanyModal({
               type="text"
               value={draft.name}
               onChange={(e) => onDraftChange({ ...draft, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
               placeholder="e.g., Google"
               maxLength={100}
             />
@@ -130,7 +130,7 @@ export function AddCompanyModal({
               id="company-position"
               value={draft.position}
               onChange={(e) => onDraftChange({ ...draft, position: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             >
               <option value="">Select a position…</option>
               {positions.map((p) => (
@@ -173,7 +173,7 @@ export function AddCompanyModal({
               id="company-stage"
               value={draft.stage}
               onChange={(e) => onDraftChange({ ...draft, stage: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             >
               {stages.map((s) => (
                 <option key={s} value={s}>{stageLabels[s]}</option>
@@ -186,7 +186,7 @@ export function AddCompanyModal({
         <div className="flex gap-3 mt-6">
           <button
             onClick={handleAdd}
-            className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+            className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
           >
             Add Company
           </button>

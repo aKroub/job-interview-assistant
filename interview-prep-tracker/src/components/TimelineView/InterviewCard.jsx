@@ -44,14 +44,14 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit }) {
       <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5">
         <button
           onClick={() => onEdit(interview)}
-          className="p-1 rounded hover:bg-purple-50 text-gray-300 hover:text-purple-600 transition"
+          className="p-1 rounded hover:bg-purple-50 text-gray-400 hover:text-purple-600 transition"
           aria-label={`Edit ${interview.companyName} interview`}
         >
           <Pencil size={12} />
         </button>
         <button
           onClick={handleDelete}
-          className="p-1 rounded hover:bg-red-50 text-gray-300 hover:text-red-600 transition"
+          className="p-1 rounded hover:bg-red-50 text-gray-400 hover:text-red-600 transition"
           aria-label={`Delete ${interview.companyName} interview`}
         >
           <Trash2 size={12} />

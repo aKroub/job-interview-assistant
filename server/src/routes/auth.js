@@ -52,11 +52,20 @@ export function createAuthRouter(googleAuth) {
    * Exchanges the authorization code for tokens and shows a success page.
    */
   router.get('/callback', async (req, res) => {
-    const { code } = req.query;
+    const { code, state } = req.query;
 
     if (!code) {
       return res.status(400).send(
         '<html><body><h2>Error</h2><p>No authorization code received.</p></body></html>'
+      );
+    }
+
+    if (!googleAuth.verifyState(state)) {
+      return res.status(403).send(
+        '<html><body style="font-family: sans-serif; text-align: center; padding: 60px;">' +
+        '<h2 style="color: #dc2626;">Authorization Failed</h2>' +
+        '<p>Invalid or expired state parameter. Please try connecting again.</p>' +
+        '</body></html>'
       );
     }
 

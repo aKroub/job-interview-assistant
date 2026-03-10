@@ -39,7 +39,7 @@ export function SuggestionPanel({
       {/* Panel header */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-          <Bell size={18} className="text-purple-600" />
+          <Bell size={18} className="text-purple-600" aria-hidden="true" />
           Interview Suggestions
         </h2>
 

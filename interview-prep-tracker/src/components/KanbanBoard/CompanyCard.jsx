@@ -1,12 +1,14 @@
 import React from 'react';
 import { Calendar, X } from 'lucide-react';
 import { isMultiPipeline } from '../../utils/companyUtils';
+import { STAGES, STAGE_LABELS } from '../../constants/stages';
 
 /**
  * A single company card within a Kanban column.
  *
  * Draggable — the user drags this card to a different column to change stage.
- * The stage dropdown has been removed; stage changes happen exclusively via DnD.
+ * A screen-reader-only select element provides an accessible keyboard
+ * alternative for users who cannot drag and drop.
  *
  * When a company belongs to multiple pipelines, small pipeline badges are shown
  * beneath the position text so the user can see at a glance where else this
@@ -15,12 +17,13 @@ import { isMultiPipeline } from '../../utils/companyUtils';
  * @param {{
  *   company:        Object,
  *   onDelete:       (companyId: string) => void,
+ *   onStageChange:  (companyId: string, newStage: string) => void,
  *   onDragStart:    (e: DragEvent, companyId: string) => void,
  *   onDragEnd:      (e: DragEvent) => void,
  *   pipelineLabels: Record<string, string>,
  * }} props
  */
-export function CompanyCard({ company, onDelete, onDragStart, onDragEnd, pipelineLabels }) {
+export function CompanyCard({ company, onDelete, onStageChange, onDragStart, onDragEnd, pipelineLabels }) {
   return (
     <div
       draggable
@@ -61,6 +64,21 @@ export function CompanyCard({ company, onDelete, onDragStart, onDragEnd, pipelin
           {company.interviews.length} interview{company.interviews.length > 1 ? 's' : ''}
         </div>
       )}
+
+      {/* Accessible keyboard alternative to drag-and-drop */}
+      <label className="sr-only" htmlFor={`stage-select-${company.id}`}>
+        Move {company.name} to stage
+      </label>
+      <select
+        id={`stage-select-${company.id}`}
+        className="sr-only"
+        value={company.stage}
+        onChange={(e) => onStageChange(company.id, e.target.value)}
+      >
+        {STAGES.map((s) => (
+          <option key={s} value={s}>{STAGE_LABELS[s]}</option>
+        ))}
+      </select>
     </div>
   );
 }

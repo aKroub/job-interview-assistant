@@ -64,6 +64,7 @@ export function KanbanColumn({ stage, label, companies, onDelete, onUpdateStage,
             key={company.id}
             company={company}
             onDelete={onDelete}
+            onStageChange={onUpdateStage}
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}
             pipelineLabels={pipelineLabels}

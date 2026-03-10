@@ -85,7 +85,7 @@ export function createApp(deps = {}) {
   
   // CORS middleware
   app.use(cors({
-    origin: 'http://localhost:3000',
+    origin: config.corsOrigin,
     credentials: true,
   }));
   

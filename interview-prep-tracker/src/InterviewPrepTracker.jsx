@@ -185,11 +185,11 @@ const InterviewPrepTracker = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-8">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
 
         {/* Header */}
-        <div className="mb-8 flex items-start justify-between gap-4">
+        <div className="mb-8 flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-4xl font-bold text-gray-900 mb-2">{APP_TITLE}</h1>
             <p className="text-gray-600">

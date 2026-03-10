@@ -34,7 +34,11 @@ export function CompanyCard({ company, onDelete, onDragStart, onDragEnd, pipelin
           <p className="text-xs text-gray-600 mt-1">{company.position}</p>
         </div>
         <button
-          onClick={() => onDelete(company.id)}
+          onClick={() => {
+            if (window.confirm(`Delete ${company.name}? This cannot be undone.`)) {
+              onDelete(company.id);
+            }
+          }}
           className="text-gray-400 hover:text-red-600 transition"
           aria-label={`Delete ${company.name}`}
         >

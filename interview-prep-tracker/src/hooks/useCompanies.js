@@ -3,7 +3,7 @@ import { localStorageService } from '../services/storageService';
 import { DEFAULT_PIPELINE } from '../constants/pipelines';
 import {
   applyAddInterview,
-  applyADeleteInterview,
+  applyDeleteInterview,
   applyDelete,
   applyInterviewStatusUpdate,
   applyInterviewUpdate,
@@ -90,7 +90,7 @@ export function useCompanies(storage = localStorageService) {
   }
 
   function deleteInterview(companyId, interviewId) {
-    persist(applyADeleteInterview(companies, companyId, interviewId));
+    persist(applyDeleteInterview(companies, companyId, interviewId));
   }
 
   function updateInterviewStatus(companyId, interviewId, status) {

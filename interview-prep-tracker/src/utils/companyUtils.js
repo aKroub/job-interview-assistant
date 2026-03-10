@@ -118,7 +118,15 @@ export function applyAddInterview(companies, companyId, interview, idFn = Date.n
   );
 }
 
-export function applyADeleteInterview(companies, companyId, interviewId) {
+/**
+ * Returns a new companies array with the specified interview removed.
+ *
+ * @param {Object[]} companies
+ * @param {string}   companyId
+ * @param {string}   interviewId
+ * @returns {Object[]}
+ */
+export function applyDeleteInterview(companies, companyId, interviewId) {
   return companies.map(company => {
     if (company.id !== companyId) return company;
       return {

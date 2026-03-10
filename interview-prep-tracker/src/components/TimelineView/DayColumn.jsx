@@ -43,12 +43,12 @@ export function DayColumn({ date, interviews, isToday, onDeleteInterview, onEdit
       {/* Interview cards or empty placeholder */}
       <div className="flex-1 p-1.5 space-y-1.5">
         {interviews.length === 0 ? (
-          <p className="text-xs text-gray-300 text-center mt-4">No interviews</p>
+          <p className="text-xs text-gray-400 text-center mt-4">No interviews</p>
         ) : (
           interviews
             // Sort copies the array and compares the time values
             .slice()
-            .sort((a, b) => (a.time > b.time ? 1 : -1))
+            .sort((a, b) => (a.time || '').localeCompare(b.time || ''))
             .map((interview) => (
               <InterviewCard
                 key={interview.id}

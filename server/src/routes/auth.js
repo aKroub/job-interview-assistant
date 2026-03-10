@@ -1,20 +1,6 @@
 import { Router } from 'express';
 
 /**
- * Escapes HTML special characters to prevent XSS.
- *
- * @param {string} str - the string to escape
- * @returns {string} - escaped HTML
- */
-function escapeHtml(str) {
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
-}
-
-/**
  * Creates the authentication router for Google OAuth flow.
  *
  * Routes:
@@ -79,11 +65,11 @@ export function createAuthRouter(googleAuth) {
         '</body></html>'
       );
     } catch (err) {
+      console.error('[auth] callback failed:', err.message);
       res.status(500).send(
         '<html><body style="font-family: sans-serif; text-align: center; padding: 60px;">' +
         '<h2 style="color: #dc2626;">Connection Failed</h2>' +
         '<p>Could not complete the authorization. Please try again.</p>' +
-        `<p style="color: #6b7280; font-size: 14px;">${escapeHtml(err.message)}</p>` +
         '</body></html>'
       );
     }

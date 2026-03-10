@@ -641,7 +641,7 @@ describe('createLlmExtractor (logging)', () => {
     expect(logs.some((l) => l.includes('[llmExtractor] REQUEST #1') && l.includes('model=claude-haiku-4-5'))).toBe(true);
     expect(logs.some((l) => l.includes('[llmExtractor] RESPONSE #1') && l.includes('stop_reason=end_turn'))).toBe(true);
     expect(logs.some((l) => l.includes('input:100') && l.includes('output:25'))).toBe(true);
-    expect(logs.some((l) => l.includes('extracted=') && l.includes('"company_name":"Acme"'))).toBe(true);
+    expect(logs.some((l) => l.includes('extracted: company_name=Acme'))).toBe(true);
 
     logSpy.mockRestore();
   });
@@ -667,7 +667,7 @@ describe('createLlmExtractor (logging)', () => {
     const logs = logSpy.mock.calls.map((c) => c[0]);
     // REQUEST and extracted= are still logged at info level
     expect(logs.some((l) => l.includes('[llmExtractor] REQUEST #1'))).toBe(true);
-    expect(logs.some((l) => l.includes('extracted='))).toBe(true);
+    expect(logs.some((l) => l.includes('extracted: company_name='))).toBe(true);
     // But stop_reason/usage metadata is hidden
     expect(logs.some((l) => l.includes('stop_reason=end_turn'))).toBe(false);
     expect(logs.some((l) => l.includes('input:100'))).toBe(false);

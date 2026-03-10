@@ -89,8 +89,8 @@ export function containsInterviewKeyword(...fields) {
  */
 export function buildEmailPrompt(subject, body, senderEmail) {
   return [
-    `Sender: ${senderEmail}`,
-    `Subject: ${subject}`,
+    `Sender: ${(senderEmail || '').slice(0, 200)}`,
+    `Subject: ${(subject || '').slice(0, 500)}`,
     '',
     'Body:',
     (body || '').slice(0, 3000),
@@ -110,9 +110,9 @@ export function buildEmailPrompt(subject, body, senderEmail) {
  */
 export function buildCalendarPrompt(summary, description, location, organizerEmail) {
   return [
-    `Organizer: ${organizerEmail}`,
-    `Title: ${summary}`,
-    `Location: ${location || 'N/A'}`,
+    `Organizer: ${(organizerEmail || '').slice(0, 200)}`,
+    `Title: ${(summary || '').slice(0, 500)}`,
+    `Location: ${(location || 'N/A').slice(0, 500)}`,
     '',
     'Description:',
     (description || '').slice(0, 3000),
@@ -232,7 +232,8 @@ export function createLlmExtractor(options = {}) {
       const result = parseJsonResponse(textBlock.text);
       if (result) {
         stats.succeeded++;
-        console.log(`[llmExtractor] RESPONSE #${callId} (${itemId}): extracted=${JSON.stringify(result)}`);
+        const fields = Object.entries(result).map(([k, v]) => `${k}=${v ?? 'N/A'}`).join(', ');
+        console.log(`[llmExtractor] RESPONSE #${callId} (${itemId}): extracted: ${fields}`);
       } else {
         stats.failed++;
         console.warn(`[llmExtractor] RESPONSE #${callId} (${itemId}): JSON parse failed, raw=${textBlock.text.slice(0, 200)}`);

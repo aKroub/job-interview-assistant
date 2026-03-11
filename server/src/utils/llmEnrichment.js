@@ -59,17 +59,17 @@ export function normalizeInterviewType(llmType) {
  * Computes the duration in minutes between two HH:MM time strings.
  * Returns null when either value is missing or the end is not after the start.
  *
- * @param {string|null|undefined} startTime - start time in HH:MM format
- * @param {string|null|undefined} endTime - end time in HH:MM format
+ * @param {string|null|undefined} startTime - time in HH:MM format
+ * @param {string|null|undefined} endTime - time in HH:MM format
  * @returns {number|null} duration in minutes, or null
  */
 function computeDurationFromTimes(startTime, endTime) {
   if (!startTime || !endTime) return null;
   const start = new Date(`1970-01-01T${startTime}:00`);
   const end = new Date(`1970-01-01T${endTime}:00`);
-  if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
-  const diffMs = end - start;
-  return diffMs > 0 ? diffMs / 60000 : null;
+  if (isNaN(start) || isNaN(end)) return null;
+  const diffMinutes = (end - start) / 60000;
+  return diffMinutes > 0 ? diffMinutes : null;
 }
 
 /**

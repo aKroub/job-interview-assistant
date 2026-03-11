@@ -65,11 +65,11 @@ export function normalizeInterviewType(llmType) {
  */
 function computeDurationFromTimes(startTime, endTime) {
   if (!startTime || !endTime) return null;
-  const [sh, sm] = startTime.split(':').map(Number);
-  const [eh, em] = endTime.split(':').map(Number);
-  if (isNaN(sh) || isNaN(sm) || isNaN(eh) || isNaN(em)) return null;
-  const diff = (eh * 60 + em) - (sh * 60 + sm);
-  return diff > 0 ? diff : null;
+  const start = new Date(`1970-01-01T${startTime}:00`);
+  const end = new Date(`1970-01-01T${endTime}:00`);
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
+  const diffMs = end - start;
+  return diffMs > 0 ? diffMs / 60000 : null;
 }
 
 /**

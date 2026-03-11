@@ -147,7 +147,7 @@ describe('SuggestionCard — email-only suggestions', () => {
 
   it('calls onAccept with the email-only suggestion when card is clicked', async () => {
     const suggestion = makeEmailOnlySuggestion();
-    const onAccept = jest.fn();
+    const onAccept = vi.fn();
     render(<SuggestionCard suggestion={suggestion} onDismiss={noop} onAccept={onAccept} />);
 
     await user.click(screen.getByRole('button', { name: /schedule google interview/i }));
@@ -157,7 +157,7 @@ describe('SuggestionCard — email-only suggestions', () => {
 
   it('calls onDismiss with the full suggestion object when dismiss is clicked', async () => {
     const suggestion = makeEmailOnlySuggestion();
-    const onDismiss = jest.fn();
+    const onDismiss = vi.fn();
     render(<SuggestionCard suggestion={suggestion} onDismiss={onDismiss} onAccept={noop} />);
 
     await user.click(screen.getByRole('button', { name: /dismiss google suggestion/i }));
@@ -276,7 +276,7 @@ describe('SuggestionCard — callbacks', () => {
 
   it('calls onDismiss with the full suggestion object when dismiss is clicked', async () => {
     const suggestion = makeSuggestion();
-    const onDismiss = jest.fn();
+    const onDismiss = vi.fn();
     render(<SuggestionCard suggestion={suggestion} onDismiss={onDismiss} onAccept={noop} />);
 
     await user.click(screen.getByRole('button', { name: /dismiss google suggestion/i }));
@@ -286,7 +286,7 @@ describe('SuggestionCard — callbacks', () => {
   });
 
   it('does not call onAccept when dismiss is clicked', async () => {
-    const onAccept = jest.fn();
+    const onAccept = vi.fn();
     render(<SuggestionCard suggestion={makeSuggestion()} onDismiss={noop} onAccept={onAccept} />);
 
     await user.click(screen.getByRole('button', { name: /dismiss google suggestion/i }));
@@ -296,7 +296,7 @@ describe('SuggestionCard — callbacks', () => {
 
   it('calls onAccept with the suggestion when the card is clicked', async () => {
     const suggestion = makeSuggestion();
-    const onAccept = jest.fn();
+    const onAccept = vi.fn();
     render(<SuggestionCard suggestion={suggestion} onDismiss={noop} onAccept={onAccept} />);
 
     await user.click(screen.getByRole('button', { name: /schedule google interview/i }));

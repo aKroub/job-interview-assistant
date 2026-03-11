@@ -24,8 +24,8 @@ function setup({ companies, handlers = {}, initialValues = null } = {}) {
     makeCompany({ id: 'c1', name: 'Google', position: 'SWE' }),
     makeCompany({ id: 'c2', name: 'Meta', position: 'Staff Engineer' }),
   ];
-  const onAdd   = handlers.onAdd   ?? jest.fn();
-  const onClose = handlers.onClose ?? jest.fn();
+  const onAdd   = handlers.onAdd   ?? vi.fn();
+  const onClose = handlers.onClose ?? vi.fn();
 
   render(
     <AddInterviewModal
@@ -327,9 +327,9 @@ function makeEditInterview(overrides = {}) {
 
 function setupEditMode({ interview, handlers = {} } = {}) {
   const editInterview = interview ?? makeEditInterview();
-  const onEdit  = handlers.onEdit  ?? jest.fn();
-  const onClose = handlers.onClose ?? jest.fn();
-  const onAdd   = handlers.onAdd   ?? jest.fn();
+  const onEdit  = handlers.onEdit  ?? vi.fn();
+  const onClose = handlers.onClose ?? vi.fn();
+  const onAdd   = handlers.onAdd   ?? vi.fn();
 
   const companiesList = [
     makeCompany({ id: 'c1', name: 'Google', position: 'SWE' }),

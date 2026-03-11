@@ -22,10 +22,10 @@ function makeCompany(overrides = {}) {
 
 function setup(companyOverrides = {}, handlers = {}, { pipelineLabels = PIPELINE_LABELS } = {}) {
   const company      = makeCompany(companyOverrides);
-  const onDelete     = handlers.onDelete     ?? jest.fn();
-  const onStageChange = handlers.onStageChange ?? jest.fn();
-  const onDragStart  = handlers.onDragStart  ?? jest.fn();
-  const onDragEnd    = handlers.onDragEnd    ?? jest.fn();
+  const onDelete     = handlers.onDelete     ?? vi.fn();
+  const onStageChange = handlers.onStageChange ?? vi.fn();
+  const onDragStart  = handlers.onDragStart  ?? vi.fn();
+  const onDragEnd    = handlers.onDragEnd    ?? vi.fn();
 
   render(
     <CompanyCard
@@ -86,9 +86,9 @@ describe('CompanyCard — draggable', () => {
     const { container } = render(
       <CompanyCard
         company={makeCompany()}
-        onDelete={jest.fn()}
-        onDragStart={jest.fn()}
-        onDragEnd={jest.fn()}
+        onDelete={vi.fn()}
+        onDragStart={vi.fn()}
+        onDragEnd={vi.fn()}
       />
     );
     // The outermost div should be draggable
@@ -104,7 +104,7 @@ describe('CompanyCard — callbacks', () => {
   const user = userEvent.setup();
 
   it('calls onDelete with the company id when delete button is clicked', async () => {
-    window.confirm = jest.fn(() => true);
+    window.confirm = vi.fn(() => true);
     const { onDelete } = setup();
     await user.click(screen.getByRole('button', { name: /delete acme corp/i }));
     expect(onDelete).toHaveBeenCalledWith('c1');

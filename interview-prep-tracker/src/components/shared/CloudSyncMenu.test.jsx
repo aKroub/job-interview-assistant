@@ -13,12 +13,12 @@ const defaultProps = {
   lastSaved: null,
   syncError: null,
   backups: [],
-  onSave: jest.fn(),
-  onLoad: jest.fn(),
+  onSave: vi.fn(),
+  onLoad: vi.fn(),
 };
 
 function renderMenu(overrides = {}) {
-  const props = { ...defaultProps, onSave: jest.fn(), onLoad: jest.fn(), ...overrides };
+  const props = { ...defaultProps, onSave: vi.fn(), onLoad: vi.fn(), ...overrides };
   render(<CloudSyncMenu {...props} />);
   return props;
 }
@@ -130,7 +130,7 @@ describe('CloudSyncMenu — interactions', () => {
   });
 
   it('calls onLoad with fileId when a version is confirmed', async () => {
-    window.confirm = jest.fn().mockReturnValue(true);
+    window.confirm = vi.fn().mockReturnValue(true);
     const props = renderMenu({
       backups: [
         { fileId: 'f1', savedAt: '2026-02-22T10:00:00Z' },
@@ -151,7 +151,7 @@ describe('CloudSyncMenu — interactions', () => {
   });
 
   it('does not call onLoad when version selection is cancelled', async () => {
-    window.confirm = jest.fn().mockReturnValue(false);
+    window.confirm = vi.fn().mockReturnValue(false);
     const props = renderMenu({
       backups: [{ fileId: 'f1', savedAt: '2026-02-22T10:00:00Z' }],
     });

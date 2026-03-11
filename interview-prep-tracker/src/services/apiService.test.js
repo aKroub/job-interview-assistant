@@ -16,7 +16,7 @@ import {
  * @returns {Function} mock fetch function
  */
 function mockFetch(body, status = 200) {
-  return jest.fn().mockResolvedValue({
+  return vi.fn().mockResolvedValue({
     ok: status >= 200 && status < 300,
     status,
     json: () => Promise.resolve(body),
@@ -29,7 +29,7 @@ function mockFetch(body, status = 200) {
  * @returns {Function} mock fetch function
  */
 function mockFetchError() {
-  return jest.fn().mockRejectedValue(new Error('Network error'));
+  return vi.fn().mockRejectedValue(new Error('Network error'));
 }
 
 /**
@@ -42,10 +42,10 @@ function mockFetchError() {
 function mockEventSource() {
   const listeners = {};
   const instance = {
-    addEventListener: jest.fn((event, handler) => {
+    addEventListener: vi.fn((event, handler) => {
       listeners[event] = handler;
     }),
-    close: jest.fn(),
+    close: vi.fn(),
     onopen: null,
   };
 
@@ -198,7 +198,7 @@ describe('apiService — SSE stream', () => {
 
   it('calls the connected handler when onopen fires before onConnected is called', () => {
     const { Ctor, instance } = mockEventSource();
-    const handler = jest.fn();
+    const handler = vi.fn();
 
     const stream = createSuggestionStream(Ctor);
 
@@ -213,7 +213,7 @@ describe('apiService — SSE stream', () => {
 
   it('calls the connected handler when onopen fires after onConnected is called', () => {
     const { Ctor, instance } = mockEventSource();
-    const handler = jest.fn();
+    const handler = vi.fn();
 
     const stream = createSuggestionStream(Ctor);
 
@@ -228,7 +228,7 @@ describe('apiService — SSE stream', () => {
 
   it('fires connected handler immediately when readyState is already OPEN', () => {
     const { Ctor, instance } = mockEventSource();
-    const handler = jest.fn();
+    const handler = vi.fn();
 
     // Simulate: readyState is already OPEN but onopen was missed
     instance.readyState = 1;
@@ -241,7 +241,7 @@ describe('apiService — SSE stream', () => {
 
   it('calls the suggestions handler with parsed data', () => {
     const { Ctor, listeners } = mockEventSource();
-    const handler = jest.fn();
+    const handler = vi.fn();
     const suggestions = [{ id: 's1' }, { id: 's2' }];
 
     const stream = createSuggestionStream(Ctor);
@@ -254,7 +254,7 @@ describe('apiService — SSE stream', () => {
 
   it('silently skips malformed JSON in suggestions event', () => {
     const { Ctor, listeners } = mockEventSource();
-    const handler = jest.fn();
+    const handler = vi.fn();
 
     const stream = createSuggestionStream(Ctor);
     stream.onSuggestions(handler);
@@ -266,7 +266,7 @@ describe('apiService — SSE stream', () => {
 
   it('calls the scan-complete handler with parsed data', () => {
     const { Ctor, listeners } = mockEventSource();
-    const handler = jest.fn();
+    const handler = vi.fn();
 
     const stream = createSuggestionStream(Ctor);
     stream.onScanComplete(handler);
@@ -278,7 +278,7 @@ describe('apiService — SSE stream', () => {
 
   it('silently skips malformed JSON in scan-complete event', () => {
     const { Ctor, listeners } = mockEventSource();
-    const handler = jest.fn();
+    const handler = vi.fn();
 
     const stream = createSuggestionStream(Ctor);
     stream.onScanComplete(handler);
@@ -290,7 +290,7 @@ describe('apiService — SSE stream', () => {
 
   it('calls the error handler with parsed server error', () => {
     const { Ctor, listeners } = mockEventSource();
-    const handler = jest.fn();
+    const handler = vi.fn();
 
     const stream = createSuggestionStream(Ctor);
     stream.onError(handler);
@@ -303,7 +303,7 @@ describe('apiService — SSE stream', () => {
 
   it('calls the error handler with generic message for native EventSource errors', () => {
     const { Ctor, listeners } = mockEventSource();
-    const handler = jest.fn();
+    const handler = vi.fn();
 
     const stream = createSuggestionStream(Ctor);
     stream.onError(handler);
@@ -316,7 +316,7 @@ describe('apiService — SSE stream', () => {
 
   it('calls the error handler with generic message when server error is malformed JSON', () => {
     const { Ctor, listeners } = mockEventSource();
-    const handler = jest.fn();
+    const handler = vi.fn();
 
     const stream = createSuggestionStream(Ctor);
     stream.onError(handler);

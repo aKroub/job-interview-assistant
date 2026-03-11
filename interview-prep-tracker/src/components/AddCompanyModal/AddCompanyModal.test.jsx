@@ -16,9 +16,9 @@ function makeDraft(overrides = {}) {
 
 function setup(draftOverrides = {}, handlers = {}) {
   const draft = makeDraft(draftOverrides);
-  const onDraftChange = handlers.onDraftChange ?? jest.fn();
-  const onAdd        = handlers.onAdd        ?? jest.fn();
-  const onClose      = handlers.onClose      ?? jest.fn();
+  const onDraftChange = handlers.onDraftChange ?? vi.fn();
+  const onAdd        = handlers.onAdd        ?? vi.fn();
+  const onClose      = handlers.onClose      ?? vi.fn();
 
   render(
     <AddCompanyModal

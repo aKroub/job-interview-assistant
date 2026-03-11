@@ -23,12 +23,12 @@ function setup({
   connectionStatus = 'disconnected',
   handlers = {},
 } = {}) {
-  const onDismiss    = handlers.onDismiss    ?? jest.fn();
-  const onAccept     = handlers.onAccept     ?? jest.fn();
-  const onScan       = handlers.onScan       ?? jest.fn();
-  const onReset      = handlers.onReset      ?? jest.fn();
-  const onConnect    = handlers.onConnect    ?? jest.fn();
-  const onDisconnect = handlers.onDisconnect ?? jest.fn();
+  const onDismiss    = handlers.onDismiss    ?? vi.fn();
+  const onAccept     = handlers.onAccept     ?? vi.fn();
+  const onScan       = handlers.onScan       ?? vi.fn();
+  const onReset      = handlers.onReset      ?? vi.fn();
+  const onConnect    = handlers.onConnect    ?? vi.fn();
+  const onDisconnect = handlers.onDisconnect ?? vi.fn();
 
   render(
     <SuggestionPanel
@@ -121,7 +121,7 @@ describe('SuggestionPanel — callbacks', () => {
   });
 
   it('calls onReset when Reset is clicked and confirmed', async () => {
-    jest.spyOn(window, 'confirm').mockReturnValue(true);
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
     const { onReset } = setup({ authStatus: 'authenticated' });
     await user.click(screen.getByRole('button', { name: /reset suggestions/i }));
     expect(onReset).toHaveBeenCalledTimes(1);
@@ -129,7 +129,7 @@ describe('SuggestionPanel — callbacks', () => {
   });
 
   it('does not call onReset when Reset is clicked but cancelled', async () => {
-    jest.spyOn(window, 'confirm').mockReturnValue(false);
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
     const { onReset } = setup({ authStatus: 'authenticated' });
     await user.click(screen.getByRole('button', { name: /reset suggestions/i }));
     expect(onReset).not.toHaveBeenCalled();

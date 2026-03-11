@@ -2,68 +2,72 @@
   "name": "interview-prep-tracker",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
   "dependencies": {
-    "@testing-library/dom": "^10.4.1",
-    "@testing-library/jest-dom": "^6.9.1",
-    "@testing-library/react": "^16.3.2",
-    "@testing-library/user-event": "^14.0.0",
     "lucide-react": "^0.577.0",
     "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "react-scripts": "5.0.1",
-    "web-vitals": "^2.1.4"
+    "react-dom": "^19.2.4"
   },
   "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "lint": "eslint src/ --ext .js,.jsx --ignore-pattern '*.test.*' --max-warnings 0",
-    "eject": "react-scripts eject"
+    "start": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run --reporter=verbose",
+    "test:watch": "vitest",
+    "lint": "eslint src/ --ext .js,.jsx --ignore-pattern '*.test.*' --max-warnings 0"
   },
   "eslintConfig": {
+    "plugins": ["import"],
     "extends": [
-      "react-app",
-      "react-app/jest"
+      "eslint:recommended",
+      "plugin:react/recommended",
+      "plugin:react-hooks/recommended"
     ],
-    "rules": {
-      "no-unused-vars": ["warn", { "args": "none", "ignoreRestSiblings": true }],
-      "import/no-unused-modules": ["warn", {
-        "unusedExports": true,
-        "src": ["./src"],
-        "ignoreExports": [
-          "./src/index.js",
-          "./src/App.js",
-          "./src/reportWebVitals.js",
-          "./src/setupTests.js",
-          "./src/**/*.test.{js,jsx}",
-          "./src/constants/interviewTypes.js",
-          "./src/setupProxy.js"
-        ]
-      }]
+    "parserOptions": {
+      "ecmaVersion": "latest",
+      "sourceType": "module",
+      "ecmaFeatures": { "jsx": true }
     },
+    "env": { "browser": true, "es2024": true, "node": true },
     "settings": {
+      "react": { "version": "detect" },
       "import/resolver": {
         "node": {
           "extensions": [".js", ".jsx"]
         }
       }
+    },
+    "rules": {
+      "react/react-in-jsx-scope": "off",
+      "react/prop-types": "off",
+      "no-unused-vars": ["warn", { "args": "none", "ignoreRestSiblings": true }],
+      "import/no-unused-modules": ["warn", {
+        "unusedExports": true,
+        "src": ["./src"],
+        "ignoreExports": [
+          "./src/main.jsx",
+          "./src/App.jsx",
+          "./src/setupTests.js",
+          "./src/**/*.test.{js,jsx}",
+          "./src/constants/interviewTypes.js"
+        ]
+      }]
     }
   },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
-  },
   "devDependencies": {
-    "autoprefixer": "^10.4.24",
-    "postcss": "^8.5.6",
-    "tailwindcss": "^3.4.19"
+    "@tailwindcss/vite": "^4.0.0",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.0.0",
+    "@vitejs/plugin-react": "^4.0.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-react": "^7.37.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "jsdom": "^25.0.0",
+    "tailwindcss": "^4.0.0",
+    "vite": "^6.0.0",
+    "vitest": "^3.0.0"
   }
 }

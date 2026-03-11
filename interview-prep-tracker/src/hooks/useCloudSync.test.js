@@ -10,13 +10,13 @@ import { useCloudSync } from './useCloudSync';
  */
 function createMockApi(overrides = {}) {
   return {
-    fetchBackupStatus: jest.fn().mockResolvedValue({ backups: [] }),
-    saveToDrive: jest.fn().mockResolvedValue({
+    fetchBackupStatus: vi.fn().mockResolvedValue({ backups: [] }),
+    saveToDrive: vi.fn().mockResolvedValue({
       saved: true,
       savedAt: '2026-02-22T10:00:00Z',
       backups: [{ fileId: 'f1', savedAt: '2026-02-22T10:00:00Z' }],
     }),
-    loadFromDrive: jest.fn().mockResolvedValue({
+    loadFromDrive: vi.fn().mockResolvedValue({
       version: 1,
       savedAt: '2026-02-22T10:00:00Z',
       companies: [{ id: '1', name: 'Acme', position: 'SWE', stage: 'applied', interviews: [] }],
@@ -28,8 +28,8 @@ function createMockApi(overrides = {}) {
 
 function setup(overrides = {}) {
   const api = createMockApi(overrides.apiOverrides);
-  const replaceCompanies = jest.fn();
-  const replaceSeenQuestions = jest.fn();
+  const replaceCompanies = vi.fn();
+  const replaceSeenQuestions = vi.fn();
   const companies = overrides.companies || [];
   const seenQuestions = overrides.seenQuestions || new Set();
   const authStatus = overrides.authStatus || 'unauthenticated';
@@ -83,7 +83,7 @@ describe('useCloudSync — backup status check', () => {
     const { api } = setup({
       authStatus: 'authenticated',
       apiOverrides: {
-        fetchBackupStatus: jest.fn().mockResolvedValue({ backups: [{ fileId: 'f1', savedAt: '2026-01-01T00:00:00Z' }] }),
+        fetchBackupStatus: vi.fn().mockResolvedValue({ backups: [{ fileId: 'f1', savedAt: '2026-01-01T00:00:00Z' }] }),
       },
     });
 
@@ -97,7 +97,7 @@ describe('useCloudSync — backup status check', () => {
     const { result } = setup({
       authStatus: 'authenticated',
       apiOverrides: {
-        fetchBackupStatus: jest.fn().mockResolvedValue({
+        fetchBackupStatus: vi.fn().mockResolvedValue({
           backups: [
             { fileId: 'f1', savedAt: '2026-02-22T10:00:00Z' },
             { fileId: 'f2', savedAt: '2026-02-21T10:00:00Z' },
@@ -118,7 +118,7 @@ describe('useCloudSync — backup status check', () => {
     const { result } = setup({
       authStatus: 'authenticated',
       apiOverrides: {
-        fetchBackupStatus: jest.fn().mockResolvedValue({
+        fetchBackupStatus: vi.fn().mockResolvedValue({
           backups: [{ fileId: 'f1', savedAt: '2026-01-01T00:00:00Z' }],
         }),
       },
@@ -141,7 +141,7 @@ describe('useCloudSync — backup status check', () => {
     const { result } = setup({
       authStatus: 'authenticated',
       apiOverrides: {
-        fetchBackupStatus: jest.fn().mockRejectedValue(new Error('Network error')),
+        fetchBackupStatus: vi.fn().mockRejectedValue(new Error('Network error')),
       },
     });
 
@@ -201,7 +201,7 @@ describe('useCloudSync — saveToDrive', () => {
     const { result } = setup({
       authStatus: 'authenticated',
       apiOverrides: {
-        saveToDrive: jest.fn().mockRejectedValue(new Error('Upload failed')),
+        saveToDrive: vi.fn().mockRejectedValue(new Error('Upload failed')),
       },
     });
 
@@ -248,7 +248,7 @@ describe('useCloudSync — loadFromDrive', () => {
     const { result } = setup({
       authStatus: 'authenticated',
       apiOverrides: {
-        loadFromDrive: jest.fn().mockResolvedValue({ exists: false }),
+        loadFromDrive: vi.fn().mockResolvedValue({ exists: false }),
       },
     });
 
@@ -262,7 +262,7 @@ describe('useCloudSync — loadFromDrive', () => {
     const { result } = setup({
       authStatus: 'authenticated',
       apiOverrides: {
-        loadFromDrive: jest.fn().mockRejectedValue(new Error('Download failed')),
+        loadFromDrive: vi.fn().mockRejectedValue(new Error('Download failed')),
       },
     });
 
@@ -276,7 +276,7 @@ describe('useCloudSync — loadFromDrive', () => {
     const { result, replaceCompanies, replaceSeenQuestions } = setup({
       authStatus: 'authenticated',
       apiOverrides: {
-        loadFromDrive: jest.fn().mockResolvedValue({ exists: false }),
+        loadFromDrive: vi.fn().mockResolvedValue({ exists: false }),
       },
     });
 

@@ -21,8 +21,8 @@ function makeInterview(overrides = {}) {
 }
 
 function setup({ date, interviews = [], isToday = false, onEdit, onDeleteInterview } = {}) {
-  const editHandler   = onEdit            ?? jest.fn();
-  const deleteHandler = onDeleteInterview  ?? jest.fn();
+  const editHandler   = onEdit            ?? vi.fn();
+  const deleteHandler = onDeleteInterview  ?? vi.fn();
   const dateObj       = date ?? new Date(2026, 1, 18); // Wednesday Feb 18
 
   render(

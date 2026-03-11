@@ -11,10 +11,10 @@ function makeCompany(overrides = {}) {
 }
 
 function setup({ stage = 'applied', label = 'Applied', companies = [], handlers = {} } = {}) {
-  const onDelete      = handlers.onDelete      ?? jest.fn();
-  const onUpdateStage = handlers.onUpdateStage ?? jest.fn();
-  const onDragStart   = handlers.onDragStart   ?? jest.fn();
-  const onDragEnd     = handlers.onDragEnd     ?? jest.fn();
+  const onDelete      = handlers.onDelete      ?? vi.fn();
+  const onUpdateStage = handlers.onUpdateStage ?? vi.fn();
+  const onDragStart   = handlers.onDragStart   ?? vi.fn();
+  const onDragEnd     = handlers.onDragEnd     ?? vi.fn();
 
   const { container } = render(
     <KanbanColumn
@@ -74,7 +74,7 @@ describe('KanbanColumn — drag and drop', () => {
     const col = container.firstChild;
 
     // Simulate dragOver (allows drop)
-    fireEvent.dragOver(col, { preventDefault: jest.fn() });
+    fireEvent.dragOver(col, { preventDefault: vi.fn() });
 
     // Simulate drop with companyId data
     fireEvent.drop(col, {

@@ -18,8 +18,8 @@ function setup({
   availableQuestions = [makeQuestion('q1'), makeQuestion('q2')],
   handlers          = {},
 } = {}) {
-  const onMarkSeen = handlers.onMarkSeen ?? jest.fn();
-  const onReset    = handlers.onReset    ?? jest.fn();
+  const onMarkSeen = handlers.onMarkSeen ?? vi.fn();
+  const onReset    = handlers.onReset    ?? vi.fn();
 
   render(
     <CompanyQuestionSection

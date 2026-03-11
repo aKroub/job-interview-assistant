@@ -37,9 +37,9 @@ function makeInterview(overrides = {}) {
 }
 
 function setup({ companies = [], handlers = {} } = {}) {
-  const onAddInterview    = handlers.onAddInterview    ?? jest.fn();
-  const onDeleteInterview = handlers.onDeleteInterview ?? jest.fn();
-  const onUpdateInterview = handlers.onUpdateInterview ?? jest.fn();
+  const onAddInterview    = handlers.onAddInterview    ?? vi.fn();
+  const onDeleteInterview = handlers.onDeleteInterview ?? vi.fn();
+  const onUpdateInterview = handlers.onUpdateInterview ?? vi.fn();
 
   render(
     <CalendarView

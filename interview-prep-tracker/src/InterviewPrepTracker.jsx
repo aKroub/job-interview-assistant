@@ -78,7 +78,7 @@ const InterviewPrepTracker = () => {
 
   const todaysInterviews = getTodaysUpcomingInterviews(companies);
 
-  function handleTodayInterviewClick() {
+  function handleTodayInterviewClick(_interview) {
     setActiveTab('timeline');
   }
 

@@ -105,7 +105,32 @@ describe('TodayInterviews', () => {
 
     const chip = screen.getByRole('button');
     expect(chip).toHaveAttribute('tabindex', '0');
-    expect(chip).toHaveAttribute('aria-label', 'View Google Phone Interview at 10:00 in timeline');
+    expect(chip).toHaveAttribute('aria-label', 'View Google Phone Interview at 10:00');
+  });
+
+  it('does not render time or separator when interview has no time', () => {
+    const interview = makeInterview({ id: 'i1', time: '' });
+
+    render(
+      <TodayInterviews interviews={[interview]} onInterviewClick={jest.fn()} />
+    );
+
+    expect(screen.queryByText(/\d{2}:\d{2}/)).toBeNull();
+    expect(screen.getByRole('button')).toHaveAttribute(
+      'aria-label',
+      'View Acme Corp Phone Interview at TBD'
+    );
+  });
+
+  it('renders the region landmark with aria-label', () => {
+    const interview = makeInterview({ id: 'i1' });
+
+    render(<TodayInterviews interviews={[interview]} />);
+
+    expect(screen.getByRole('region')).toHaveAttribute(
+      'aria-label',
+      "Today's upcoming interviews"
+    );
   });
 
   // ---------------------------------------------------------------------------

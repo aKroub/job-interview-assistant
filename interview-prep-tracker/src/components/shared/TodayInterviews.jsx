@@ -16,8 +16,9 @@ function TodayInterviewItem({ interview, onClick }) {
 
   const baseClasses =
     'flex items-center gap-1.5 bg-white border border-purple-200 rounded-md px-3 py-1.5 text-sm transition';
+  const iconColour = typeConfig?.colour || 'text-purple-500';
   const interactiveClasses = onClick
-    ? 'cursor-pointer hover:border-purple-400 hover:shadow-sm'
+    ? 'cursor-pointer hover:border-purple-400 hover:shadow-sm focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-1 active:scale-[0.98]'
     : '';
 
   function handleClick() {
@@ -33,7 +34,7 @@ function TodayInterviewItem({ interview, onClick }) {
 
   const timeLabel = interview.time || 'TBD';
   const ariaLabel = onClick
-    ? `View ${interview.companyName} ${interview.type} at ${timeLabel} in timeline`
+    ? `View ${interview.companyName} ${interview.type} at ${timeLabel}`
     : undefined;
 
   return (
@@ -51,8 +52,8 @@ function TodayInterviewItem({ interview, onClick }) {
       {interview.time && (
         <span className="text-gray-300" aria-hidden="true">&middot;</span>
       )}
-      <span className="text-gray-700 truncate max-w-[120px]">{interview.companyName}</span>
-      <InterviewIcon size={14} className="text-purple-500 shrink-0" aria-hidden="true" />
+      <span className="text-gray-700 truncate max-w-[80px] sm:max-w-[120px] md:max-w-[200px]" title={interview.companyName}>{interview.companyName}</span>
+      <InterviewIcon size={14} className={`${iconColour} shrink-0`} aria-hidden="true" />
     </div>
   );
 }
@@ -72,8 +73,8 @@ export function TodayInterviews({ interviews, onInterviewClick }) {
   if (interviews.length === 0) return null;
 
   return (
-    <div className="mb-6">
-      <div className="bg-purple-50 border border-purple-200 rounded-lg px-4 py-3">
+    <div className="mb-6" role="region" aria-label="Today's upcoming interviews">
+      <div className="bg-purple-50 border border-purple-300 rounded-lg px-4 py-3">
         <div className="flex items-center gap-2 mb-2">
           <CalendarCheck size={16} className="text-purple-600" />
           <h2 className="text-sm font-semibold text-purple-800">

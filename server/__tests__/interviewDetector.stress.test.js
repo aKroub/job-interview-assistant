@@ -67,7 +67,7 @@ function makeCalendarResult(overrides = {}) {
 function mockLlmExtractor({ emailHandler, eventHandler } = {}) {
   const defaultEmailHandler = () => ({
     dryModePrompt: null,
-    extraction: { company_name: 'LlmCompany', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+    extraction: { company_name: 'LlmCompany', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
   });
   const defaultEventHandler = () => ({
     dryModePrompt: null,
@@ -113,7 +113,7 @@ describe('H1: extractor-null-passthrough — privacy gate null returns', () => {
     const extractor = mockLlmExtractor({
       emailHandler: () => ({
         dryModePrompt: null,
-        extraction: { company_name: 'EmailLlm', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        extraction: { company_name: 'EmailLlm', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
       }),
       eventHandler: () => null, // privacy gate rejects
     });
@@ -207,7 +207,7 @@ describe('H2: extractor-rejection-corruption — rejected promises preserve corr
         }
         return {
           dryModePrompt: null,
-          extraction: { company_name: 'EnrichedCo', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'EnrichedCo', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       eventHandler: () => ({
@@ -254,7 +254,7 @@ describe('H2: extractor-rejection-corruption — rejected promises preserve corr
     const extractor = mockLlmExtractor({
       emailHandler: () => ({
         dryModePrompt: null,
-        extraction: { company_name: null, date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        extraction: { company_name: null, date: null, start_time: null, end_time: null, intent: null, interview_type: null },
       }),
       eventHandler: () => {
         eventCallCount++;
@@ -338,7 +338,7 @@ describe('H3: llmType-precedence-override — LLM type overrides regex heuristic
     const extractor = mockLlmExtractor({
       emailHandler: () => ({
         dryModePrompt: null,
-        extraction: { company_name: null, date: null, time: null, duration_minutes: null, intent: null, interview_type: 'phone screen' },
+        extraction: { company_name: null, date: null, start_time: null, end_time: null, intent: null, interview_type: 'phone screen' },
       }),
       eventHandler: () => ({
         dryModePrompt: null,
@@ -365,7 +365,7 @@ describe('H3: llmType-precedence-override — LLM type overrides regex heuristic
     const extractor = mockLlmExtractor({
       emailHandler: () => ({
         dryModePrompt: null,
-        extraction: { company_name: null, date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        extraction: { company_name: null, date: null, start_time: null, end_time: null, intent: null, interview_type: null },
       }),
       eventHandler: () => ({
         dryModePrompt: null,
@@ -392,7 +392,7 @@ describe('H3: llmType-precedence-override — LLM type overrides regex heuristic
     const extractor = mockLlmExtractor({
       emailHandler: () => ({
         dryModePrompt: null,
-        extraction: { company_name: null, date: null, time: null, duration_minutes: null, intent: null, interview_type: 'behavioral' },
+        extraction: { company_name: null, date: null, start_time: null, end_time: null, intent: null, interview_type: 'behavioral' },
       }),
       eventHandler: () => ({
         dryModePrompt: null,
@@ -420,7 +420,7 @@ describe('H3: llmType-precedence-override — LLM type overrides regex heuristic
     const extractor = mockLlmExtractor({
       emailHandler: () => ({
         dryModePrompt: null,
-        extraction: { company_name: null, date: null, time: null, duration_minutes: null, intent: null, interview_type: 'in-person' },
+        extraction: { company_name: null, date: null, start_time: null, end_time: null, intent: null, interview_type: 'in-person' },
       }),
     });
 
@@ -474,7 +474,7 @@ describe('H4: enrichment-immutability — originals not mutated by detect()', ()
     const extractor = mockLlmExtractor({
       emailHandler: () => ({
         dryModePrompt: null,
-        extraction: { company_name: 'LlmCo', date: '2025-02-01', time: '10:00', duration_minutes: 45, intent: 'update', interview_type: 'video' },
+        extraction: { company_name: 'LlmCo', date: '2025-02-01', start_time: '10:00', end_time: '10:45', intent: 'update', interview_type: 'video' },
       }),
     });
 
@@ -561,7 +561,7 @@ describe('H4: enrichment-immutability — originals not mutated by detect()', ()
         if (emailCall === 1) return null; // privacy gate rejects first email
         return {
           dryModePrompt: null,
-          extraction: { company_name: 'Enriched', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'Enriched', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       eventHandler: () => null,
@@ -621,7 +621,7 @@ describe('H5: concurrent-enrichment-race — empty and large batch handling', ()
         emailCalls++;
         return {
           dryModePrompt: null,
-          extraction: { company_name: 'LlmCo', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'LlmCo', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       eventHandler: () => {
@@ -678,7 +678,7 @@ describe('H5: concurrent-enrichment-race — empty and large batch handling', ()
         emailCallOrder.push(sender);
         return {
           dryModePrompt: null,
-          extraction: { company_name: `Enriched_${sender}`, date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: `Enriched_${sender}`, date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       eventHandler: (summary, desc, loc, organizer) => {
@@ -740,7 +740,7 @@ describe('H5: concurrent-enrichment-race — empty and large batch handling', ()
         if (emailCallIdx % 2 === 0) throw new Error('simulated failure');
         return {
           dryModePrompt: null,
-          extraction: { company_name: `Enriched${emailCallIdx}`, date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: `Enriched${emailCallIdx}`, date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       eventHandler: () => ({
@@ -988,7 +988,7 @@ describe('H9: dismissed-prefilter-skips-llm — dismissed items never reach extr
         emailCalls.push(subject);
         return {
           dryModePrompt: null,
-          extraction: { company_name: 'LlmCo', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'LlmCo', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       eventHandler: (summary) => {
@@ -1097,7 +1097,7 @@ describe('H9: dismissed-prefilter-skips-llm — dismissed items never reach extr
     const extractor = mockLlmExtractor({
       emailHandler: () => ({
         dryModePrompt: null,
-        extraction: { company_name: 'EnrichedFromLLM', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        extraction: { company_name: 'EnrichedFromLLM', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
       }),
     });
 
@@ -1181,7 +1181,7 @@ describe('H11: composite-ID-only dismissal — item passes through pre-filter to
         emailCalls.push(subject);
         return {
           dryModePrompt: null,
-          extraction: { company_name: 'LlmEnriched', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'LlmEnriched', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       eventHandler: (summary) => {
@@ -1229,7 +1229,7 @@ describe('H11: composite-ID-only dismissal — item passes through pre-filter to
         emailCalls.push(subject);
         return {
           dryModePrompt: null,
-          extraction: { company_name: 'FromLLM', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'FromLLM', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       eventHandler: () => null,
@@ -1284,7 +1284,7 @@ describe('H12: mid-poll dismissal — LLM skipped on next cycle for newly dismis
         emailCalls.push(subject);
         return {
           dryModePrompt: null,
-          extraction: { company_name: 'Enriched', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'Enriched', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       eventHandler: () => null,
@@ -1329,7 +1329,7 @@ describe('H12: mid-poll dismissal — LLM skipped on next cycle for newly dismis
         emailCalls.push(sender);
         return {
           dryModePrompt: null,
-          extraction: { company_name: `LLM_${sender}`, date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: `LLM_${sender}`, date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       eventHandler: () => null,
@@ -1379,7 +1379,7 @@ describe('H13: stale cache after dismiss-then-reset — cache entry reused on un
         emailCallCount++;
         return {
           dryModePrompt: null,
-          extraction: { company_name: 'CachedCo', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'CachedCo', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       eventHandler: () => ({
@@ -1432,7 +1432,7 @@ describe('H13: stale cache after dismiss-then-reset — cache entry reused on un
         emailCallCount++;
         return {
           dryModePrompt: null,
-          extraction: { company_name: `LLM_${emailCallCount}`, date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: `LLM_${emailCallCount}`, date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       eventHandler: () => null,
@@ -1511,7 +1511,7 @@ describe('H14: dismissal snapshot race — dismissed set read once at detect() s
         await tokenStore.addDismissed({ id: 'suggestion_msg1_evt1', emailId: 'msg1', calendarId: 'evt1' });
         return {
           dryModePrompt: null,
-          extraction: { company_name: 'SlowLLM', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'SlowLLM', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       extractFromCalendarEvent: async () => ({
@@ -1553,7 +1553,7 @@ describe('H14: dismissal snapshot race — dismissed set read once at detect() s
         emailCalls.push(subject);
         return {
           dryModePrompt: null,
-          extraction: { company_name: 'LLMCo', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'LLMCo', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       extractFromCalendarEvent: async () => ({
@@ -1659,7 +1659,7 @@ describe('H15: pre-filter + circuit breaker — dismissed items not counted in b
         emailCallIdx++;
         return {
           dryModePrompt: null,
-          extraction: { company_name: 'Good', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'Good', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       eventHandler: () => null,
@@ -1941,8 +1941,8 @@ describe('H19: LLM enrichment with dismissed calendarId', () => {
           extraction: {
             company_name: 'LlmEnrichedCompany',
             date: null,
-            time: null,
-            duration_minutes: null,
+            start_time: null,
+            end_time: null,
             intent: null,
             interview_type: 'Phone Interview',
           },
@@ -2081,7 +2081,7 @@ describe('H21: low-score-exclusion — non-suggestion items skip future LLM extr
         emailCalls.push(subject);
         return {
           dryModePrompt: null,
-          extraction: { company_name: 'Acme', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'Acme', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
     });
@@ -2163,7 +2163,7 @@ describe('H21: low-score-exclusion — non-suggestion items skip future LLM extr
         emailCalls.push(subject);
         return {
           dryModePrompt: null,
-          extraction: { company_name: 'Google', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'Google', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
     });
@@ -2195,7 +2195,7 @@ describe('H21: low-score-exclusion — non-suggestion items skip future LLM extr
         emailCalls.push(subject);
         return {
           dryModePrompt: null,
-          extraction: { company_name: 'Acme', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'Acme', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
     });
@@ -2246,7 +2246,7 @@ describe('H22: low-score-calendar-cross-ref — regex data still enables cross-r
         emailCallCount++;
         return {
           dryModePrompt: null,
-          extraction: { company_name: 'Google', date: null, time: null, duration_minutes: null, intent: null, interview_type: 'video' },
+          extraction: { company_name: 'Google', date: null, start_time: null, end_time: null, intent: null, interview_type: 'video' },
         };
       },
       eventHandler: () => {
@@ -2342,7 +2342,7 @@ describe('H23: concurrent-detect-low-score — no duplicate low-score tracking',
         emailCallCount++;
         return {
           dryModePrompt: null,
-          extraction: { company_name: 'Test', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'Test', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
     });
@@ -2385,7 +2385,7 @@ describe('H24: item-id-in-llm-logs — itemId propagated to all log lines', () =
     const extractor = mockLlmExtractor({
       emailHandler: () => ({
         dryModePrompt: null,
-        extraction: { company_name: 'Test', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        extraction: { company_name: 'Test', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
       }),
     });
 
@@ -2411,7 +2411,7 @@ describe('H24: item-id-in-llm-logs — itemId propagated to all log lines', () =
         receivedItemIds.push(itemId);
         return {
           dryModePrompt: null,
-          extraction: { company_name: 'Test', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'Test', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       extractFromCalendarEvent: async () => null,
@@ -2564,7 +2564,7 @@ describe('H26: CROSS-REF-MATCHED log — fires when dismissed cross-ref leaves e
     const extractor = mockLlmExtractor({
       emailHandler: () => ({
         dryModePrompt: null,
-        extraction: { company_name: null, date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        extraction: { company_name: null, date: null, start_time: null, end_time: null, intent: null, interview_type: null },
       }),
       eventHandler: (summary) => {
         eventCalls.push(summary);

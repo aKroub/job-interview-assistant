@@ -87,8 +87,8 @@ describe('mergeEmailExtraction', () => {
     const llm = {
       company_name: 'Acme Corp',
       date: '2026-03-11',
-      time: '15:30',
-      duration_minutes: 45,
+      start_time: '15:30',
+      end_time: '16:15',
       intent: 'update',
       interview_type: 'phone screen',
     };
@@ -107,8 +107,8 @@ describe('mergeEmailExtraction', () => {
     const llm = {
       company_name: null,
       date: null,
-      time: null,
-      duration_minutes: null,
+      start_time: null,
+      end_time: null,
       intent: null,
       interview_type: null,
     };
@@ -127,8 +127,8 @@ describe('mergeEmailExtraction', () => {
     const llm = {
       company_name: '',
       date: '',
-      time: '',
-      duration_minutes: null,
+      start_time: '',
+      end_time: '',
       intent: '',
       interview_type: '',
     };
@@ -152,7 +152,7 @@ describe('mergeEmailExtraction', () => {
   });
 
   it('does not mutate the original email result', () => {
-    const llm = { company_name: 'New Corp', date: null, time: null, duration_minutes: null, intent: null, interview_type: null };
+    const llm = { company_name: 'New Corp', date: null, start_time: null, end_time: null, intent: null, interview_type: null };
     const result = mergeEmailExtraction(baseEmail, llm);
 
     expect(result).not.toBe(baseEmail);
@@ -161,7 +161,7 @@ describe('mergeEmailExtraction', () => {
   });
 
   it('preserves non-enriched fields from the original', () => {
-    const llm = { company_name: 'Google', date: null, time: null, duration_minutes: null, intent: null, interview_type: null };
+    const llm = { company_name: 'Google', date: null, start_time: null, end_time: null, intent: null, interview_type: null };
     const result = mergeEmailExtraction(baseEmail, llm);
 
     expect(result.messageId).toBe('msg1');
@@ -172,21 +172,22 @@ describe('mergeEmailExtraction', () => {
   });
 
   it('rejects invalid intent values and keeps regex intent', () => {
-    const llm = { company_name: null, date: null, time: null, duration_minutes: null, intent: 'reschedule', interview_type: null };
+    const llm = { company_name: null, date: null, start_time: null, end_time: null, intent: 'reschedule', interview_type: null };
     const result = mergeEmailExtraction(baseEmail, llm);
     expect(result.intent).toBe('add');
   });
 
   it('accepts "cancel" as a valid intent', () => {
-    const llm = { company_name: null, date: null, time: null, duration_minutes: null, intent: 'cancel', interview_type: null };
+    const llm = { company_name: null, date: null, start_time: null, end_time: null, intent: 'cancel', interview_type: null };
     const result = mergeEmailExtraction(baseEmail, llm);
     expect(result.intent).toBe('cancel');
   });
 
-  it('accepts duration_minutes of 0 (does not fall back)', () => {
-    const llm = { company_name: null, date: null, time: null, duration_minutes: 0, intent: null, interview_type: null };
+  it('falls back to regex duration when start_time equals end_time', () => {
+    const llm = { company_name: null, date: null, start_time: '10:00', end_time: '10:00', intent: null, interview_type: null };
     const result = mergeEmailExtraction(baseEmail, llm);
-    expect(result.extractedDuration).toBe(0);
+    // Zero-length range produces null from computeDurationFromTimes, so regex duration is kept
+    expect(result.extractedDuration).toBe(60);
   });
 
   it('handles sparse extraction with missing keys (LLM omitted fields)', () => {
@@ -205,8 +206,8 @@ describe('mergeEmailExtraction', () => {
     const llm = {
       company_name: 'Google LLC',
       date: null,
-      time: '10:00',
-      duration_minutes: null,
+      start_time: '10:00',
+      end_time: null,
       intent: null,
       interview_type: 'video',
     };

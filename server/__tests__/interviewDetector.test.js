@@ -1658,7 +1658,7 @@ describe('createInterviewDetector', () => {
       const extractor = mockLlmExtractor({
         extractFromEmail: async () => ({
           dryModePrompt: null,
-          extraction: { company_name: 'Acme Corporation', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'Acme Corporation', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         }),
       });
 
@@ -1678,7 +1678,7 @@ describe('createInterviewDetector', () => {
       const extractor = mockLlmExtractor({
         extractFromEmail: async () => ({
           dryModePrompt: null,
-          extraction: { company_name: 'Meta Platforms', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'Meta Platforms', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         }),
       });
 
@@ -1718,7 +1718,7 @@ describe('createInterviewDetector', () => {
       const extractor = mockLlmExtractor({
         extractFromEmail: async () => ({
           dryModePrompt: null,
-          extraction: { company_name: null, date: null, time: null, duration_minutes: null, intent: null, interview_type: 'in-person' },
+          extraction: { company_name: null, date: null, start_time: null, end_time: null, intent: null, interview_type: 'in-person' },
         }),
       });
 
@@ -1740,7 +1740,7 @@ describe('createInterviewDetector', () => {
       const extractor = mockLlmExtractor({
         extractFromEmail: async () => ({
           dryModePrompt: null,
-          extraction: { company_name: null, date: null, time: null, duration_minutes: null, intent: null, interview_type: 'phone' },
+          extraction: { company_name: null, date: null, start_time: null, end_time: null, intent: null, interview_type: 'phone' },
         }),
       });
 
@@ -1805,7 +1805,7 @@ describe('createInterviewDetector', () => {
       const extractor = mockLlmExtractor({
         extractFromEmail: async () => ({
           dryModePrompt: null,
-          extraction: { company_name: null, date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: null, date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         }),
       });
 
@@ -1854,7 +1854,7 @@ describe('createInterviewDetector', () => {
           if (callCount === 1) throw new Error('API error');
           return {
             dryModePrompt: null,
-            extraction: { company_name: 'LLM Corp', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+            extraction: { company_name: 'LLM Corp', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
           };
         },
       });
@@ -1940,8 +1940,8 @@ describe('createInterviewDetector', () => {
           extraction: {
             company_name: null,
             date: '2025-02-15',
-            time: '10:30',
-            duration_minutes: 45,
+            start_time: '10:30',
+            end_time: '11:15',
             intent: null,
             interview_type: null,
           },
@@ -1974,8 +1974,8 @@ describe('createInterviewDetector', () => {
           extraction: {
             company_name: null,
             date: null,
-            time: null,
-            duration_minutes: null,
+            start_time: null,
+            end_time: null,
             intent: 'cancel',
             interview_type: null,
           },
@@ -1998,7 +1998,7 @@ describe('createInterviewDetector', () => {
       const extractor = mockLlmExtractor({
         extractFromEmail: async () => ({
           dryModePrompt: null,
-          extraction: { company_name: null, date: null, time: null, duration_minutes: null, intent: null, interview_type: 'technical' },
+          extraction: { company_name: null, date: null, start_time: null, end_time: null, intent: null, interview_type: 'technical' },
         }),
       });
 
@@ -2134,7 +2134,7 @@ describe('createInterviewDetector', () => {
       const extractor = mockLlmExtractor({
         extractFromEmail: async () => ({
           dryModePrompt: null,
-          extraction: { company_name: 'Enriched Corp', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'Enriched Corp', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         }),
       });
 
@@ -2181,7 +2181,7 @@ describe('createInterviewDetector', () => {
       const extractor = mockLlmExtractor({
         extractFromEmail: async () => ({
           dryModePrompt: null,
-          extraction: { company_name: 'LLM Email Corp', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'LLM Email Corp', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         }),
         extractFromCalendarEvent: async () => { throw new Error('API timeout'); },
       });
@@ -2213,7 +2213,7 @@ describe('createInterviewDetector', () => {
           emailCalls.push(subject);
           return {
             dryModePrompt: null,
-            extraction: { company_name: 'LlmCo', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+            extraction: { company_name: 'LlmCo', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
           };
         },
         extractFromCalendarEvent: async (summary) => {
@@ -2256,7 +2256,7 @@ describe('createInterviewDetector', () => {
       const extractor = {
         extractFromEmail: async () => ({
           dryModePrompt: null,
-          extraction: { company_name: 'EnrichedCo', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'EnrichedCo', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         }),
         extractFromCalendarEvent: async () => ({
           dryModePrompt: null,

@@ -71,7 +71,7 @@ describe('TodayInterviews', () => {
   // ---------------------------------------------------------------------------
 
   it('calls onInterviewClick with the interview when a chip is clicked', async () => {
-    const handleClick = jest.fn();
+    const handleClick = vi.fn();
     const interview = makeInterview({ id: 'i1', companyName: 'Google' });
 
     render(
@@ -84,7 +84,7 @@ describe('TodayInterviews', () => {
   });
 
   it('calls onInterviewClick on Enter keypress', () => {
-    const handleClick = jest.fn();
+    const handleClick = vi.fn();
     const interview = makeInterview({ id: 'i1' });
 
     render(
@@ -102,7 +102,7 @@ describe('TodayInterviews', () => {
     const interview = makeInterview({ id: 'i1', companyName: 'Google', type: 'Phone Interview', time: '10:00' });
 
     render(
-      <TodayInterviews interviews={[interview]} onInterviewClick={jest.fn()} />
+      <TodayInterviews interviews={[interview]} onInterviewClick={vi.fn()} />
     );
 
     const chip = screen.getByRole('button');
@@ -114,7 +114,7 @@ describe('TodayInterviews', () => {
     const interview = makeInterview({ id: 'i1', time: '' });
 
     render(
-      <TodayInterviews interviews={[interview]} onInterviewClick={jest.fn()} />
+      <TodayInterviews interviews={[interview]} onInterviewClick={vi.fn()} />
     );
 
     expect(screen.queryByText(/\d{2}:\d{2}/)).toBeNull();

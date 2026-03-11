@@ -19,7 +19,7 @@ function makeQuestion(overrides = {}) {
 
 function setup(questionOverrides = {}, handlers = {}) {
   const question   = makeQuestion(questionOverrides);
-  const onMarkSeen = handlers.onMarkSeen ?? jest.fn();
+  const onMarkSeen = handlers.onMarkSeen ?? vi.fn();
   render(<QuestionCard question={question} onMarkSeen={onMarkSeen} />);
   return { question, onMarkSeen };
 }

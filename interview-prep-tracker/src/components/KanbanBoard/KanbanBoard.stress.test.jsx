@@ -10,10 +10,10 @@ import { PIPELINES, PIPELINE_LABELS } from '../../constants/pipelines';
 // ---------------------------------------------------------------------------
 
 function setup({ companies = [], handlers = {} } = {}) {
-  const onAddCompany     = handlers.onAddCompany     ?? jest.fn();
-  const onDeleteCompany  = handlers.onDeleteCompany  ?? jest.fn();
-  const onUpdateStage    = handlers.onUpdateStage    ?? jest.fn();
-  const onPipelineChange = handlers.onPipelineChange ?? jest.fn();
+  const onAddCompany     = handlers.onAddCompany     ?? vi.fn();
+  const onDeleteCompany  = handlers.onDeleteCompany  ?? vi.fn();
+  const onUpdateStage    = handlers.onUpdateStage    ?? vi.fn();
+  const onPipelineChange = handlers.onPipelineChange ?? vi.fn();
 
   render(
     <KanbanBoard
@@ -342,7 +342,7 @@ describe('Stress — rapid toggle', () => {
 describe('Stress — delete closed company', () => {
   const user = userEvent.setup();
   it('calls onDeleteCompany when delete button is clicked on a closed card', async () => {
-    window.confirm = jest.fn(() => true);
+    window.confirm = vi.fn(() => true);
     const companies = [
       makeCompany({ id: 'c-del', name: 'DeleteMe', stage: 'rejected' }),
     ];

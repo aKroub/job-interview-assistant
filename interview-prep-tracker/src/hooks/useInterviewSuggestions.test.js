@@ -3,24 +3,24 @@ import { useInterviewSuggestions } from './useInterviewSuggestions';
 
 /**
  * Creates a mock API service with controllable return values.
- * All methods are jest.fn() so callers can customize per-test.
+ * All methods are vi.fn() so callers can customize per-test.
  */
 function createMockApi(overrides = {}) {
   const streamInstance = {
-    onConnected: jest.fn().mockReturnThis(),
-    onSuggestions: jest.fn().mockReturnThis(),
-    onError: jest.fn().mockReturnThis(),
-    close: jest.fn(),
+    onConnected: vi.fn().mockReturnThis(),
+    onSuggestions: vi.fn().mockReturnThis(),
+    onError: vi.fn().mockReturnThis(),
+    close: vi.fn(),
   };
 
   return {
-    fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: false }),
-    fetchAuthUrl: jest.fn().mockResolvedValue({ url: 'https://accounts.google.com/auth' }),
-    disconnectAuth: jest.fn().mockResolvedValue({ authenticated: false }),
-    dismissSuggestion: jest.fn().mockResolvedValue({ dismissed: true }),
-    triggerScan: jest.fn().mockResolvedValue({ suggestions: [] }),
-    resetSuggestions: jest.fn().mockResolvedValue({ reset: true }),
-    createSuggestionStream: jest.fn().mockReturnValue(streamInstance),
+    fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: false }),
+    fetchAuthUrl: vi.fn().mockResolvedValue({ url: 'https://accounts.google.com/auth' }),
+    disconnectAuth: vi.fn().mockResolvedValue({ authenticated: false }),
+    dismissSuggestion: vi.fn().mockResolvedValue({ dismissed: true }),
+    triggerScan: vi.fn().mockResolvedValue({ suggestions: [] }),
+    resetSuggestions: vi.fn().mockResolvedValue({ reset: true }),
+    createSuggestionStream: vi.fn().mockReturnValue(streamInstance),
     _stream: streamInstance,
     ...overrides,
   };
@@ -54,7 +54,7 @@ describe('useInterviewSuggestions', () => {
 
     it('sets authStatus to authenticated when server says authenticated', async () => {
       const { result } = await setup({
-        fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+        fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
       });
       expect(result.current.authStatus).toBe('authenticated');
     });
@@ -63,14 +63,14 @@ describe('useInterviewSuggestions', () => {
   describe('SSE connection lifecycle', () => {
     it('opens SSE stream when authenticated', async () => {
       const { api } = await setup({
-        fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+        fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
       });
       expect(api.createSuggestionStream).toHaveBeenCalled();
     });
 
     it('does NOT open SSE stream when unauthenticated', async () => {
       const { api } = await setup({
-        fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: false }),
+        fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: false }),
       });
       expect(api.createSuggestionStream).not.toHaveBeenCalled();
     });
@@ -82,7 +82,7 @@ describe('useInterviewSuggestions', () => {
 
     it('closes SSE stream on unmount', async () => {
       const { unmount, api } = await setup({
-        fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+        fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
       });
 
       await act(async () => {
@@ -94,7 +94,7 @@ describe('useInterviewSuggestions', () => {
 
     it('sets connectionStatus to connecting when stream opens', async () => {
       const { result } = await setup({
-        fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+        fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
       });
 
       // The hook sets 'connecting' synchronously when openStream is called
@@ -105,7 +105,7 @@ describe('useInterviewSuggestions', () => {
 
     it('sets connectionStatus to connected when onConnected fires', async () => {
       const { result, api } = await setup({
-        fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+        fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
       });
 
       expect(result.current.connectionStatus).toBe('connecting');
@@ -123,7 +123,7 @@ describe('useInterviewSuggestions', () => {
 
     it('resets retry count when SSE connection succeeds', async () => {
       const { api } = await setup({
-        fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+        fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
       });
 
       // Capture the onConnected callback
@@ -141,17 +141,17 @@ describe('useInterviewSuggestions', () => {
 
   describe('SSE error recovery', () => {
     beforeEach(() => {
-      jest.useFakeTimers();
+      vi.useFakeTimers();
     });
 
     afterEach(() => {
-      jest.runOnlyPendingTimers();
-      jest.useRealTimers();
+      vi.runOnlyPendingTimers();
+      vi.useRealTimers();
     });
 
     it('retries SSE connection after error with 30s backoff', async () => {
       const { api } = await setup({
-        fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+        fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
       });
 
       // Capture the onError callback
@@ -167,7 +167,7 @@ describe('useInterviewSuggestions', () => {
 
       // Fast-forward 30 seconds
       await act(async () => {
-        jest.advanceTimersByTime(30_000);
+        vi.advanceTimersByTime(30_000);
       });
 
       // Should have retried
@@ -176,7 +176,7 @@ describe('useInterviewSuggestions', () => {
 
     it('stops retrying after 3 attempts', async () => {
       const { api } = await setup({
-        fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+        fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
       });
 
       // Capture the onError callback
@@ -189,7 +189,7 @@ describe('useInterviewSuggestions', () => {
         });
 
         await act(async () => {
-          jest.advanceTimersByTime(30_000);
+          vi.advanceTimersByTime(30_000);
         });
       }
 
@@ -201,7 +201,7 @@ describe('useInterviewSuggestions', () => {
   describe('visibilitychange handling', () => {
     it('re-checks auth when tab becomes visible and opens stream if authenticated', async () => {
       const { api } = await setup({
-        fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: false }),
+        fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: false }),
       });
 
       // Initially unauthenticated, no stream
@@ -232,7 +232,7 @@ describe('useInterviewSuggestions', () => {
 
     it('does not open duplicate stream if one already exists', async () => {
       const { api } = await setup({
-        fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+        fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
       });
 
       // Stream already open
@@ -261,7 +261,7 @@ describe('useInterviewSuggestions', () => {
     let consoleWarnSpy;
 
     beforeEach(() => {
-      consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     });
 
     afterEach(() => {
@@ -270,7 +270,7 @@ describe('useInterviewSuggestions', () => {
 
     it('logs warning when checkAuth fails', async () => {
       await setup({
-        fetchAuthStatus: jest.fn().mockRejectedValue(new Error('Network error')),
+        fetchAuthStatus: vi.fn().mockRejectedValue(new Error('Network error')),
       });
 
       expect(consoleWarnSpy).toHaveBeenCalledWith(
@@ -385,7 +385,7 @@ describe('useInterviewSuggestions', () => {
   describe('dismiss race condition prevention', () => {
     it('filters dismissed suggestions from SSE updates received after dismiss', async () => {
       const { result, api } = await setup({
-        fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+        fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
       });
 
       // Capture the onSuggestions callback from the SSE stream
@@ -458,10 +458,10 @@ describe('useInterviewSuggestions', () => {
 
     it('keeps dismissed suggestion hidden even when server dismiss fails', async () => {
       let consoleWarnSpy;
-      consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       const { result, api } = await setup({
-        fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+        fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
       });
 
       const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0][0];
@@ -490,7 +490,7 @@ describe('useInterviewSuggestions', () => {
 
     it('clears dismissed IDs on disconnectGoogle so suggestions can reappear on reconnect', async () => {
       const { result, api } = await setup({
-        fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+        fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
       });
 
       const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0][0];
@@ -574,7 +574,7 @@ describe('useInterviewSuggestions', () => {
 
   describe('connectGoogle', () => {
     it('calls fetchAuthUrl and opens the URL', async () => {
-      const openSpy = jest.spyOn(window, 'open').mockImplementation(() => {});
+      const openSpy = vi.spyOn(window, 'open').mockImplementation(() => {});
       const { result, api } = await setup();
 
       api.fetchAuthUrl.mockResolvedValue({ url: 'https://google.com/auth' });
@@ -593,7 +593,7 @@ describe('useInterviewSuggestions', () => {
     it('calls the API resetSuggestions method', async () => {
       const { result, api } = await setup();
 
-      api.resetSuggestions = jest.fn().mockResolvedValue({ reset: true });
+      api.resetSuggestions = vi.fn().mockResolvedValue({ reset: true });
       api.triggerScan.mockResolvedValue({ suggestions: [] });
 
       await act(async () => {
@@ -605,7 +605,7 @@ describe('useInterviewSuggestions', () => {
 
     it('clears local dismissed IDs so previously dismissed suggestions reappear', async () => {
       const { result, api } = await setup({
-        fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+        fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
       });
 
       const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0][0];
@@ -625,7 +625,7 @@ describe('useInterviewSuggestions', () => {
       expect(result.current.suggestions).toEqual([]);
 
       // Reset — should clear local dismissed IDs
-      api.resetSuggestions = jest.fn().mockResolvedValue({ reset: true });
+      api.resetSuggestions = vi.fn().mockResolvedValue({ reset: true });
       api.triggerScan.mockResolvedValue({
         suggestions: [{ id: 's1', companyName: 'Google' }],
       });
@@ -641,7 +641,7 @@ describe('useInterviewSuggestions', () => {
 
     it('clears component-level dismissed IDs (email and calendar)', async () => {
       const { result, api } = await setup({
-        fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+        fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
       });
 
       const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0][0];
@@ -670,7 +670,7 @@ describe('useInterviewSuggestions', () => {
       expect(result.current.suggestions).toEqual([]);
 
       // Reset clears component IDs too
-      api.resetSuggestions = jest.fn().mockResolvedValue({ reset: true });
+      api.resetSuggestions = vi.fn().mockResolvedValue({ reset: true });
       api.triggerScan.mockResolvedValue({
         suggestions: [{
           id: 's1_v2', companyName: 'Google',
@@ -688,7 +688,7 @@ describe('useInterviewSuggestions', () => {
     it('triggers a fresh scan after reset so suggestions appear immediately', async () => {
       const { result, api } = await setup();
 
-      api.resetSuggestions = jest.fn().mockResolvedValue({ reset: true });
+      api.resetSuggestions = vi.fn().mockResolvedValue({ reset: true });
       const scanned = [{ id: 's1', companyName: 'Apple' }];
       api.triggerScan.mockResolvedValue({ suggestions: scanned });
 
@@ -701,10 +701,10 @@ describe('useInterviewSuggestions', () => {
     });
 
     it('logs warning when reset fails', async () => {
-      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       const { result, api } = await setup();
 
-      api.resetSuggestions = jest.fn().mockRejectedValue(new Error('Network error'));
+      api.resetSuggestions = vi.fn().mockRejectedValue(new Error('Network error'));
 
       await act(async () => {
         await result.current.resetSuggestions();
@@ -718,7 +718,7 @@ describe('useInterviewSuggestions', () => {
   describe('disconnectGoogle', () => {
     it('clears suggestions and sets authStatus to unauthenticated', async () => {
       const { result, api } = await setup({
-        fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+        fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
       });
 
       // Populate suggestions
@@ -742,7 +742,7 @@ describe('useInterviewSuggestions', () => {
 
     it('closes the SSE stream', async () => {
       const { result, api } = await setup({
-        fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+        fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
       });
 
       await act(async () => {

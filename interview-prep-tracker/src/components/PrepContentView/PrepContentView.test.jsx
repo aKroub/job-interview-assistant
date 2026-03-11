@@ -12,8 +12,8 @@ import { SYSTEM_DESIGN_QUESTIONS } from '../../constants/questions';
 const COMPANIES = Object.keys(SYSTEM_DESIGN_QUESTIONS);
 
 function setup({ handlers = {}, seenIds = new Set() } = {}) {
-  const onMarkSeen     = handlers.onMarkSeen     ?? jest.fn();
-  const onResetCompany = handlers.onResetCompany ?? jest.fn();
+  const onMarkSeen     = handlers.onMarkSeen     ?? vi.fn();
+  const onResetCompany = handlers.onResetCompany ?? vi.fn();
 
   /** Mimics useSeenQuestions.getAvailableQuestionsFor — returns up to 3 unseen questions. */
   function getAvailableQuestionsFor(companyName) {

@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { TabNav } from './TabNav';
 
 function setup(activeTab = 'kanban') {
-  const onTabChange = jest.fn();
+  const onTabChange = vi.fn();
   render(<TabNav activeTab={activeTab} onTabChange={onTabChange} />);
   return { onTabChange };
 }

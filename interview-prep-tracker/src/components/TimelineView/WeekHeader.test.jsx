@@ -10,10 +10,10 @@ import { WeekHeader } from './WeekHeader';
 function setup(overrides = {}) {
   const props = {
     weekStart:  new Date(2026, 1, 15), // Sun Feb 15
-    onPrevWeek: jest.fn(),
-    onNextWeek: jest.fn(),
-    onToday:    jest.fn(),
-    onAddClick: jest.fn(),
+    onPrevWeek: vi.fn(),
+    onNextWeek: vi.fn(),
+    onToday:    vi.fn(),
+    onAddClick: vi.fn(),
     ...overrides,
   };
 

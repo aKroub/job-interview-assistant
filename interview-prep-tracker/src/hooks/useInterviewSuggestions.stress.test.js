@@ -6,20 +6,20 @@ import { useInterviewSuggestions } from './useInterviewSuggestions';
  */
 function createMockApi(overrides = {}) {
   const streamInstance = {
-    onConnected: jest.fn().mockReturnThis(),
-    onSuggestions: jest.fn().mockReturnThis(),
-    onError: jest.fn().mockReturnThis(),
-    close: jest.fn(),
+    onConnected: vi.fn().mockReturnThis(),
+    onSuggestions: vi.fn().mockReturnThis(),
+    onError: vi.fn().mockReturnThis(),
+    close: vi.fn(),
   };
 
   return {
-    fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: false }),
-    fetchAuthUrl: jest.fn().mockResolvedValue({ url: 'https://accounts.google.com/auth' }),
-    disconnectAuth: jest.fn().mockResolvedValue({ authenticated: false }),
-    dismissSuggestion: jest.fn().mockResolvedValue({ dismissed: true }),
-    triggerScan: jest.fn().mockResolvedValue({ suggestions: [] }),
-    resetSuggestions: jest.fn().mockResolvedValue({ reset: true }),
-    createSuggestionStream: jest.fn().mockReturnValue(streamInstance),
+    fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: false }),
+    fetchAuthUrl: vi.fn().mockResolvedValue({ url: 'https://accounts.google.com/auth' }),
+    disconnectAuth: vi.fn().mockResolvedValue({ authenticated: false }),
+    dismissSuggestion: vi.fn().mockResolvedValue({ dismissed: true }),
+    triggerScan: vi.fn().mockResolvedValue({ suggestions: [] }),
+    resetSuggestions: vi.fn().mockResolvedValue({ reset: true }),
+    createSuggestionStream: vi.fn().mockReturnValue(streamInstance),
     _stream: streamInstance,
     ...overrides,
   };
@@ -53,7 +53,7 @@ describe('H6: Rapid resetSuggestions calls from hook', () => {
   let consoleWarnSpy;
 
   beforeEach(() => {
-    consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -62,7 +62,7 @@ describe('H6: Rapid resetSuggestions calls from hook', () => {
 
   it('5 rapid resets all resolve without error', async () => {
     const { result, api } = await setup({
-      fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+      fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
     });
 
     let scanCount = 0;
@@ -89,7 +89,7 @@ describe('H6: Rapid resetSuggestions calls from hook', () => {
 
   it('rapid resets clear dismissed refs so SSE updates are not filtered', async () => {
     const { result, api } = await setup({
-      fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+      fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
     });
 
     const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0][0];
@@ -163,7 +163,7 @@ describe('H7: Reset failure leaves dismissed refs intact', () => {
   let consoleWarnSpy;
 
   beforeEach(() => {
-    consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -172,7 +172,7 @@ describe('H7: Reset failure leaves dismissed refs intact', () => {
 
   it('when api.resetSuggestions rejects, local dismissed refs remain intact', async () => {
     const { result, api } = await setup({
-      fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+      fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
     });
 
     const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0][0];
@@ -186,7 +186,7 @@ describe('H7: Reset failure leaves dismissed refs intact', () => {
     });
 
     // Reset fails
-    api.resetSuggestions = jest.fn().mockRejectedValue(new Error('Server down'));
+    api.resetSuggestions = vi.fn().mockRejectedValue(new Error('Server down'));
 
     await act(async () => {
       await result.current.resetSuggestions();
@@ -202,7 +202,7 @@ describe('H7: Reset failure leaves dismissed refs intact', () => {
 
   it('when api.triggerScan rejects after successful reset, refs are already cleared', async () => {
     const { result, api } = await setup({
-      fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+      fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
     });
 
     const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0][0];
@@ -216,7 +216,7 @@ describe('H7: Reset failure leaves dismissed refs intact', () => {
     });
 
     // Reset succeeds but scan fails
-    api.resetSuggestions = jest.fn().mockResolvedValue({ reset: true });
+    api.resetSuggestions = vi.fn().mockResolvedValue({ reset: true });
     api.triggerScan.mockRejectedValue(new Error('Scan timeout'));
 
     await act(async () => {
@@ -247,7 +247,7 @@ describe('H7: Reset failure leaves dismissed refs intact', () => {
 describe('H8: Reset followed by dismiss', () => {
   it('new dismiss after reset is tracked in local refs', async () => {
     const { result, api } = await setup({
-      fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+      fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
     });
 
     const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0][0];
@@ -284,7 +284,7 @@ describe('H8: Reset followed by dismiss', () => {
 
   it('component ID dismiss tracking works after reset', async () => {
     const { result, api } = await setup({
-      fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+      fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
     });
 
     const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0][0];
@@ -338,7 +338,7 @@ describe('H8: Reset followed by dismiss', () => {
 describe('H9: Reset + SSE race — SSE push between reset and scan', () => {
   it('scan result overwrites any SSE push that arrived during reset', async () => {
     const { result, api } = await setup({
-      fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: true }),
+      fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
     });
 
     const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0][0];

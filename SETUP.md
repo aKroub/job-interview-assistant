@@ -194,8 +194,8 @@ nvm use 24 && npm start
 ## 7 — Run the tests
 
 ```bash
-# Frontend (from interview-prep-tracker/)
-nvm use 24 && npm test -- --watchAll=false --verbose
+# Frontend — Vitest (from interview-prep-tracker/)
+nvm use 24 && npm test
 
 # Backend (from server/)
 nvm use 24 && npm test

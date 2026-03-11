@@ -56,9 +56,10 @@ A full-stack interview preparation and job application tracking tool. A React fr
 | Tool | Version | Notes |
 |---|---|---|
 | React | 19 | Hooks-based, functional components only |
-| Tailwind CSS | v3 | Utility-first styling (v4 migration planned: CRA→Vite + Tailwind v4) |
+| Tailwind CSS | v4 | Utility-first styling, CSS-first config via `@tailwindcss/vite` plugin |
+| Vite | 6 | Build tool and dev server (replaced Create React App) |
+| Vitest | 3 | Test runner (replaced Jest on the frontend) |
 | lucide-react | latest | Icon library (Phone, Video, MapPin, etc.) |
-| react-scripts | 5.0.1 | Create React App — not ejected |
 | Node.js | 24 | Required (see `.nvmrc` at repo root) |
 
 ### Backend (`server/`)
@@ -133,7 +134,7 @@ nvm use 24 && npm start       # → http://localhost:3000
 nvm use 24 && npm start                              # dev server with hot reload
 nvm use 24 && npm run lint                           # catch unused exports + variables
 nvm use 24 && npm run build                          # production build (must be 0 warnings)
-nvm use 24 && npm test -- --watchAll=false --verbose  # all tests (must pass before PR)
+nvm use 24 && npm test                                # all tests via Vitest (must pass before PR)
 
 # --- Backend (from server/) ---
 nvm use 24 && npm run dev                            # dev server with auto-restart
@@ -202,8 +203,8 @@ interview-prep-tracker/src/
 │       └── ConnectionStatus.jsx   # OAuth connection status indicator
 │
 ├── InterviewPrepTracker.jsx       # Thin orchestrating shell (~150 lines)
-├── App.js                         # Renders <InterviewPrepTracker />
-└── App.test.js                    # Integration smoke tests
+├── App.jsx                        # Renders <InterviewPrepTracker />
+└── App.test.jsx                   # Integration smoke tests
 ```
 
 ```
@@ -246,7 +247,7 @@ server/src/
 
 The test suite covers every layer across both frontend and backend:
 
-### Frontend (41 test suites)
+### Frontend (42 test suites)
 
 | Layer | Test files | What they test |
 |---|---|---|
@@ -255,7 +256,8 @@ The test suite covers every layer across both frontend and backend:
 | Utils | `companyUtils.test.js`, `questionUtils.test.js`, `calendarUtils.test.js`, `companyUtils.stress.test.js`, `cancelUpdateStress.test.js` | Pure function unit tests and stress tests (no React) |
 | Hooks | `useCompanies.test.js`, `useSeenQuestions.test.js`, `useInterviewSuggestions.test.js`, `useInterviewSuggestions.stress.test.js`, `useInterviewTracker.test.js`, `useCloudSync.test.js` | Hook tests with injected in-memory storage / mock API, stress tests |
 | Components | 24 test files (one per component) including `CloudSyncMenu.test.jsx`, `TodayInterviews.test.jsx`, `KanbanBoard.stress.test.jsx`, `TodayInterviews.stress.test.jsx`, `editInterview.stress.test.jsx`, `depsUpgrade.stress.test.jsx` | Rendering, user interactions, callback wiring, stress tests |
-| Integration | `App.test.js` | Smoke test — app renders and default view loads |
+| Integration | `App.test.jsx` | Smoke test — app renders and default view loads |
+| Migration | `viteMigration.stress.test.jsx` | Vite/Vitest/Tailwind v4 migration regression tests (env vars, globals isolation, class renames, ESM resolution, Testing Library compatibility) |
 
 ### Backend (32 test suites)
 
@@ -269,9 +271,9 @@ The test suite covers every layer across both frontend and backend:
 | Routes | `auth.test.js`, `interviews.test.js`, `sync.test.js` | HTTP route tests via supertest |
 
 ```bash
-# Run all frontend tests
+# Run all frontend tests (Vitest)
 cd interview-prep-tracker
-npm test -- --watchAll=false --verbose
+npm test
 
 # Run all backend tests
 cd server

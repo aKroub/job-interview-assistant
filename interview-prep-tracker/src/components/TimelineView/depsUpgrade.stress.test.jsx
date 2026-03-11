@@ -25,9 +25,9 @@ function setup({ companies, handlers = {}, initialValues = null, interview = nul
     makeCompany({ id: 'c2', name: 'Meta', position: 'Staff Engineer' }),
     makeCompany({ id: 'c3', name: 'Apple', position: 'iOS Developer' }),
   ];
-  const onAdd   = handlers.onAdd   ?? jest.fn();
-  const onClose = handlers.onClose ?? jest.fn();
-  const onEdit  = handlers.onEdit  ?? jest.fn();
+  const onAdd   = handlers.onAdd   ?? vi.fn();
+  const onClose = handlers.onClose ?? vi.fn();
+  const onEdit  = handlers.onEdit  ?? vi.fn();
 
   render(
     <AddInterviewModal

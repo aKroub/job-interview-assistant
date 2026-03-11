@@ -10,9 +10,9 @@ It captures the project conventions, architecture, and workflow rules establishe
 A React app for tracking job applications (Kanban pipeline), scheduling interviews (timeline), and practising system design questions (prep content view). A companion Express backend auto-detects interview invitations by cross-referencing Gmail and Google Calendar.
 
 - **Root:** `/Users/ayal.kroub/privateRepositories/job-interview-assistant/`
-- **Frontend:** `interview-prep-tracker/` (Create React App) — runs on port 3000
+- **Frontend:** `interview-prep-tracker/` (Vite + React) — runs on port 3000
 - **Backend:** `server/` (Express + Google APIs) — runs on port 3001
-- **Frontend entry point:** `src/InterviewPrepTracker.jsx` → `src/App.js` → `src/index.js`
+- **Frontend entry point:** `src/InterviewPrepTracker.jsx` → `src/App.jsx` → `src/main.jsx`
 - **Backend entry point:** `server/src/index.js` (createApp factory)
 - **Setup guide:** `SETUP.md` — Google Cloud project setup and first-run instructions
 
@@ -26,8 +26,9 @@ A React app for tracking job applications (Kanban pipeline), scheduling intervie
 |---|---|---|
 | Node.js | 24 (via nvm) | Always `nvm use 24` before running any npm command |
 | React | 19 | Hooks-based, no class components |
-| Tailwind CSS | v3 | v4 migration planned (Phase 2: CRA→Vite + Tailwind v4) |
-| react-scripts | 5.0.1 | CRA — do not eject |
+| Tailwind CSS | v4 | CSS-first config via `@tailwindcss/vite` plugin — no PostCSS or tailwind.config.js |
+| Vite | 6 | Build tool and dev server — replaced Create React App |
+| Vitest | 3 | Test runner — replaced Jest on the frontend; shares Vite config |
 | lucide-react | latest | Icon library |
 | Testing Library | @testing-library/react + dom + user-event v14 | user-event v14 uses async `userEvent.setup()` pattern |
 
@@ -69,7 +70,7 @@ A React app for tracking job applications (Kanban pipeline), scheduling intervie
 cd interview-prep-tracker
 npm run lint                           # no unused exports or variables (0 warnings)
 npm run build                          # must be clean (0 errors, 0 warnings)
-npm test -- --watchAll=false --verbose # all tests must pass
+npm test                               # Vitest — all tests must pass
 
 # Backend — always run from server/
 cd server
@@ -126,7 +127,7 @@ Before opening any PR, confirm every item:
 
 - [ ] `npm run lint` (frontend) → 0 warnings
 - [ ] `npm run build` (frontend) → 0 errors, 0 warnings
-- [ ] `npm test -- --watchAll=false --verbose` (frontend) → all pass
+- [ ] `npm test` (frontend, Vitest) → all pass
 - [ ] `npm run lint` (backend, if backend files changed) → 0 warnings
 - [ ] `npm test` (backend, if backend files changed) → all pass
 - [ ] No inner component functions defined inside a component's render scope
@@ -295,7 +296,7 @@ src/
 │   └── Suggestions/    (SuggestionPanel, SuggestionCard, ConnectionStatus)
 │
 ├── InterviewPrepTracker.jsx   Thin orchestrating shell (~150 lines)
-└── App.js                     Renders <InterviewPrepTracker />
+└── App.jsx                    Renders <InterviewPrepTracker />
 ```
 
 **The rule:** Each layer may only import from layers below it.
@@ -492,11 +493,11 @@ These are the most common mistakes — treat each as a hard rule:
 
 | Layer | How to test | Import |
 |---|---|---|
-| `utils/` | Plain Jest — no React needed | `import { fn } from './utils/...'` |
-| `services/apiService` | Jest with injectable `fetch` / `EventSource` mock | Plain Jest |
+| `utils/` | Plain Vitest — no React needed | `import { fn } from './utils/...'` |
+| `services/apiService` | Vitest with injectable `fetch` / `EventSource` mock | Plain Vitest |
 | `hooks/` | `renderHook` + injected `createMemoryStorage()` or mock API | `@testing-library/react` |
 | `components/` | `render(...)` with explicit props | `@testing-library/react` |
-| Integration | `render(<App />)` smoke tests | `App.test.js` |
+| Integration | `render(<App />)` smoke tests | `App.test.jsx` |
 
 **Backend:**
 
@@ -525,8 +526,8 @@ function setup() {
 // In tests — inject a mock api object, never touch window.fetch or EventSource
 function createMockApi(overrides = {}) {
   return {
-    fetchAuthStatus: jest.fn().mockResolvedValue({ authenticated: false }),
-    createSuggestionStream: jest.fn().mockReturnValue({ onConnected: jest.fn().mockReturnThis(), ... }),
+    fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: false }),
+    createSuggestionStream: vi.fn().mockReturnValue({ onConnected: vi.fn().mockReturnThis(), ... }),
     ...overrides,
   };
 }
@@ -556,7 +557,7 @@ Every util function that transforms state should have a test asserting the origi
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Tailwind classes not applying | Tailwind v4 installed instead of v3 | `npm ls tailwindcss` must show v3; reinstall if not |
+| Tailwind classes not applying | Missing `@import "tailwindcss"` in `index.css` or `@tailwindcss/vite` plugin not in `vite.config.js` | Verify both; Tailwind v4 uses CSS-first config, no `tailwind.config.js` |
 | `localStorage is not defined` in tests | Hook or component calls `localStorage` directly | Use injected `storage` param + `createMemoryStorage()` in tests |
 | `&&=` syntax error in tests | Node version < 18 | Run `nvm use 24` before any npm command |
 | `Module not found` after branch switch | `npm install` not re-run | `nvm use 24 && npm install` |
@@ -583,10 +584,10 @@ Every util function that transforms state should have a test asserting the origi
 
 ```bash
 # --- Frontend (run from interview-prep-tracker/) ---
-nvm use 24 && npm start                              # dev server (port 3000)
+nvm use 24 && npm start                              # Vite dev server (port 3000)
 nvm use 24 && npm run lint                           # unused exports + variables (must be 0 warnings)
-nvm use 24 && npm run build                          # production build (must be 0 warnings)
-nvm use 24 && npm test -- --watchAll=false --verbose # all tests (must pass before PR)
+nvm use 24 && npm run build                          # Vite production build (must be 0 warnings)
+nvm use 24 && npm test                               # Vitest — all tests (must pass before PR)
 
 # --- Backend (run from server/) ---
 nvm use 24 && npm run dev                            # dev server with auto-restart (port 3001)

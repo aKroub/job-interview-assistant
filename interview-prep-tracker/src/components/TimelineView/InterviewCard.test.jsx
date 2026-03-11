@@ -23,8 +23,8 @@ function makeInterview(overrides = {}) {
 
 function setup(interviewOverrides = {}, handlers = {}) {
   const interview         = makeInterview(interviewOverrides);
-  const onDeleteInterview = handlers.onDeleteInterview ?? jest.fn();
-  const onEdit            = handlers.onEdit ?? jest.fn();
+  const onDeleteInterview = handlers.onDeleteInterview ?? vi.fn();
+  const onEdit            = handlers.onEdit ?? vi.fn();
   render(
     <InterviewCard
       interview={interview}
@@ -136,14 +136,14 @@ describe('InterviewCard — delete button', () => {
   const user = userEvent.setup();
 
   it('calls onDeleteInterview after confirmation', async () => {
-    window.confirm = jest.fn(() => true);
+    window.confirm = vi.fn(() => true);
     const { onDeleteInterview } = setup();
     await user.click(screen.getByLabelText(/delete .+ interview/i));
     expect(onDeleteInterview).toHaveBeenCalledWith('c1', 'i1');
   });
 
   it('does not call onDeleteInterview when confirmation is cancelled', async () => {
-    window.confirm = jest.fn(() => false);
+    window.confirm = vi.fn(() => false);
     const { onDeleteInterview } = setup();
     await user.click(screen.getByLabelText(/delete .+ interview/i));
     expect(onDeleteInterview).not.toHaveBeenCalled();

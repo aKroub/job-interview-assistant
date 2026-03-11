@@ -22,7 +22,7 @@ export function PrepContentView({ getAvailableQuestionsFor, getTotalSeenFor, onM
       <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
         <p className="text-sm text-purple-800">
           <strong>System Design Practice:</strong> Work through these curated questions from top tech companies.
-          Mark questions as "seen" to get fresh recommendations.
+          Mark questions as &ldquo;seen&rdquo; to get fresh recommendations.
         </p>
       </div>
 

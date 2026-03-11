@@ -1,6 +1,11 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+
+/* Custom theme — migrated from tailwind.config.js */
+@theme inline {
+  --color-blue-50: #faf5ff;
+  --color-blue-600: #9333ea;
+  --color-blue-700: #7e22ce;
+}
 
 body {
   margin: 0;

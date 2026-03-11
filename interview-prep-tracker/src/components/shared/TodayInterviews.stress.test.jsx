@@ -86,7 +86,7 @@ describe('H10: unrecognised interview type', () => {
   });
 
   it('click handler works with unrecognised type', async () => {
-    const handleClick = jest.fn();
+    const handleClick = vi.fn();
     const interview = makeInterview({ id: 'i1', type: 'Alien Probe Interview' });
     render(
       <TodayInterviews interviews={[interview]} onInterviewClick={handleClick} />
@@ -104,7 +104,7 @@ describe('H10: unrecognised interview type', () => {
       time: '15:00',
     });
     render(
-      <TodayInterviews interviews={[interview]} onInterviewClick={jest.fn()} />
+      <TodayInterviews interviews={[interview]} onInterviewClick={vi.fn()} />
     );
     expect(screen.getByRole('button')).toHaveAttribute(
       'aria-label',
@@ -149,7 +149,7 @@ describe('Large dataset rendering', () => {
   });
 
   it('clicking the correct chip in a large list calls back with the right interview', async () => {
-    const handleClick = jest.fn();
+    const handleClick = vi.fn();
     const interviews = [];
     for (let i = 0; i < 30; i++) {
       interviews.push(

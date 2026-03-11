@@ -37,7 +37,7 @@ export function CompanyQuestionSection({
       {availableQuestions.length === 0 ? (
         <div className="text-center py-8 text-gray-500">
           <Check size={32} className="mx-auto mb-2 text-green-600" />
-          <p>You've seen all available questions! 🎉</p>
+          <p>You&apos;ve seen all available questions! 🎉</p>
           <button
             onClick={() => onReset(companyName)}
             className="mt-3 text-sm text-purple-600 hover:underline"

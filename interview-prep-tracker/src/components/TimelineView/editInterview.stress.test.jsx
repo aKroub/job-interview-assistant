@@ -41,9 +41,9 @@ function makeInterview(overrides = {}) {
 }
 
 function setupCalendar({ companies = [], handlers = {} } = {}) {
-  const onAddInterview    = handlers.onAddInterview    ?? jest.fn();
-  const onDeleteInterview = handlers.onDeleteInterview ?? jest.fn();
-  const onUpdateInterview = handlers.onUpdateInterview ?? jest.fn();
+  const onAddInterview    = handlers.onAddInterview    ?? vi.fn();
+  const onDeleteInterview = handlers.onDeleteInterview ?? vi.fn();
+  const onUpdateInterview = handlers.onUpdateInterview ?? vi.fn();
 
   render(
     <CalendarView
@@ -60,8 +60,8 @@ function setupCalendar({ companies = [], handlers = {} } = {}) {
 
 function setupEditModal({ interview, handlers = {} } = {}) {
   const editInterview = interview ?? makeInterview();
-  const onEdit  = handlers.onEdit  ?? jest.fn();
-  const onClose = handlers.onClose ?? jest.fn();
+  const onEdit  = handlers.onEdit  ?? vi.fn();
+  const onClose = handlers.onClose ?? vi.fn();
 
   render(
     <AddInterviewModal
@@ -241,8 +241,8 @@ describe('H4: status-regression-suggestion-cancel — suggestion path intact', (
   const user = userEvent.setup();
 
   it('add mode still works correctly after edit mode refactor', async () => {
-    const onAdd = jest.fn();
-    const onClose = jest.fn();
+    const onAdd = vi.fn();
+    const onClose = vi.fn();
 
     render(
       <AddInterviewModal
@@ -271,14 +271,14 @@ describe('H4: status-regression-suggestion-cancel — suggestion path intact', (
   });
 
   it('initialValues mode (suggestion update) still works after edit mode refactor', async () => {
-    const onAdd = jest.fn();
+    const onAdd = vi.fn();
 
     render(
       <AddInterviewModal
         companies={[makeCompany()]}
         interviewTypes={INTERVIEW_TYPES}
         onAdd={onAdd}
-        onClose={jest.fn()}
+        onClose={vi.fn()}
         initialValues={{
           companyId: 'c1',
           type: INTERVIEW_TYPES[1],

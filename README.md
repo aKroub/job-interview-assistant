@@ -12,6 +12,7 @@ A full-stack interview preparation and job application tracking tool. A React fr
 - Easy company deletion
 
 ### 📅 Interview Calendar
+- **Today's Interviews** summary strip above the tabs — shows today's upcoming scheduled interviews as compact chips with time, company name, and type icon; click a chip to jump to the Timeline view
 - Weekly calendar view (Sun–Sat) with day columns and interview cards
 - Navigate between weeks with prev / next / today buttons
 - Schedule interviews with type (Phone, Video, In-Person), date, time, and duration
@@ -176,7 +177,8 @@ interview-prep-tracker/src/
 │   │   ├── DifficultyBadge.jsx    # Reusable difficulty colour badge
 │   │   ├── FieldLabel.jsx         # Form field label component
 │   │   ├── FormError.jsx          # Error message display component
-│   │   └── TabNav.jsx             # Three-tab navigation bar
+│   │   ├── TabNav.jsx             # Three-tab navigation bar
+│   │   └── TodayInterviews.jsx    # Today's upcoming interviews summary strip
 │   ├── AddCompanyModal/
 │   │   └── AddCompanyModal.jsx
 │   ├── KanbanBoard/
@@ -244,7 +246,7 @@ server/src/
 
 The test suite covers every layer across both frontend and backend:
 
-### Frontend (38 test suites)
+### Frontend (40 test suites)
 
 | Layer | Test files | What they test |
 |---|---|---|
@@ -252,7 +254,7 @@ The test suite covers every layer across both frontend and backend:
 | Services | `storageService.test.js`, `apiService.test.js` | Storage interface, REST calls, SSE stream |
 | Utils | `companyUtils.test.js`, `questionUtils.test.js`, `calendarUtils.test.js`, `companyUtils.stress.test.js`, `cancelUpdateStress.test.js` | Pure function unit tests and stress tests (no React) |
 | Hooks | `useCompanies.test.js`, `useSeenQuestions.test.js`, `useInterviewSuggestions.test.js`, `useInterviewSuggestions.stress.test.js`, `useInterviewTracker.test.js`, `useCloudSync.test.js` | Hook tests with injected in-memory storage / mock API, stress tests |
-| Components | 21 test files (one per component) including `CloudSyncMenu.test.jsx`, `KanbanBoard.stress.test.jsx`, `editInterview.stress.test.jsx` | Rendering, user interactions, callback wiring, stress tests |
+| Components | 23 test files (one per component) including `CloudSyncMenu.test.jsx`, `TodayInterviews.test.jsx`, `KanbanBoard.stress.test.jsx`, `TodayInterviews.stress.test.jsx`, `editInterview.stress.test.jsx` | Rendering, user interactions, callback wiring, stress tests |
 | Integration | `App.test.js` | Smoke test — app renders and default view loads |
 
 ### Backend (31 test suites)

@@ -392,6 +392,37 @@ function normalizeForMatch(name) {
 }
 
 /**
+ * Returns today's upcoming scheduled interviews, sorted by time ascending.
+ *
+ * Flattens all interviews from all companies, filters to those whose date
+ * matches today and whose derived status is 'scheduled' (not completed,
+ * cancelled, or passed), and sorts by time ascending. Interviews without
+ * a time are sorted after timed interviews.
+ *
+ * @param {Object[]} companies - the full companies array with nested interviews
+ * @param {Date} [now=new Date()] - injectable for deterministic testing
+ * @returns {Object[]} Flat interview objects with companyName, companyId, position
+ */
+export function getTodaysUpcomingInterviews(companies, now = new Date()) {
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, '0');
+  const d = String(now.getDate()).padStart(2, '0');
+  const todayStr = `${y}-${m}-${d}`;
+
+  return flattenAndSortInterviews(companies)
+    .filter((interview) =>
+      interview.date === todayStr &&
+      deriveInterviewStatus(interview, now) === 'scheduled'
+    )
+    .sort((a, b) => {
+      if (!a.time && !b.time) return 0;
+      if (!a.time) return 1;
+      if (!b.time) return -1;
+      return a.time.localeCompare(b.time);
+    });
+}
+
+/**
  * Converts "HH:mm" to total minutes since midnight.
  *
  * @param {string} time - "HH:mm" format

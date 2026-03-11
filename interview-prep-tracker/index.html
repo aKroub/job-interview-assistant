@@ -12,6 +12,23 @@
     <link rel="apple-touch-icon" href="/logo192.png" />
     <link rel="manifest" href="/manifest.json" />
     <title>Interview Prep Tracker</title>
+    <!--
+      Content Security Policy: restrict resource loading to same origin.
+      'unsafe-inline' for styles is required by Vite's injected style tags.
+      data: for img-src allows favicon data URIs used by some browsers.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="
+        default-src 'self';
+        script-src  'self';
+        style-src   'self' 'unsafe-inline';
+        img-src     'self' data: https:;
+        font-src    'self';
+        connect-src 'self';
+        frame-ancestors 'none'
+      "
+    />
   </head>
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

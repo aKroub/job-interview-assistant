@@ -50,27 +50,29 @@ describe('TabNav — active tab styling', () => {
 });
 
 describe('TabNav — interaction', () => {
-  it('calls onTabChange with "kanban" when Pipeline tab is clicked', () => {
+  const user = userEvent.setup();
+
+  it('calls onTabChange with "kanban" when Pipeline tab is clicked', async () => {
     const { onTabChange } = setup('timeline');
-    userEvent.click(screen.getByText('Pipeline'));
+    await user.click(screen.getByText('Pipeline'));
     expect(onTabChange).toHaveBeenCalledWith('kanban');
   });
 
-  it('calls onTabChange with "timeline" when Timeline tab is clicked', () => {
+  it('calls onTabChange with "timeline" when Timeline tab is clicked', async () => {
     const { onTabChange } = setup('kanban');
-    userEvent.click(screen.getByText('Timeline'));
+    await user.click(screen.getByText('Timeline'));
     expect(onTabChange).toHaveBeenCalledWith('timeline');
   });
 
-  it('calls onTabChange with "prep" when Prep Content tab is clicked', () => {
+  it('calls onTabChange with "prep" when Prep Content tab is clicked', async () => {
     const { onTabChange } = setup('kanban');
-    userEvent.click(screen.getByText('Prep Content'));
+    await user.click(screen.getByText('Prep Content'));
     expect(onTabChange).toHaveBeenCalledWith('prep');
   });
 
-  it('calls onTabChange exactly once per click', () => {
+  it('calls onTabChange exactly once per click', async () => {
     const { onTabChange } = setup();
-    userEvent.click(screen.getByText('Timeline'));
+    await user.click(screen.getByText('Timeline'));
     expect(onTabChange).toHaveBeenCalledTimes(1);
   });
 });

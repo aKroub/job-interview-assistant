@@ -87,6 +87,7 @@ describe('AddCompanyModal — rendering', () => {
 // ---------------------------------------------------------------------------
 
 describe('AddCompanyModal — pipeline toggles', () => {
+  const user = userEvent.setup();
   it('renders a toggle button for each pipeline', () => {
     setup();
     PIPELINES.forEach((p) => {
@@ -102,25 +103,25 @@ describe('AddCompanyModal — pipeline toggles', () => {
     expect(usBtn).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('calls onDraftChange with both pipelines when toggling a second pipeline on', () => {
+  it('calls onDraftChange with both pipelines when toggling a second pipeline on', async () => {
     const { onDraftChange } = setup({ pipeline: ['tel-aviv'] });
-    userEvent.click(screen.getByRole('button', { name: 'US' }));
+    await user.click(screen.getByRole('button', { name: 'US' }));
     expect(onDraftChange).toHaveBeenCalledWith(
       expect.objectContaining({ pipeline: ['tel-aviv', 'us'] })
     );
   });
 
-  it('calls onDraftChange removing a pipeline when toggling it off', () => {
+  it('calls onDraftChange removing a pipeline when toggling it off', async () => {
     const { onDraftChange } = setup({ pipeline: ['tel-aviv', 'us'] });
-    userEvent.click(screen.getByRole('button', { name: 'US' }));
+    await user.click(screen.getByRole('button', { name: 'US' }));
     expect(onDraftChange).toHaveBeenCalledWith(
       expect.objectContaining({ pipeline: ['tel-aviv'] })
     );
   });
 
-  it('does not deselect the last remaining pipeline', () => {
+  it('does not deselect the last remaining pipeline', async () => {
     const { onDraftChange } = setup({ pipeline: ['tel-aviv'] });
-    userEvent.click(screen.getByRole('button', { name: 'Tel Aviv' }));
+    await user.click(screen.getByRole('button', { name: 'Tel Aviv' }));
     // onDraftChange should NOT be called since we can't deselect the last one
     expect(onDraftChange).not.toHaveBeenCalled();
   });
@@ -131,6 +132,7 @@ describe('AddCompanyModal — pipeline toggles', () => {
 // ---------------------------------------------------------------------------
 
 describe('AddCompanyModal — validation', () => {
+  const user = userEvent.setup();
   it('does not show validation errors before submitting', () => {
     setup();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
@@ -138,31 +140,31 @@ describe('AddCompanyModal — validation', () => {
 
   it('shows name error after clicking Add with empty name', async () => {
     setup();
-    userEvent.click(screen.getByRole('button', { name: /add company/i }));
+    await user.click(screen.getByRole('button', { name: /add company/i }));
     expect(screen.getByText(/company name is required/i)).toBeInTheDocument();
   });
 
   it('shows position error after clicking Add with no position selected', async () => {
     setup({ name: 'Google' });
-    userEvent.click(screen.getByRole('button', { name: /add company/i }));
+    await user.click(screen.getByRole('button', { name: /add company/i }));
     expect(screen.getByText(/please select a position/i)).toBeInTheDocument();
   });
 
   it('shows pipeline error when pipeline array is empty', async () => {
     setup({ name: 'Google', position: POSITIONS[0], pipeline: [] });
-    userEvent.click(screen.getByRole('button', { name: /add company/i }));
+    await user.click(screen.getByRole('button', { name: /add company/i }));
     expect(screen.getByText(/select at least one pipeline/i)).toBeInTheDocument();
   });
 
   it('does not call onAdd when form is invalid', async () => {
     const { onAdd } = setup();
-    userEvent.click(screen.getByRole('button', { name: /add company/i }));
+    await user.click(screen.getByRole('button', { name: /add company/i }));
     expect(onAdd).not.toHaveBeenCalled();
   });
 
   it('calls onAdd when name, position, and pipeline are provided', async () => {
     const { onAdd } = setup({ name: 'Google', position: POSITIONS[0], pipeline: ['tel-aviv'] });
-    userEvent.click(screen.getByRole('button', { name: /add company/i }));
+    await user.click(screen.getByRole('button', { name: /add company/i }));
     expect(onAdd).toHaveBeenCalledTimes(1);
   });
 });
@@ -172,24 +174,25 @@ describe('AddCompanyModal — validation', () => {
 // ---------------------------------------------------------------------------
 
 describe('AddCompanyModal — focus management', () => {
+  const user = userEvent.setup();
   it('focuses the first input on mount', () => {
     setup();
     expect(document.activeElement).toBe(screen.getByLabelText(/company name/i));
   });
 
-  it('traps focus forward from the last button to the first input', () => {
+  it('traps focus forward from the last button to the first input', async () => {
     setup();
     const cancelBtn = screen.getByRole('button', { name: /cancel/i });
     cancelBtn.focus();
-    userEvent.tab();
+    await user.tab();
     expect(document.activeElement).toBe(screen.getByLabelText(/company name/i));
   });
 
-  it('traps focus backward from the first input to the last button', () => {
+  it('traps focus backward from the first input to the last button', async () => {
     setup();
     const nameInput = screen.getByLabelText(/company name/i);
     nameInput.focus();
-    userEvent.tab({ shift: true });
+    await user.tab({ shift: true });
     expect(document.activeElement).toBe(screen.getByRole('button', { name: /cancel/i }));
   });
 });
@@ -199,15 +202,17 @@ describe('AddCompanyModal — focus management', () => {
 // ---------------------------------------------------------------------------
 
 describe('AddCompanyModal — callbacks', () => {
+  const user = userEvent.setup();
+
   it('calls onDraftChange when the company name input changes', async () => {
     const { onDraftChange } = setup();
-    userEvent.type(screen.getByLabelText(/company name/i), 'A');
+    await user.type(screen.getByLabelText(/company name/i), 'A');
     expect(onDraftChange).toHaveBeenCalled();
   });
 
   it('calls onClose when the Cancel button is clicked', async () => {
     const { onClose } = setup();
-    userEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    await user.click(screen.getByRole('button', { name: /cancel/i }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

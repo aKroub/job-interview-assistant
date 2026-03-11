@@ -78,6 +78,8 @@ describe('KanbanBoard — rendering', () => {
 // ---------------------------------------------------------------------------
 
 describe('KanbanBoard — pipeline tabs', () => {
+  const user = userEvent.setup();
+
   it('renders a tab for each pipeline', () => {
     setup();
     expect(screen.getByText('Tel Aviv')).toBeInTheDocument();
@@ -86,7 +88,7 @@ describe('KanbanBoard — pipeline tabs', () => {
 
   it('calls onPipelineChange when a pipeline tab is clicked', async () => {
     const { onPipelineChange } = setup();
-    await userEvent.click(screen.getByText('US'));
+    await user.click(screen.getByText('US'));
     expect(onPipelineChange).toHaveBeenCalledWith('us');
   });
 
@@ -101,9 +103,11 @@ describe('KanbanBoard — pipeline tabs', () => {
 });
 
 describe('KanbanBoard — interactions', () => {
+  const user = userEvent.setup();
+
   it('calls onAddCompany when Add Company button is clicked', async () => {
     const { onAddCompany } = setup();
-    await userEvent.click(screen.getByRole('button', { name: /add company/i }));
+    await user.click(screen.getByRole('button', { name: /add company/i }));
     expect(onAddCompany).toHaveBeenCalledTimes(1);
   });
 });
@@ -113,6 +117,7 @@ describe('KanbanBoard — interactions', () => {
 // ---------------------------------------------------------------------------
 
 describe('KanbanBoard — closed row', () => {
+  const user = userEvent.setup();
   it('renders the Closed row header with label and count', () => {
     const companies = [
       { id: 'c1', name: 'OldCo', position: 'SWE', stage: 'rejected', interviews: [] },
@@ -135,13 +140,13 @@ describe('KanbanBoard — closed row', () => {
       { id: 'c1', name: 'OldCo', position: 'SWE', stage: 'rejected', interviews: [] },
     ];
     setup({ companies });
-    await userEvent.click(screen.getByRole('button', { expanded: false }));
+    await user.click(screen.getByRole('button', { expanded: false }));
     expect(screen.getByText('OldCo')).toBeInTheDocument();
   });
 
   it('shows empty-state text when Closed is expanded but has no cards', async () => {
     setup();
-    await userEvent.click(screen.getByRole('button', { expanded: false }));
+    await user.click(screen.getByRole('button', { expanded: false }));
     expect(screen.getByText(/no closed processes yet/i)).toBeInTheDocument();
   });
 
@@ -151,9 +156,9 @@ describe('KanbanBoard — closed row', () => {
     ];
     setup({ companies });
     const toggle = screen.getByRole('button', { expanded: false });
-    await userEvent.click(toggle);
+    await user.click(toggle);
     expect(screen.getByText('OldCo')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { expanded: true }));
+    await user.click(screen.getByRole('button', { expanded: true }));
     expect(screen.queryByText('OldCo')).not.toBeInTheDocument();
   });
 

@@ -118,6 +118,19 @@ export function createApp(deps = {}) {
     });
   });
 
+  // Global error handler — catches unhandled async errors (Express 5 forwards
+  // rejected promises here automatically).  Always responds with JSON.
+  // eslint-disable-next-line no-unused-vars
+  app.use((err, _req, res, next) => {
+    // If headers are already sent (e.g. mid-SSE stream), delegate to Express's
+    // default error handler which will close the connection gracefully.
+    if (res.headersSent) {
+      return next(err);
+    }
+    console.error('[server] unhandled error:', err.message);
+    res.status(500).json({ error: 'Internal server error' });
+  });
+
   return { app, config, tokenStore, googleAuth };
 }
 

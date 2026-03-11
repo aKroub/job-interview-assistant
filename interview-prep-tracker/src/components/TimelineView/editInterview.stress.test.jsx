@@ -84,43 +84,45 @@ function setupEditModal({ interview, handlers = {} } = {}) {
 // ===========================================================================
 
 describe('H1: edit-mode-stale-state — modal re-mount resets form', () => {
-  it('re-opening the edit modal shows original values, not previously edited values', () => {
+  const user = userEvent.setup();
+
+  it('re-opening the edit modal shows original values, not previously edited values', async () => {
     const interview = makeInterview({ type: 'Phone Interview', time: '10:00' });
     const companies = [makeCompany({ interviews: [{ ...interview, companyName: undefined, position: undefined }] })];
     const { onUpdateInterview } = setupCalendar({ companies });
 
     // Open edit modal
-    userEvent.click(screen.getByLabelText(/edit google interview/i));
+    await user.click(screen.getByLabelText(/edit google interview/i));
     expect(screen.getByText('Edit Interview')).toBeInTheDocument();
 
     // Change time but DON'T save — cancel instead
-    userEvent.clear(screen.getByLabelText(/time/i));
-    userEvent.type(screen.getByLabelText(/time/i), '23:59');
-    userEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    await user.clear(screen.getByLabelText(/time/i));
+    await user.type(screen.getByLabelText(/time/i), '23:59');
+    await user.click(screen.getByRole('button', { name: /cancel/i }));
 
     // Modal should be closed
     expect(screen.queryByText('Edit Interview')).not.toBeInTheDocument();
     expect(onUpdateInterview).not.toHaveBeenCalled();
 
     // Re-open the same interview
-    userEvent.click(screen.getByLabelText(/edit google interview/i));
+    await user.click(screen.getByLabelText(/edit google interview/i));
 
     // Should show original time, not the stale 23:59
     expect(screen.getByLabelText(/time/i).value).toBe('10:00');
   });
 
-  it('re-opening after overlay dismiss also resets form state', () => {
+  it('re-opening after overlay dismiss also resets form state', async () => {
     const interview = makeInterview({ status: 'scheduled' });
     const companies = [makeCompany({ interviews: [{ ...interview, companyName: undefined, position: undefined }] })];
     setupCalendar({ companies });
 
     // Open, change status, dismiss via overlay
-    userEvent.click(screen.getByLabelText(/edit google interview/i));
-    userEvent.selectOptions(screen.getByLabelText(/status/i), 'cancelled');
-    userEvent.click(screen.getByTestId('modal-overlay'));
+    await user.click(screen.getByLabelText(/edit google interview/i));
+    await user.selectOptions(screen.getByLabelText(/status/i), 'cancelled');
+    await user.click(screen.getByTestId('modal-overlay'));
 
     // Re-open — status should be original 'scheduled'
-    userEvent.click(screen.getByLabelText(/edit google interview/i));
+    await user.click(screen.getByLabelText(/edit google interview/i));
     expect(screen.getByLabelText(/status/i).value).toBe('scheduled');
   });
 });
@@ -131,13 +133,15 @@ describe('H1: edit-mode-stale-state — modal re-mount resets form', () => {
 // ===========================================================================
 
 describe('H2: edit-callback-crossfire — no dual-modal overlap', () => {
-  it('opening edit modal does not open add modal simultaneously', () => {
+  const user = userEvent.setup();
+
+  it('opening edit modal does not open add modal simultaneously', async () => {
     const interview = makeInterview();
     const companies = [makeCompany({ interviews: [{ ...interview, companyName: undefined, position: undefined }] })];
     setupCalendar({ companies });
 
     // Open edit modal
-    userEvent.click(screen.getByLabelText(/edit google interview/i));
+    await user.click(screen.getByLabelText(/edit google interview/i));
     expect(screen.getByText('Edit Interview')).toBeInTheDocument();
 
     // "Schedule Interview" heading from the WeekHeader button should be visible,
@@ -145,12 +149,12 @@ describe('H2: edit-callback-crossfire — no dual-modal overlap', () => {
     expect(screen.queryByText('Select a company…')).not.toBeInTheDocument();
   });
 
-  it('add mode modal does not render status dropdown', () => {
+  it('add mode modal does not render status dropdown', async () => {
     const companies = [makeCompany()];
     setupCalendar({ companies });
 
     // Open add modal
-    userEvent.click(screen.getByText('Schedule Interview'));
+    await user.click(screen.getByText('Schedule Interview'));
     expect(screen.getByText('Select a company…')).toBeInTheDocument();
 
     // Status dropdown must NOT appear in add mode
@@ -165,7 +169,9 @@ describe('H2: edit-callback-crossfire — no dual-modal overlap', () => {
 // ===========================================================================
 
 describe('H3: edit-saves-wrong-fields — correct IDs per interview', () => {
-  it('editing two different interviews calls onEdit with correct IDs each time', () => {
+  const user = userEvent.setup();
+
+  it('editing two different interviews calls onEdit with correct IDs each time', async () => {
     const i1 = makeInterview({ id: 'i1', companyId: 'c1', companyName: 'Google', time: '10:00' });
     const i2 = makeInterview({ id: 'i2', companyId: 'c2', companyName: 'Meta', position: 'Staff', time: '14:00' });
     const companies = [
@@ -181,23 +187,23 @@ describe('H3: edit-saves-wrong-fields — correct IDs per interview', () => {
     const { onUpdateInterview } = setupCalendar({ companies });
 
     // Edit first interview (Google)
-    userEvent.click(screen.getByLabelText(/edit google interview/i));
-    userEvent.click(screen.getByRole('button', { name: /save changes/i }));
+    await user.click(screen.getByLabelText(/edit google interview/i));
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
 
     expect(onUpdateInterview).toHaveBeenCalledTimes(1);
     expect(onUpdateInterview.mock.calls[0][0]).toBe('c1');
     expect(onUpdateInterview.mock.calls[0][1]).toBe('i1');
 
     // Edit second interview (Meta)
-    userEvent.click(screen.getByLabelText(/edit meta interview/i));
-    userEvent.click(screen.getByRole('button', { name: /save changes/i }));
+    await user.click(screen.getByLabelText(/edit meta interview/i));
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
 
     expect(onUpdateInterview).toHaveBeenCalledTimes(2);
     expect(onUpdateInterview.mock.calls[1][0]).toBe('c2');
     expect(onUpdateInterview.mock.calls[1][1]).toBe('i2');
   });
 
-  it('edit submit includes all field values from the form', () => {
+  it('edit submit includes all field values from the form', async () => {
     const { onEdit } = setupEditModal({
       interview: makeInterview({
         type: 'Video Interview',
@@ -208,7 +214,7 @@ describe('H3: edit-saves-wrong-fields — correct IDs per interview', () => {
       }),
     });
 
-    userEvent.click(screen.getByRole('button', { name: /save changes/i }));
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
 
     const [, , updates] = onEdit.mock.calls[0];
     expect(updates).toEqual({
@@ -232,7 +238,9 @@ describe('H3: edit-saves-wrong-fields — correct IDs per interview', () => {
 // ===========================================================================
 
 describe('H4: status-regression-suggestion-cancel — suggestion path intact', () => {
-  it('add mode still works correctly after edit mode refactor', () => {
+  const user = userEvent.setup();
+
+  it('add mode still works correctly after edit mode refactor', async () => {
     const onAdd = jest.fn();
     const onClose = jest.fn();
 
@@ -246,12 +254,12 @@ describe('H4: status-regression-suggestion-cancel — suggestion path intact', (
     );
 
     // Fill required fields
-    userEvent.selectOptions(screen.getByLabelText(/company/i), 'c1');
-    userEvent.selectOptions(screen.getByLabelText(/type/i), INTERVIEW_TYPES[0]);
-    userEvent.type(screen.getByLabelText(/date/i), '2026-09-01');
-    userEvent.type(screen.getByLabelText(/time/i), '10:00');
+    await user.selectOptions(screen.getByLabelText(/company/i), 'c1');
+    await user.selectOptions(screen.getByLabelText(/type/i), INTERVIEW_TYPES[0]);
+    await user.type(screen.getByLabelText(/date/i), '2026-09-01');
+    await user.type(screen.getByLabelText(/time/i), '10:00');
 
-    userEvent.click(screen.getByRole('button', { name: /schedule/i }));
+    await user.click(screen.getByRole('button', { name: /schedule/i }));
 
     expect(onAdd).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
@@ -262,7 +270,7 @@ describe('H4: status-regression-suggestion-cancel — suggestion path intact', (
     expect(interviewData.status).toBe('scheduled');
   });
 
-  it('initialValues mode (suggestion update) still works after edit mode refactor', () => {
+  it('initialValues mode (suggestion update) still works after edit mode refactor', async () => {
     const onAdd = jest.fn();
 
     render(
@@ -282,7 +290,7 @@ describe('H4: status-regression-suggestion-cancel — suggestion path intact', (
     );
 
     // Should be pre-filled and submittable immediately
-    userEvent.click(screen.getByRole('button', { name: /schedule/i }));
+    await user.click(screen.getByRole('button', { name: /schedule/i }));
 
     expect(onAdd).toHaveBeenCalledTimes(1);
     const [companyId, interviewData] = onAdd.mock.calls[0];
@@ -302,6 +310,8 @@ describe('H4: status-regression-suggestion-cancel — suggestion path intact', (
 // ===========================================================================
 
 describe('H5: edit-with-empty-optional-fields — falsy value handling', () => {
+  const user = userEvent.setup();
+
   it('interview with undefined duration defaults to 60 in edit mode', () => {
     setupEditModal({
       interview: makeInterview({ duration: undefined }),
@@ -345,7 +355,7 @@ describe('H5: edit-with-empty-optional-fields — falsy value handling', () => {
     expect(screen.getByTestId('edit-company-display').textContent).toBe('Google');
   });
 
-  it('editing all fields at once and saving includes all changes', () => {
+  it('editing all fields at once and saving includes all changes', async () => {
     const { onEdit } = setupEditModal({
       interview: makeInterview({
         type: 'Phone Interview',
@@ -357,15 +367,15 @@ describe('H5: edit-with-empty-optional-fields — falsy value handling', () => {
     });
 
     // Change every field
-    userEvent.selectOptions(screen.getByLabelText(/type/i), 'Video Interview');
-    userEvent.clear(screen.getByLabelText(/date/i));
-    userEvent.type(screen.getByLabelText(/date/i), '2026-12-31');
-    userEvent.clear(screen.getByLabelText(/time/i));
-    userEvent.type(screen.getByLabelText(/time/i), '17:00');
-    userEvent.selectOptions(screen.getByLabelText(/duration/i), '120');
-    userEvent.selectOptions(screen.getByLabelText(/status/i), 'completed');
+    await user.selectOptions(screen.getByLabelText(/type/i), 'Video Interview');
+    await user.clear(screen.getByLabelText(/date/i));
+    await user.type(screen.getByLabelText(/date/i), '2026-12-31');
+    await user.clear(screen.getByLabelText(/time/i));
+    await user.type(screen.getByLabelText(/time/i), '17:00');
+    await user.selectOptions(screen.getByLabelText(/duration/i), '120');
+    await user.selectOptions(screen.getByLabelText(/status/i), 'completed');
 
-    userEvent.click(screen.getByRole('button', { name: /save changes/i }));
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
 
     const [companyId, interviewId, updates] = onEdit.mock.calls[0];
     expect(companyId).toBe('c1');

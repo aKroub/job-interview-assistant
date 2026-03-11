@@ -121,22 +121,24 @@ describe('TimelineView — interview display', () => {
 // ---------------------------------------------------------------------------
 
 describe('TimelineView — week navigation', () => {
-  it('changes the week label when navigating forward', () => {
+  const user = userEvent.setup();
+
+  it('changes the week label when navigating forward', async () => {
     setup();
     const weekLabel = screen.getByRole('heading', { level: 3 });
     const initial = weekLabel.textContent;
 
-    userEvent.click(screen.getByLabelText('Next week'));
+    await user.click(screen.getByLabelText('Next week'));
     expect(weekLabel.textContent).not.toBe(initial);
   });
 
-  it('returns to current week when Today is clicked', () => {
+  it('returns to current week when Today is clicked', async () => {
     setup();
     const weekLabel = screen.getByRole('heading', { level: 3 });
     const initial = weekLabel.textContent;
 
-    userEvent.click(screen.getByLabelText('Next week'));
-    userEvent.click(screen.getByText('Today'));
+    await user.click(screen.getByLabelText('Next week'));
+    await user.click(screen.getByText('Today'));
     expect(weekLabel.textContent).toBe(initial);
   });
 });
@@ -146,20 +148,22 @@ describe('TimelineView — week navigation', () => {
 // ---------------------------------------------------------------------------
 
 describe('TimelineView — add interview modal', () => {
-  it('opens the modal when Schedule Interview is clicked', () => {
+  const user = userEvent.setup();
+
+  it('opens the modal when Schedule Interview is clicked', async () => {
     const companies = [makeCompany({ id: 'c1', name: 'Google' })];
     setup({ companies });
 
-    userEvent.click(screen.getByText('Schedule Interview'));
+    await user.click(screen.getByText('Schedule Interview'));
     expect(screen.getByText('Select a company…')).toBeInTheDocument();
   });
 
-  it('closes the modal when Cancel is clicked', () => {
+  it('closes the modal when Cancel is clicked', async () => {
     const companies = [makeCompany({ id: 'c1', name: 'Google' })];
     setup({ companies });
 
-    userEvent.click(screen.getByText('Schedule Interview'));
-    userEvent.click(screen.getByText('Cancel'));
+    await user.click(screen.getByText('Schedule Interview'));
+    await user.click(screen.getByText('Cancel'));
     expect(screen.queryByText('Select a company…')).not.toBeInTheDocument();
   });
 });

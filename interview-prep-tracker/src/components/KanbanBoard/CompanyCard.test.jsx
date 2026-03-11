@@ -101,10 +101,12 @@ describe('CompanyCard — draggable', () => {
 // ---------------------------------------------------------------------------
 
 describe('CompanyCard — callbacks', () => {
+  const user = userEvent.setup();
+
   it('calls onDelete with the company id when delete button is clicked', async () => {
     window.confirm = jest.fn(() => true);
     const { onDelete } = setup();
-    await userEvent.click(screen.getByRole('button', { name: /delete acme corp/i }));
+    await user.click(screen.getByRole('button', { name: /delete acme corp/i }));
     expect(onDelete).toHaveBeenCalledWith('c1');
   });
 });

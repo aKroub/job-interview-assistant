@@ -6,7 +6,7 @@ This guide walks you through getting the Gmail + Google Calendar integration wor
 
 ## Prerequisites
 
-- **Node.js 20** via nvm (`nvm install 20 && nvm use 20`)
+- **Node.js 24** via nvm (`nvm install 24 && nvm use 24`)
 - A **Google account** whose Gmail and Calendar you want to scan
 - A **Google Cloud project** (free tier is sufficient)
 
@@ -20,12 +20,12 @@ cd job-interview-assistant
 
 # Frontend
 cd interview-prep-tracker
-nvm use 20 && npm install
+nvm use 24 && npm install
 cd ..
 
 # Backend
 cd server
-nvm use 20 && npm install
+nvm use 24 && npm install
 cd ..
 ```
 
@@ -147,14 +147,14 @@ Open **two terminal tabs**:
 **Tab 1 — Backend:**
 ```bash
 cd server
-nvm use 20 && npm run dev
+nvm use 24 && npm run dev
 # → Interview Tracker server running on http://localhost:3001
 ```
 
 **Tab 2 — Frontend:**
 ```bash
 cd interview-prep-tracker
-nvm use 20 && npm start
+nvm use 24 && npm start
 # → App running on http://localhost:3000
 ```
 
@@ -195,10 +195,10 @@ nvm use 20 && npm start
 
 ```bash
 # Frontend (from interview-prep-tracker/)
-nvm use 20 && npm test -- --watchAll=false --verbose
+nvm use 24 && npm test -- --watchAll=false --verbose
 
 # Backend (from server/)
-nvm use 20 && npm test
+nvm use 24 && npm test
 ```
 
 Both suites must pass before opening a PR.

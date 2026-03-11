@@ -26,6 +26,8 @@ function makeInterview(overrides = {}) {
 // ---------------------------------------------------------------------------
 
 describe('TodayInterviews', () => {
+  const user = userEvent.setup();
+
   it('returns null when interviews array is empty', () => {
     const { container } = render(<TodayInterviews interviews={[]} />);
     expect(container.firstChild).toBeNull();
@@ -68,7 +70,7 @@ describe('TodayInterviews', () => {
   // Interactivity (onInterviewClick provided)
   // ---------------------------------------------------------------------------
 
-  it('calls onInterviewClick with the interview when a chip is clicked', () => {
+  it('calls onInterviewClick with the interview when a chip is clicked', async () => {
     const handleClick = jest.fn();
     const interview = makeInterview({ id: 'i1', companyName: 'Google' });
 
@@ -76,7 +78,7 @@ describe('TodayInterviews', () => {
       <TodayInterviews interviews={[interview]} onInterviewClick={handleClick} />
     );
 
-    userEvent.click(screen.getByRole('button'));
+    await user.click(screen.getByRole('button'));
     expect(handleClick).toHaveBeenCalledTimes(1);
     expect(handleClick).toHaveBeenCalledWith(interview);
   });

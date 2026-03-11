@@ -67,6 +67,7 @@ export function AddInterviewModal({
       : EMPTY_INTERVIEW;
   });
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const modalRef = useRef(null);
 
   useEffect(() => {
@@ -106,7 +107,8 @@ export function AddInterviewModal({
 
   function handleSubmit() {
     setSubmitted(true);
-    if (!isValid) return;
+    if (!isValid || isSubmitting) return;
+    setIsSubmitting(true);
 
     if (isEditMode) {
       onEdit(editingInterview.companyId, editingInterview.id, {

@@ -89,12 +89,13 @@ function simulateDragAndDrop(source, target, companyId) {
 // ---------------------------------------------------------------------------
 
 describe('H1 — drag closed company back to active column', () => {
+  const user = userEvent.setup();
   it('calls onUpdateStage with the active stage when a closed card is dropped on a column', async () => {
     const closedCo = makeCompany({ id: 'c-closed', name: 'ClosedCo', stage: 'rejected' });
     const { onUpdateStage } = setup({ companies: [closedCo] });
 
     // Expand the closed row so the card is visible
-    await userEvent.click(screen.getByRole('button', { expanded: false }));
+    await user.click(screen.getByRole('button', { expanded: false }));
     expect(screen.getByText('ClosedCo')).toBeInTheDocument();
 
     // Find the card and the target column (e.g., "Applied" column)
@@ -110,7 +111,7 @@ describe('H1 — drag closed company back to active column', () => {
     const closedCo = makeCompany({ id: 'c-closed', name: 'ClosedCo', stage: 'rejected' });
     const { onUpdateStage } = setup({ companies: [closedCo] });
 
-    await userEvent.click(screen.getByRole('button', { expanded: false }));
+    await user.click(screen.getByRole('button', { expanded: false }));
     const card = screen.getByText('ClosedCo').closest('[draggable]');
 
     // Drop onto the "Offer" column
@@ -192,6 +193,7 @@ describe('H3 — drop without companyId', () => {
 // ---------------------------------------------------------------------------
 
 describe('H4 — active vs closed separation', () => {
+  const user = userEvent.setup();
   it('closed company does not appear in any active column', () => {
     const companies = [
       makeCompany({ id: 'c1', name: 'ActiveCo',  stage: 'applied' }),
@@ -213,7 +215,7 @@ describe('H4 — active vs closed separation', () => {
     ];
     setup({ companies });
 
-    await userEvent.click(screen.getByRole('button', { expanded: false }));
+    await user.click(screen.getByRole('button', { expanded: false }));
 
     // Both visible now
     expect(screen.getByText('ActiveCo')).toBeInTheDocument();
@@ -233,6 +235,7 @@ describe('H4 — active vs closed separation', () => {
 // ---------------------------------------------------------------------------
 
 describe('H5 — company with unknown stage', () => {
+  const user = userEvent.setup();
   it('company with unrecognized stage is not shown in active columns or closed row', async () => {
     const companies = [
       makeCompany({ id: 'c1', name: 'NormalCo', stage: 'applied' }),
@@ -247,7 +250,7 @@ describe('H5 — company with unknown stage', () => {
     expect(screen.queryByText('GhostCo')).not.toBeInTheDocument();
 
     // Expand closed row — GhostCo should NOT appear there either
-    await userEvent.click(screen.getByRole('button', { expanded: false }));
+    await user.click(screen.getByRole('button', { expanded: false }));
     expect(screen.queryByText('GhostCo')).not.toBeInTheDocument();
   });
 
@@ -267,6 +270,7 @@ describe('H5 — company with unknown stage', () => {
 // ---------------------------------------------------------------------------
 
 describe('Stress — large dataset', () => {
+  const user = userEvent.setup();
   it('handles 100 companies across all stages without errors', async () => {
     const allStages = [...ACTIVE_STAGES, CLOSED_STAGE];
     const companies = Array.from({ length: 100 }, (_, i) => ({
@@ -284,7 +288,7 @@ describe('Stress — large dataset', () => {
     });
 
     // Expand closed row
-    await userEvent.click(screen.getByRole('button', { expanded: false }));
+    await user.click(screen.getByRole('button', { expanded: false }));
 
     // Count closed companies: 100 / 7 stages → ~14 closed
     const closedRegion = document.getElementById('closed-companies');
@@ -313,6 +317,7 @@ describe('Stress — large dataset', () => {
 // ---------------------------------------------------------------------------
 
 describe('Stress — rapid toggle', () => {
+  const user = userEvent.setup();
   it('survives 20 rapid expand/collapse cycles without crashing', async () => {
     const companies = [
       makeCompany({ id: 'c1', name: 'ToggleCo', stage: 'rejected' }),
@@ -322,7 +327,7 @@ describe('Stress — rapid toggle', () => {
     for (let i = 0; i < 20; i++) {
       const isExpanded = i % 2 === 1;
       const toggle = screen.getByRole('button', { expanded: isExpanded });
-      await userEvent.click(toggle);
+      await user.click(toggle);
     }
 
     // After 20 clicks (even number), should be back to collapsed
@@ -335,6 +340,7 @@ describe('Stress — rapid toggle', () => {
 // ---------------------------------------------------------------------------
 
 describe('Stress — delete closed company', () => {
+  const user = userEvent.setup();
   it('calls onDeleteCompany when delete button is clicked on a closed card', async () => {
     window.confirm = jest.fn(() => true);
     const companies = [
@@ -343,11 +349,11 @@ describe('Stress — delete closed company', () => {
     const { onDeleteCompany } = setup({ companies });
 
     // Expand closed row
-    await userEvent.click(screen.getByRole('button', { expanded: false }));
+    await user.click(screen.getByRole('button', { expanded: false }));
 
     // Click the delete button on the card
     const deleteButton = screen.getByRole('button', { name: /delete deleteme/i });
-    await userEvent.click(deleteButton);
+    await user.click(deleteButton);
 
     expect(onDeleteCompany).toHaveBeenCalledWith('c-del');
   });

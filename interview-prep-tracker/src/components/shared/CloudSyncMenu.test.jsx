@@ -23,8 +23,10 @@ function renderMenu(overrides = {}) {
   return props;
 }
 
+const user = userEvent.setup();
+
 async function openMenu() {
-  await userEvent.click(screen.getByLabelText('Cloud sync settings'));
+  await user.click(screen.getByLabelText('Cloud sync settings'));
 }
 
 // ---------------------------------------------------------------------------
@@ -88,7 +90,7 @@ describe('CloudSyncMenu — interactions', () => {
   it('calls onSave when Save to Drive is clicked', async () => {
     const props = renderMenu();
     await openMenu();
-    await userEvent.click(screen.getByText('Save to Drive'));
+    await user.click(screen.getByText('Save to Drive'));
     expect(props.onSave).toHaveBeenCalledTimes(1);
   });
 
@@ -100,7 +102,7 @@ describe('CloudSyncMenu — interactions', () => {
       ],
     });
     await openMenu();
-    await userEvent.click(screen.getByText('Load from Drive'));
+    await user.click(screen.getByText('Load from Drive'));
 
     // Version list should appear with Back button
     expect(screen.getByText('Back')).toBeInTheDocument();
@@ -111,7 +113,7 @@ describe('CloudSyncMenu — interactions', () => {
   it('shows "No backups available" when backups array is empty', async () => {
     renderMenu({ backups: [] });
     await openMenu();
-    await userEvent.click(screen.getByText('Load from Drive'));
+    await user.click(screen.getByText('Load from Drive'));
     expect(screen.getByText('No backups available')).toBeInTheDocument();
   });
 
@@ -123,7 +125,7 @@ describe('CloudSyncMenu — interactions', () => {
       ],
     });
     await openMenu();
-    await userEvent.click(screen.getByText('Load from Drive'));
+    await user.click(screen.getByText('Load from Drive'));
     expect(screen.getByText('Latest')).toBeInTheDocument();
   });
 
@@ -136,13 +138,13 @@ describe('CloudSyncMenu — interactions', () => {
       ],
     });
     await openMenu();
-    await userEvent.click(screen.getByText('Load from Drive'));
+    await user.click(screen.getByText('Load from Drive'));
 
     // Click the second version (not the first/Latest)
     const versionButtons = screen.getAllByRole('button').filter(
       (btn) => btn.textContent.includes('2026')
     );
-    await userEvent.click(versionButtons[1]);
+    await user.click(versionButtons[1]);
 
     expect(window.confirm).toHaveBeenCalled();
     expect(props.onLoad).toHaveBeenCalledWith('f2');
@@ -154,12 +156,12 @@ describe('CloudSyncMenu — interactions', () => {
       backups: [{ fileId: 'f1', savedAt: '2026-02-22T10:00:00Z' }],
     });
     await openMenu();
-    await userEvent.click(screen.getByText('Load from Drive'));
+    await user.click(screen.getByText('Load from Drive'));
 
     const versionButtons = screen.getAllByRole('button').filter(
       (btn) => btn.textContent.includes('2026')
     );
-    await userEvent.click(versionButtons[0]);
+    await user.click(versionButtons[0]);
 
     expect(window.confirm).toHaveBeenCalled();
     expect(props.onLoad).not.toHaveBeenCalled();
@@ -170,10 +172,10 @@ describe('CloudSyncMenu — interactions', () => {
       backups: [{ fileId: 'f1', savedAt: '2026-02-22T10:00:00Z' }],
     });
     await openMenu();
-    await userEvent.click(screen.getByText('Load from Drive'));
+    await user.click(screen.getByText('Load from Drive'));
     expect(screen.getByText('Back')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByText('Back'));
+    await user.click(screen.getByText('Back'));
     expect(screen.queryByText('Back')).not.toBeInTheDocument();
     expect(screen.getByText('Load from Drive')).toBeInTheDocument();
   });

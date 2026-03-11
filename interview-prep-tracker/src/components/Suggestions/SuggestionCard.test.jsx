@@ -96,6 +96,8 @@ describe('SuggestionCard — rendering', () => {
 });
 
 describe('SuggestionCard — email-only suggestions', () => {
+  const user = userEvent.setup();
+
   function makeEmailOnlySuggestion(overrides = {}) {
     return makeSuggestion({
       id: 'suggestion_gmail_msg1',
@@ -148,7 +150,7 @@ describe('SuggestionCard — email-only suggestions', () => {
     const onAccept = jest.fn();
     render(<SuggestionCard suggestion={suggestion} onDismiss={noop} onAccept={onAccept} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /schedule google interview/i }));
+    await user.click(screen.getByRole('button', { name: /schedule google interview/i }));
 
     expect(onAccept).toHaveBeenCalledWith(suggestion);
   });
@@ -158,7 +160,7 @@ describe('SuggestionCard — email-only suggestions', () => {
     const onDismiss = jest.fn();
     render(<SuggestionCard suggestion={suggestion} onDismiss={onDismiss} onAccept={noop} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /dismiss google suggestion/i }));
+    await user.click(screen.getByRole('button', { name: /dismiss google suggestion/i }));
 
     expect(onDismiss).toHaveBeenCalledWith(suggestion);
   });
@@ -270,12 +272,14 @@ describe('SuggestionCard — email-only cancel does NOT show amber', () => {
 });
 
 describe('SuggestionCard — callbacks', () => {
+  const user = userEvent.setup();
+
   it('calls onDismiss with the full suggestion object when dismiss is clicked', async () => {
     const suggestion = makeSuggestion();
     const onDismiss = jest.fn();
     render(<SuggestionCard suggestion={suggestion} onDismiss={onDismiss} onAccept={noop} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /dismiss google suggestion/i }));
+    await user.click(screen.getByRole('button', { name: /dismiss google suggestion/i }));
 
     expect(onDismiss).toHaveBeenCalledWith(suggestion);
     expect(onDismiss).toHaveBeenCalledTimes(1);
@@ -285,7 +289,7 @@ describe('SuggestionCard — callbacks', () => {
     const onAccept = jest.fn();
     render(<SuggestionCard suggestion={makeSuggestion()} onDismiss={noop} onAccept={onAccept} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /dismiss google suggestion/i }));
+    await user.click(screen.getByRole('button', { name: /dismiss google suggestion/i }));
 
     expect(onAccept).not.toHaveBeenCalled();
   });
@@ -295,7 +299,7 @@ describe('SuggestionCard — callbacks', () => {
     const onAccept = jest.fn();
     render(<SuggestionCard suggestion={suggestion} onDismiss={noop} onAccept={onAccept} />);
 
-    await userEvent.click(screen.getByRole('button', { name: /schedule google interview/i }));
+    await user.click(screen.getByRole('button', { name: /schedule google interview/i }));
 
     expect(onAccept).toHaveBeenCalledWith(suggestion);
     expect(onAccept).toHaveBeenCalledTimes(1);

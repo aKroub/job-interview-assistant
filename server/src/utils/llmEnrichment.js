@@ -37,6 +37,7 @@ const TYPE_MAP = {
 };
 
 const VALID_INTENTS = ['add', 'cancel', 'update'];
+const TIME_RE = /^\d{2}:\d{2}$/;
 
 /**
  * Normalises a free-form LLM interview_type string to one of the
@@ -65,6 +66,7 @@ export function normalizeInterviewType(llmType) {
  */
 function computeDurationFromTimes(startTime, endTime) {
   if (!startTime || !endTime) return null;
+  if (!TIME_RE.test(startTime) || !TIME_RE.test(endTime)) return null;
   const start = new Date(`1970-01-01T${startTime}:00`);
   const end = new Date(`1970-01-01T${endTime}:00`);
   if (isNaN(start) || isNaN(end)) return null;

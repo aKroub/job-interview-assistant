@@ -64,7 +64,7 @@ function makeCalendarResult(overrides = {}) {
 function mockLlmExtractor({ emailHandler, eventHandler } = {}) {
   const defaultEmailHandler = () => ({
     dryModePrompt: null,
-    extraction: { company_name: 'LlmCo', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+    extraction: { company_name: 'LlmCo', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
   });
   const defaultEventHandler = () => ({
     dryModePrompt: null,

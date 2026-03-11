@@ -68,8 +68,8 @@ function mockLlmExtractor({ emailHandler, eventHandler } = {}) {
     extraction: {
       company_name: 'Acme',
       date: '2026-03-09',
-      time: '14:00',
-      duration_minutes: 60,
+      start_time: '14:00',
+      end_time: '15:00',
       intent: 'add',
       interview_type: 'technical',
     },
@@ -170,7 +170,7 @@ describe('H1: Extraction cache prevents redundant LLM calls', () => {
         if (shouldFail) return { dryModePrompt: null, extraction: null };
         return {
           dryModePrompt: null,
-          extraction: { company_name: 'Acme', date: '2026-03-09', time: '14:00', duration_minutes: 60, intent: 'add', interview_type: 'technical' },
+          extraction: { company_name: 'Acme', date: '2026-03-09', start_time: '14:00', end_time: '15:00', intent: 'add', interview_type: 'technical' },
         };
       },
       eventHandler: () => {
@@ -271,7 +271,7 @@ describe('H2: Circuit breaker prevents thundering herd on persistent 529', () =>
         if (shouldFail) return { dryModePrompt: null, extraction: null };
         return {
           dryModePrompt: null,
-          extraction: { company_name: 'Acme', date: '2026-03-09', time: '14:00', duration_minutes: 60, intent: 'add', interview_type: 'technical' },
+          extraction: { company_name: 'Acme', date: '2026-03-09', start_time: '14:00', end_time: '15:00', intent: 'add', interview_type: 'technical' },
         };
       },
       eventHandler: () => {
@@ -326,7 +326,7 @@ describe('H3: Extraction cache prevents duplicate work across concurrent polls',
         await new Promise((r) => setTimeout(r, 100));
         return {
           dryModePrompt: null,
-          extraction: { company_name: 'Acme', date: '2026-03-09', time: '14:00', duration_minutes: 60, intent: 'add', interview_type: 'technical' },
+          extraction: { company_name: 'Acme', date: '2026-03-09', start_time: '14:00', end_time: '15:00', intent: 'add', interview_type: 'technical' },
         };
       },
       eventHandler: async () => {

@@ -56,8 +56,28 @@ export function normalizeInterviewType(llmType) {
 }
 
 /**
+ * Computes the duration in minutes between two HH:MM time strings.
+ * Returns null when either value is missing or the end is not after the start.
+ *
+ * @param {string|null|undefined} startTime - start time in HH:MM format
+ * @param {string|null|undefined} endTime - end time in HH:MM format
+ * @returns {number|null} duration in minutes, or null
+ */
+function computeDurationFromTimes(startTime, endTime) {
+  if (!startTime || !endTime) return null;
+  const [sh, sm] = startTime.split(':').map(Number);
+  const [eh, em] = endTime.split(':').map(Number);
+  if (isNaN(sh) || isNaN(sm) || isNaN(eh) || isNaN(em)) return null;
+  const diff = (eh * 60 + em) - (sh * 60 + sm);
+  return diff > 0 ? diff : null;
+}
+
+/**
  * Merges LLM-extracted fields into a regex-extracted email result.
  * Only non-null, non-empty LLM fields override the regex values.
+ *
+ * The LLM returns raw `start_time` and `end_time` strings. Duration is
+ * computed here (business logic) rather than asking the LLM to calculate it.
  *
  * @param {Object} emailResult - regex-extracted email from gmailService
  * @param {Object|null} llmExtraction - unwrapped extraction from llmExtractor
@@ -67,14 +87,17 @@ export function normalizeInterviewType(llmType) {
 export function mergeEmailExtraction(emailResult, llmExtraction) {
   if (!llmExtraction) return emailResult;
 
+  const llmDuration = computeDurationFromTimes(
+    llmExtraction.start_time,
+    llmExtraction.end_time,
+  );
+
   return {
     ...emailResult,
     companyName: llmExtraction.company_name || emailResult.companyName,
     extractedDate: llmExtraction.date || emailResult.extractedDate,
-    extractedTime: llmExtraction.time || emailResult.extractedTime,
-    extractedDuration: llmExtraction.duration_minutes != null
-      ? llmExtraction.duration_minutes
-      : emailResult.extractedDuration,
+    extractedTime: llmExtraction.start_time || emailResult.extractedTime,
+    extractedDuration: llmDuration ?? emailResult.extractedDuration,
     intent: VALID_INTENTS.includes(llmExtraction.intent)
       ? llmExtraction.intent
       : emailResult.intent,

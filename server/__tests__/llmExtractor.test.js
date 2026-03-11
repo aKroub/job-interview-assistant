@@ -243,8 +243,8 @@ describe('createLlmExtractor (wet mode)', () => {
             text: JSON.stringify({
               company_name: 'Acme Corp',
               date: '2026-03-09',
-              time: '10:00',
-              duration_minutes: 60,
+              start_time: '10:00',
+              end_time: '11:00',
               intent: 'add',
               interview_type: 'technical',
             }),
@@ -269,8 +269,8 @@ describe('createLlmExtractor (wet mode)', () => {
     expect(result.extraction).toEqual({
       company_name: 'Acme Corp',
       date: '2026-03-09',
-      time: '10:00',
-      duration_minutes: 60,
+      start_time: '10:00',
+      end_time: '11:00',
       intent: 'add',
       interview_type: 'technical',
     });

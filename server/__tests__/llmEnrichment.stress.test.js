@@ -30,8 +30,8 @@ describe('H1: merge-overflow — LLM extra fields do not overwrite protected fie
     const llm = {
       company_name: 'Acme',
       date: null,
-      time: null,
-      duration_minutes: null,
+      start_time: null,
+      end_time: null,
       intent: null,
       interview_type: null,
       score: 0.1, // adversarial extra field
@@ -46,8 +46,8 @@ describe('H1: merge-overflow — LLM extra fields do not overwrite protected fie
     const llm = {
       company_name: null,
       date: null,
-      time: null,
-      duration_minutes: null,
+      start_time: null,
+      end_time: null,
       intent: null,
       interview_type: null,
       messageId: 'HIJACKED', // adversarial
@@ -60,8 +60,8 @@ describe('H1: merge-overflow — LLM extra fields do not overwrite protected fie
     const llm = {
       company_name: null,
       date: null,
-      time: null,
-      duration_minutes: null,
+      start_time: null,
+      end_time: null,
       intent: null,
       interview_type: null,
       senderEmail: 'evil@hacker.com', // adversarial
@@ -126,36 +126,36 @@ describe('H2: falsy-zero-regression — edge-case values handled correctly', () 
 
   it('LLM company_name "0" is falsy — falls back to regex', () => {
     // "0" is truthy in JS, so this should actually override
-    const llm = { company_name: '0', date: null, time: null, duration_minutes: null, intent: null, interview_type: null };
+    const llm = { company_name: '0', date: null, start_time: null, end_time: null, intent: null, interview_type: null };
     const result = mergeEmailExtraction(baseEmail, llm);
     expect(result.companyName).toBe('0');
   });
 
   it('LLM company_name false (boolean) falls back to regex', () => {
-    const llm = { company_name: false, date: null, time: null, duration_minutes: null, intent: null, interview_type: null };
+    const llm = { company_name: false, date: null, start_time: null, end_time: null, intent: null, interview_type: null };
     const result = mergeEmailExtraction(baseEmail, llm);
     expect(result.companyName).toBe('original');
   });
 
   it('LLM date "0000-00-00" is truthy — overrides regex', () => {
-    const llm = { company_name: null, date: '0000-00-00', time: null, duration_minutes: null, intent: null, interview_type: null };
+    const llm = { company_name: null, date: '0000-00-00', start_time: null, end_time: null, intent: null, interview_type: null };
     const result = mergeEmailExtraction(baseEmail, llm);
     // This is a technically invalid date but the merge function doesn't validate format
     expect(result.extractedDate).toBe('0000-00-00');
   });
 
-  it('LLM duration_minutes NaN is treated as non-null (overrides)', () => {
-    const llm = { company_name: null, date: null, time: null, duration_minutes: NaN, intent: null, interview_type: null };
+  it('falls back to regex duration when LLM times are invalid strings', () => {
+    const llm = { company_name: null, date: null, start_time: 'abc', end_time: 'xyz', intent: null, interview_type: null };
     const result = mergeEmailExtraction(baseEmail, llm);
-    // NaN != null is true, so NaN overrides. This is a known edge case.
-    expect(result.extractedDuration).toBeNaN();
+    // computeDurationFromTimes returns null for non-numeric times, so regex duration is kept
+    expect(result.extractedDuration).toBe(30);
   });
 
-  it('LLM duration_minutes negative number is accepted', () => {
-    const llm = { company_name: null, date: null, time: null, duration_minutes: -5, intent: null, interview_type: null };
+  it('falls back to regex duration when end_time is before start_time', () => {
+    const llm = { company_name: null, date: null, start_time: '15:00', end_time: '14:00', intent: null, interview_type: null };
     const result = mergeEmailExtraction(baseEmail, llm);
-    // Negative duration is nonsensical but merge doesn't validate
-    expect(result.extractedDuration).toBe(-5);
+    // Negative diff returns null, so regex duration is kept
+    expect(result.extractedDuration).toBe(30);
   });
 });
 
@@ -209,7 +209,7 @@ describe('H4: bodyText-memory — bodyText is passed through without truncation'
       bodyText: largeBody,
     };
 
-    const llm = { company_name: 'Enriched', date: null, time: null, duration_minutes: null, intent: null, interview_type: null };
+    const llm = { company_name: 'Enriched', date: null, start_time: null, end_time: null, intent: null, interview_type: null };
     const result = mergeEmailExtraction(email, llm);
 
     // bodyText is preserved (not truncated by merge)
@@ -234,7 +234,7 @@ describe('H5: concurrent-merge-safety — spread does not share nested refs', ()
       bodyText: '',
     };
 
-    const llm = { company_name: 'Enriched', date: null, time: null, duration_minutes: null, intent: null, interview_type: null };
+    const llm = { company_name: 'Enriched', date: null, start_time: null, end_time: null, intent: null, interview_type: null };
     const merged = mergeEmailExtraction(original, llm);
 
     // Shallow spread means matchedKeywords is the SAME array reference
@@ -258,7 +258,7 @@ describe('H5: concurrent-merge-safety — spread does not share nested refs', ()
       bodyText: '',
     };
 
-    const llm = { company_name: 'Enriched', date: null, time: null, duration_minutes: null, intent: null, interview_type: null };
+    const llm = { company_name: 'Enriched', date: null, start_time: null, end_time: null, intent: null, interview_type: null };
     const merged = mergeEmailExtraction(original, llm);
     // Strings are immutable primitives — reassignment does NOT affect original
     expect(original.companyName).toBe('test');

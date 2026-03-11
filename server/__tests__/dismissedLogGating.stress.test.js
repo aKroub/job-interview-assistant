@@ -633,7 +633,7 @@ describe('H4: CROSS-REF-MATCHED vs DISMISSED ordering with logLevel gating', () 
     const llmExtractor = {
       extractFromEmail: jest.fn(async () => ({
         dryModePrompt: null,
-        extraction: { company_name: 'AcmeLlm', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        extraction: { company_name: 'AcmeLlm', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
       })),
       extractFromCalendarEvent: jest.fn(async () => ({
         dryModePrompt: null,

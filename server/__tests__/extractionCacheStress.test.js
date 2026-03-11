@@ -67,7 +67,7 @@ function makeCalendarResult(overrides = {}) {
 function mockLlmExtractor({ emailHandler, eventHandler } = {}) {
   const defaultEmailHandler = () => ({
     dryModePrompt: null,
-    extraction: { company_name: 'LlmCompany', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+    extraction: { company_name: 'LlmCompany', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
   });
   const defaultEventHandler = () => ({
     dryModePrompt: null,
@@ -116,7 +116,7 @@ describe('H1: cache eviction — oldest entries evicted when maxCacheSize exceed
         llmEmailCalls.push(sender);
         return {
           dryModePrompt: null,
-          extraction: { company_name: `Enriched_${sender}`, date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: `Enriched_${sender}`, date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       eventHandler: () => null, // no calendar enrichment to keep test focused
@@ -207,7 +207,7 @@ describe('H1: cache eviction — oldest entries evicted when maxCacheSize exceed
         llmCalls.push(sender);
         return {
           dryModePrompt: null,
-          extraction: { company_name: `E_${sender}`, date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: `E_${sender}`, date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       eventHandler: () => null,
@@ -303,7 +303,7 @@ describe('H1: cache eviction — oldest entries evicted when maxCacheSize exceed
         emailLlmCalls.push(sender);
         return {
           dryModePrompt: null,
-          extraction: { company_name: `E_${sender}`, date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: `E_${sender}`, date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       eventHandler: (_summary, _desc, _loc, organizer) => {
@@ -382,7 +382,7 @@ describe('H2: circuit breaker with cached items — breaker counts uncached API 
         if (emailCallCount <= 2) {
           return {
             dryModePrompt: null,
-            extraction: { company_name: 'GoodCo', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+            extraction: { company_name: 'GoodCo', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
           };
         }
         // API returns null extraction (failure) but result is not null (API call counted)
@@ -457,7 +457,7 @@ describe('H2: circuit breaker with cached items — breaker counts uncached API 
         if (emailCallIdx % 2 === 1) {
           return {
             dryModePrompt: null,
-            extraction: { company_name: `Co${emailCallIdx}`, date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+            extraction: { company_name: `Co${emailCallIdx}`, date: null, start_time: null, end_time: null, intent: null, interview_type: null },
           };
         }
         return { dryModePrompt: null, extraction: null };
@@ -509,7 +509,7 @@ describe('H2: circuit breaker with cached items — breaker counts uncached API 
         }
         return {
           dryModePrompt: null,
-          extraction: { company_name: `Recovered${emailCallIdx}`, date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: `Recovered${emailCallIdx}`, date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       eventHandler: () => null,
@@ -579,7 +579,7 @@ describe('H3: cache key collision — special characters in IDs', () => {
         emailLlmCalls.push(sender);
         return {
           dryModePrompt: null,
-          extraction: { company_name: 'EmailExtracted', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'EmailExtracted', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       eventHandler: (_summary, _desc, _loc, organizer) => {
@@ -639,7 +639,7 @@ describe('H3: cache key collision — special characters in IDs', () => {
         llmCalls.push(true);
         return {
           dryModePrompt: null,
-          extraction: { company_name: 'SpecialCo', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'SpecialCo', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       eventHandler: () => null,
@@ -693,7 +693,7 @@ describe('H3: cache key collision — special characters in IDs', () => {
     const extractor = spyLlmExtractor({
       emailHandler: () => ({
         dryModePrompt: null,
-        extraction: { company_name: 'FromEmail', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+        extraction: { company_name: 'FromEmail', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
       }),
       eventHandler: () => ({
         dryModePrompt: null,
@@ -751,7 +751,7 @@ describe('H4: mixed cached/uncached items — enrichment merges correctly', () =
         emailCallCount++;
         return {
           dryModePrompt: null,
-          extraction: { company_name: `LLM_${sender}_call${emailCallCount}`, date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: `LLM_${sender}_call${emailCallCount}`, date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       eventHandler: () => null,
@@ -817,7 +817,7 @@ describe('H4: mixed cached/uncached items — enrichment merges correctly', () =
         // Subsequent calls: success
         return {
           dryModePrompt: null,
-          extraction: { company_name: 'RecoveredCo', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'RecoveredCo', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       eventHandler: () => null,
@@ -862,7 +862,7 @@ describe('H4: mixed cached/uncached items — enrichment merges correctly', () =
         llmCalls++;
         return {
           dryModePrompt: null,
-          extraction: { company_name: 'CachedCo', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'CachedCo', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       eventHandler: () => {
@@ -916,7 +916,7 @@ describe('H5: reset clears tokenStore dismissed state but NOT extraction cache',
         emailCallCount++;
         return {
           dryModePrompt: null,
-          extraction: { company_name: 'LlmExtracted', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'LlmExtracted', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       eventHandler: () => ({
@@ -961,7 +961,7 @@ describe('H5: reset clears tokenStore dismissed state but NOT extraction cache',
         emailCallCount++;
         return {
           dryModePrompt: null,
-          extraction: { company_name: `LLM_${sender}`, date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: `LLM_${sender}`, date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       eventHandler: () => null,
@@ -1019,7 +1019,7 @@ describe('H5: reset clears tokenStore dismissed state but NOT extraction cache',
         emailCallCount++;
         return {
           dryModePrompt: null,
-          extraction: { company_name: 'Persistent', date: null, time: null, duration_minutes: null, intent: null, interview_type: null },
+          extraction: { company_name: 'Persistent', date: null, start_time: null, end_time: null, intent: null, interview_type: null },
         };
       },
       eventHandler: () => null,

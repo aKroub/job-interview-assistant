@@ -246,7 +246,7 @@ server/src/
 
 The test suite covers every layer across both frontend and backend:
 
-### Frontend (40 test suites)
+### Frontend (41 test suites)
 
 | Layer | Test files | What they test |
 |---|---|---|
@@ -254,17 +254,17 @@ The test suite covers every layer across both frontend and backend:
 | Services | `storageService.test.js`, `apiService.test.js` | Storage interface, REST calls, SSE stream |
 | Utils | `companyUtils.test.js`, `questionUtils.test.js`, `calendarUtils.test.js`, `companyUtils.stress.test.js`, `cancelUpdateStress.test.js` | Pure function unit tests and stress tests (no React) |
 | Hooks | `useCompanies.test.js`, `useSeenQuestions.test.js`, `useInterviewSuggestions.test.js`, `useInterviewSuggestions.stress.test.js`, `useInterviewTracker.test.js`, `useCloudSync.test.js` | Hook tests with injected in-memory storage / mock API, stress tests |
-| Components | 23 test files (one per component) including `CloudSyncMenu.test.jsx`, `TodayInterviews.test.jsx`, `KanbanBoard.stress.test.jsx`, `TodayInterviews.stress.test.jsx`, `editInterview.stress.test.jsx` | Rendering, user interactions, callback wiring, stress tests |
+| Components | 24 test files (one per component) including `CloudSyncMenu.test.jsx`, `TodayInterviews.test.jsx`, `KanbanBoard.stress.test.jsx`, `TodayInterviews.stress.test.jsx`, `editInterview.stress.test.jsx`, `depsUpgrade.stress.test.jsx` | Rendering, user interactions, callback wiring, stress tests |
 | Integration | `App.test.js` | Smoke test — app renders and default view loads |
 
-### Backend (31 test suites)
+### Backend (32 test suites)
 
 | Layer | Test files | What they test |
 |---|---|---|
 | Config | `config.test.js` | Env var loading + validation |
 | Services | `tokenStore.test.js`, `googleAuth.test.js`, `gmailService.test.js`, `calendarService.test.js`, `interviewDetector.test.js`, `interviewDetector.stress.test.js`, `llmExtractor.test.js`, `driveService.test.js` | Business logic with injectable mocks |
 | Utils | `emailParser.test.js`, `matchingUtils.test.js`, `llmEnrichment.test.js`, `llmEnrichment.stress.test.js`, `phraseExpansionStress.test.js`, `gcalScoringStress.test.js`, `gcalCancellationRepro.test.js`, `cancelUpdateStress.test.js`, `cancellationEmailRepro.test.js` | Scoring, parsing, LLM enrichment, stress and regression tests |
-| Resilience | `llmResilience.stress.test.js`, `llmDuplication.repro.test.js`, `extractionCacheStress.test.js`, `logLevelGating.stress.test.js`, `dismissedLogGating.stress.test.js`, `interviewsRoute.test.js`, `resetSuggestions.stress.test.js`, `llmExtractionImprovements.stress.test.js` | Semaphore deadlock, extraction cache, circuit breaker, log-level gating, dismissed-log gating, scan cooldown, reset races, stats consistency, concurrent error batches, duration computation edge cases |
+| Resilience | `llmResilience.stress.test.js`, `llmDuplication.repro.test.js`, `extractionCacheStress.test.js`, `logLevelGating.stress.test.js`, `dismissedLogGating.stress.test.js`, `interviewsRoute.test.js`, `resetSuggestions.stress.test.js`, `llmExtractionImprovements.stress.test.js`, `depsUpgrade.stress.test.js` | Semaphore deadlock, extraction cache, circuit breaker, log-level gating, dismissed-log gating, scan cooldown, reset races, stats consistency, concurrent error batches, duration computation edge cases, Express 5 / Jest 30 / googleapis 171 compatibility |
 | Integration | `indexWiring.stress.test.js` | App factory wiring stress tests |
 | Routes | `auth.test.js`, `interviews.test.js`, `sync.test.js` | HTTP route tests via supertest |
 

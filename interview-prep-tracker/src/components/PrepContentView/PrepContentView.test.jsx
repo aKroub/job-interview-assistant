@@ -74,10 +74,12 @@ describe('PrepContentView — rendering', () => {
 // ---------------------------------------------------------------------------
 
 describe('PrepContentView — callbacks', () => {
+  const user = userEvent.setup();
+
   it('calls onMarkSeen with the question id when Mark Seen is clicked', async () => {
     const { onMarkSeen } = setup();
     // Click the first "Mark Seen" button in the list
-    userEvent.click(screen.getAllByRole('button', { name: /mark seen/i })[0]);
+    await user.click(screen.getAllByRole('button', { name: /mark seen/i })[0]);
     expect(onMarkSeen).toHaveBeenCalledTimes(1);
     expect(typeof onMarkSeen.mock.calls[0][0]).toBe('string');
   });
@@ -88,7 +90,7 @@ describe('PrepContentView — callbacks', () => {
     const allIds       = new Set(SYSTEM_DESIGN_QUESTIONS[firstCompany].map((q) => q.id));
     const { onResetCompany } = setup({ seenIds: allIds });
 
-    userEvent.click(
+    await user.click(
       screen.getByRole('button', { name: new RegExp(`reset ${firstCompany} questions`, 'i') })
     );
     expect(onResetCompany).toHaveBeenCalledWith(firstCompany);

@@ -63,15 +63,17 @@ describe('QuestionCard — rendering', () => {
 // ---------------------------------------------------------------------------
 
 describe('QuestionCard — callbacks', () => {
+  const user = userEvent.setup();
+
   it('calls onMarkSeen with the question id when Mark Seen is clicked', async () => {
     const { onMarkSeen } = setup({ id: 'q99' });
-    userEvent.click(screen.getByRole('button', { name: /mark seen/i }));
+    await user.click(screen.getByRole('button', { name: /mark seen/i }));
     expect(onMarkSeen).toHaveBeenCalledWith('q99');
   });
 
   it('calls onMarkSeen exactly once per click', async () => {
     const { onMarkSeen } = setup();
-    userEvent.click(screen.getByRole('button', { name: /mark seen/i }));
+    await user.click(screen.getByRole('button', { name: /mark seen/i }));
     expect(onMarkSeen).toHaveBeenCalledTimes(1);
   });
 });

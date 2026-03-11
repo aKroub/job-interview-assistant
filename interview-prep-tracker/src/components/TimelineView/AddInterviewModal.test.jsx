@@ -41,11 +41,11 @@ function setup({ companies, handlers = {}, initialValues = null } = {}) {
 }
 
 /** Fills all required fields so the form is valid. */
-function fillAllRequired() {
-  userEvent.selectOptions(screen.getByLabelText(/company/i), 'c1');
-  userEvent.selectOptions(screen.getByLabelText(/type/i), INTERVIEW_TYPES[0]);
-  userEvent.type(screen.getByLabelText(/date/i), '2025-09-01');
-  userEvent.type(screen.getByLabelText(/time/i), '10:00');
+async function fillAllRequired(user) {
+  await user.selectOptions(screen.getByLabelText(/company/i), 'c1');
+  await user.selectOptions(screen.getByLabelText(/type/i), INTERVIEW_TYPES[0]);
+  await user.type(screen.getByLabelText(/date/i), '2025-09-01');
+  await user.type(screen.getByLabelText(/time/i), '10:00');
 }
 
 // ---------------------------------------------------------------------------
@@ -122,9 +122,11 @@ describe('AddInterviewModal — rendering', () => {
 // ---------------------------------------------------------------------------
 
 describe('AddInterviewModal — validation', () => {
-  function submitEmpty() {
+  const user = userEvent.setup();
+
+  async function submitEmpty() {
     const result = setup();
-    userEvent.click(screen.getByRole('button', { name: /schedule/i }));
+    await user.click(screen.getByRole('button', { name: /schedule/i }));
     return result;
   }
 
@@ -136,28 +138,28 @@ describe('AddInterviewModal — validation', () => {
     expect(screen.queryByText(/time is required/i)).not.toBeInTheDocument();
   });
 
-  it('shows company error after submitting with no company', () => {
-    submitEmpty();
+  it('shows company error after submitting with no company', async () => {
+    await submitEmpty();
     expect(screen.getByText(/please select a company/i)).toBeInTheDocument();
   });
 
-  it('shows type error after submitting with no type', () => {
-    submitEmpty();
+  it('shows type error after submitting with no type', async () => {
+    await submitEmpty();
     expect(screen.getByText(/interview type is required/i)).toBeInTheDocument();
   });
 
-  it('shows date error after submitting with no date', () => {
-    submitEmpty();
+  it('shows date error after submitting with no date', async () => {
+    await submitEmpty();
     expect(screen.getByText(/date is required/i)).toBeInTheDocument();
   });
 
-  it('shows time error after submitting with no time', () => {
-    submitEmpty();
+  it('shows time error after submitting with no time', async () => {
+    await submitEmpty();
     expect(screen.getByText(/time is required/i)).toBeInTheDocument();
   });
 
-  it('does not call onAdd when fields are empty', () => {
-    const { onAdd } = submitEmpty();
+  it('does not call onAdd when fields are empty', async () => {
+    const { onAdd } = await submitEmpty();
     expect(onAdd).not.toHaveBeenCalled();
   });
 });
@@ -167,10 +169,12 @@ describe('AddInterviewModal — validation', () => {
 // ---------------------------------------------------------------------------
 
 describe('AddInterviewModal — submission', () => {
-  it('calls onAdd with companyId and interview data when all required fields are filled', () => {
+  const user = userEvent.setup();
+
+  it('calls onAdd with companyId and interview data when all required fields are filled', async () => {
     const { onAdd } = setup();
-    fillAllRequired();
-    userEvent.click(screen.getByRole('button', { name: /schedule/i }));
+    await fillAllRequired(user);
+    await user.click(screen.getByRole('button', { name: /schedule/i }));
 
     expect(onAdd).toHaveBeenCalledTimes(1);
     const [calledCompanyId, calledInterview] = onAdd.mock.calls[0];
@@ -181,17 +185,17 @@ describe('AddInterviewModal — submission', () => {
     expect(calledInterview.status).toBe('scheduled');
   });
 
-  it('calls onClose after successful submission', () => {
+  it('calls onClose after successful submission', async () => {
     const { onClose } = setup();
-    fillAllRequired();
-    userEvent.click(screen.getByRole('button', { name: /schedule/i }));
+    await fillAllRequired(user);
+    await user.click(screen.getByRole('button', { name: /schedule/i }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('does not include companyId in the interview data object', () => {
+  it('does not include companyId in the interview data object', async () => {
     const { onAdd } = setup();
-    fillAllRequired();
-    userEvent.click(screen.getByRole('button', { name: /schedule/i }));
+    await fillAllRequired(user);
+    await user.click(screen.getByRole('button', { name: /schedule/i }));
     const [, calledInterview] = onAdd.mock.calls[0];
     expect(calledInterview).not.toHaveProperty('companyId');
   });
@@ -202,24 +206,26 @@ describe('AddInterviewModal — submission', () => {
 // ---------------------------------------------------------------------------
 
 describe('AddInterviewModal — focus management', () => {
+  const user = userEvent.setup();
+
   it('focuses the first input on mount', () => {
     setup();
     expect(document.activeElement).toBe(screen.getByLabelText(/company/i));
   });
 
-  it('traps focus forward from the last button to the first input', () => {
+  it('traps focus forward from the last button to the first input', async () => {
     setup();
     const cancelBtn = screen.getByRole('button', { name: /cancel/i });
     cancelBtn.focus();
-    userEvent.tab();
+    await user.tab();
     expect(document.activeElement).toBe(screen.getByLabelText(/company/i));
   });
 
-  it('traps focus backward from the first input to the last button', () => {
+  it('traps focus backward from the first input to the last button', async () => {
     setup();
     const companySelect = screen.getByLabelText(/company/i);
     companySelect.focus();
-    userEvent.tab({ shift: true });
+    await user.tab({ shift: true });
     expect(document.activeElement).toBe(screen.getByRole('button', { name: /cancel/i }));
   });
 });
@@ -229,21 +235,23 @@ describe('AddInterviewModal — focus management', () => {
 // ---------------------------------------------------------------------------
 
 describe('AddInterviewModal — close', () => {
-  it('calls onClose when Cancel button is clicked', () => {
+  const user = userEvent.setup();
+
+  it('calls onClose when Cancel button is clicked', async () => {
     const { onClose } = setup();
-    userEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    await user.click(screen.getByRole('button', { name: /cancel/i }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('calls onClose when overlay background is clicked', () => {
+  it('calls onClose when overlay background is clicked', async () => {
     const { onClose } = setup();
-    userEvent.click(screen.getByTestId('modal-overlay'));
+    await user.click(screen.getByTestId('modal-overlay'));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('does not call onClose when modal card is clicked', () => {
+  it('does not call onClose when modal card is clicked', async () => {
     const { onClose } = setup();
-    userEvent.click(screen.getByText('Schedule Interview'));
+    await user.click(screen.getByText('Schedule Interview'));
     expect(onClose).not.toHaveBeenCalled();
   });
 });
@@ -253,6 +261,8 @@ describe('AddInterviewModal — close', () => {
 // ---------------------------------------------------------------------------
 
 describe('AddInterviewModal — initialValues', () => {
+  const user = userEvent.setup();
+
   it('pre-fills company, type, date, and time from initialValues', () => {
     setup({
       initialValues: {
@@ -269,7 +279,7 @@ describe('AddInterviewModal — initialValues', () => {
     expect(screen.getByLabelText(/time/i).value).toBe('09:30');
   });
 
-  it('submits pre-filled values without additional input', () => {
+  it('submits pre-filled values without additional input', async () => {
     const { onAdd } = setup({
       initialValues: {
         companyId: 'c1',
@@ -279,7 +289,7 @@ describe('AddInterviewModal — initialValues', () => {
         duration: 60,
       },
     });
-    userEvent.click(screen.getByRole('button', { name: /schedule/i }));
+    await user.click(screen.getByRole('button', { name: /schedule/i }));
 
     expect(onAdd).toHaveBeenCalledTimes(1);
     const [calledCompanyId, calledInterview] = onAdd.mock.calls[0];
@@ -405,9 +415,11 @@ describe('AddInterviewModal — edit mode rendering', () => {
 });
 
 describe('AddInterviewModal — edit mode submission', () => {
-  it('calls onEdit with companyId, interviewId, and updates on save', () => {
+  const user = userEvent.setup();
+
+  it('calls onEdit with companyId, interviewId, and updates on save', async () => {
     const { onEdit } = setupEditMode();
-    userEvent.click(screen.getByRole('button', { name: /save changes/i }));
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
 
     expect(onEdit).toHaveBeenCalledTimes(1);
     const [companyId, interviewId, updates] = onEdit.mock.calls[0];
@@ -422,22 +434,22 @@ describe('AddInterviewModal — edit mode submission', () => {
     });
   });
 
-  it('does not call onAdd in edit mode', () => {
+  it('does not call onAdd in edit mode', async () => {
     const { onAdd } = setupEditMode();
-    userEvent.click(screen.getByRole('button', { name: /save changes/i }));
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
     expect(onAdd).not.toHaveBeenCalled();
   });
 
-  it('calls onClose after successful edit', () => {
+  it('calls onClose after successful edit', async () => {
     const { onClose } = setupEditMode();
-    userEvent.click(screen.getByRole('button', { name: /save changes/i }));
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('includes updated status in the edit payload', () => {
+  it('includes updated status in the edit payload', async () => {
     const { onEdit } = setupEditMode();
-    userEvent.selectOptions(screen.getByLabelText(/status/i), 'completed');
-    userEvent.click(screen.getByRole('button', { name: /save changes/i }));
+    await user.selectOptions(screen.getByLabelText(/status/i), 'completed');
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
 
     const [, , updates] = onEdit.mock.calls[0];
     expect(updates.status).toBe('completed');
@@ -445,47 +457,51 @@ describe('AddInterviewModal — edit mode submission', () => {
 });
 
 describe('AddInterviewModal — edit mode validation', () => {
-  it('does not show company validation error in edit mode', () => {
+  const user = userEvent.setup();
+
+  it('does not show company validation error in edit mode', async () => {
     setupEditMode({ interview: makeEditInterview({ type: '', date: '', time: '' }) });
-    userEvent.click(screen.getByRole('button', { name: /save changes/i }));
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
     expect(screen.queryByText(/please select a company/i)).not.toBeInTheDocument();
   });
 
-  it('shows type error in edit mode when type is cleared', () => {
+  it('shows type error in edit mode when type is cleared', async () => {
     setupEditMode({ interview: makeEditInterview({ type: '' }) });
-    userEvent.click(screen.getByRole('button', { name: /save changes/i }));
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
     expect(screen.getByText(/interview type is required/i)).toBeInTheDocument();
   });
 
-  it('shows date error in edit mode when date is cleared', () => {
+  it('shows date error in edit mode when date is cleared', async () => {
     setupEditMode({ interview: makeEditInterview({ date: '' }) });
-    userEvent.click(screen.getByRole('button', { name: /save changes/i }));
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
     expect(screen.getByText(/date is required/i)).toBeInTheDocument();
   });
 
-  it('shows time error in edit mode when time is cleared', () => {
+  it('shows time error in edit mode when time is cleared', async () => {
     setupEditMode({ interview: makeEditInterview({ time: '' }) });
-    userEvent.click(screen.getByRole('button', { name: /save changes/i }));
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
     expect(screen.getByText(/time is required/i)).toBeInTheDocument();
   });
 
-  it('does not call onEdit when validation fails', () => {
+  it('does not call onEdit when validation fails', async () => {
     const { onEdit } = setupEditMode({ interview: makeEditInterview({ type: '' }) });
-    userEvent.click(screen.getByRole('button', { name: /save changes/i }));
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
     expect(onEdit).not.toHaveBeenCalled();
   });
 });
 
 describe('AddInterviewModal — edit mode close', () => {
-  it('calls onClose when Cancel is clicked in edit mode', () => {
+  const user = userEvent.setup();
+
+  it('calls onClose when Cancel is clicked in edit mode', async () => {
     const { onClose } = setupEditMode();
-    userEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    await user.click(screen.getByRole('button', { name: /cancel/i }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('calls onClose when overlay is clicked in edit mode', () => {
+  it('calls onClose when overlay is clicked in edit mode', async () => {
     const { onClose } = setupEditMode();
-    userEvent.click(screen.getByTestId('modal-overlay'));
+    await user.click(screen.getByTestId('modal-overlay'));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

@@ -24,23 +24,23 @@ A React app for tracking job applications (Kanban pipeline), scheduling intervie
 
 | Tool | Version | Notes |
 |---|---|---|
-| Node.js | 20 (via nvm) | Always `nvm use 20` before running any npm command |
+| Node.js | 24 (via nvm) | Always `nvm use 24` before running any npm command |
 | React | 19 | Hooks-based, no class components |
-| Tailwind CSS | v3 | v4 is incompatible with react-scripts 5 |
+| Tailwind CSS | v3 | v4 migration planned (Phase 2: CRA→Vite + Tailwind v4) |
 | react-scripts | 5.0.1 | CRA — do not eject |
 | lucide-react | latest | Icon library |
-| Testing Library | @testing-library/react + dom + user-event | Node 20 required for dom v10 |
+| Testing Library | @testing-library/react + dom + user-event v14 | user-event v14 uses async `userEvent.setup()` pattern |
 
 ### Backend (`server/`)
 
 | Tool | Version | Notes |
 |---|---|---|
-| Node.js | 20 (via nvm) | Same version as frontend |
-| Express | 4.21 | HTTP server + REST + SSE |
-| googleapis | 144 | Gmail + Calendar + Drive API client |
+| Node.js | 24 (via nvm) | Same version as frontend |
+| Express | 5 | HTTP server + REST + SSE |
+| googleapis | 171 | Gmail + Calendar + Drive API client |
 | @anthropic-ai/sdk | ^0.78.0 | Claude LLM extraction of interview data (optional, dry mode by default) |
 | dotenv | 16 | Env var loading |
-| Jest | 29 | `--experimental-vm-modules` for ESM |
+| Jest | 30 | `--experimental-vm-modules` for ESM |
 | supertest | 7 | HTTP route testing |
 | nodemon | 3 | Dev auto-restart (`npm run dev`) |
 
@@ -439,7 +439,7 @@ These are the most common mistakes — treat each as a hard rule:
 > These apply whenever writing scripts, CLI tools, or any future backend/server code in this repo.
 
 ### Error Handling
-- Always handle promise rejections — unhandled rejections crash the process in Node 20
+- Always handle promise rejections — unhandled rejections crash the process in Node 24
 - Use `try/catch` around every `await` that can fail; never swallow errors silently
 - Distinguish between operational errors (bad input, network timeout) and programmer errors (null dereference) — operational errors are recoverable, programmer errors are bugs
 
@@ -558,11 +558,11 @@ Every util function that transforms state should have a test asserting the origi
 |---|---|---|
 | Tailwind classes not applying | Tailwind v4 installed instead of v3 | `npm ls tailwindcss` must show v3; reinstall if not |
 | `localStorage is not defined` in tests | Hook or component calls `localStorage` directly | Use injected `storage` param + `createMemoryStorage()` in tests |
-| `&&=` syntax error in tests | Node version < 18 | Run `nvm use 20` before any npm command |
-| `Module not found` after branch switch | `npm install` not re-run | `nvm use 20 && npm install` |
+| `&&=` syntax error in tests | Node version < 18 | Run `nvm use 24` before any npm command |
+| `Module not found` after branch switch | `npm install` not re-run | `nvm use 24 && npm install` |
 | Component renders stale data | State mutation instead of new object | Return `{ ...obj, field: value }` — never mutate in place |
 | Test passes but app crashes | Inner component defined in render | Move component to its own file at module level |
-| `ECONNREFUSED` in browser console | Express server not running | `cd server && nvm use 20 && npm run dev` |
+| `ECONNREFUSED` in browser console | Express server not running | `cd server && nvm use 24 && npm run dev` |
 | Jest does not exit after server tests | Open SSE handles | `--forceExit` is already set in `server/package.json` |
 | Server starts but crashes instantly | Missing env var | Check `server/.env` — copy from `server/.env.example` |
 | OAuth `redirect_uri_mismatch` | Redirect URI not registered | Add `http://localhost:3001/api/auth/callback` in Google Cloud Console |
@@ -583,16 +583,16 @@ Every util function that transforms state should have a test asserting the origi
 
 ```bash
 # --- Frontend (run from interview-prep-tracker/) ---
-nvm use 20 && npm start                              # dev server (port 3000)
-nvm use 20 && npm run lint                           # unused exports + variables (must be 0 warnings)
-nvm use 20 && npm run build                          # production build (must be 0 warnings)
-nvm use 20 && npm test -- --watchAll=false --verbose # all tests (must pass before PR)
+nvm use 24 && npm start                              # dev server (port 3000)
+nvm use 24 && npm run lint                           # unused exports + variables (must be 0 warnings)
+nvm use 24 && npm run build                          # production build (must be 0 warnings)
+nvm use 24 && npm test -- --watchAll=false --verbose # all tests (must pass before PR)
 
 # --- Backend (run from server/) ---
-nvm use 20 && npm run dev                            # dev server with auto-restart (port 3001)
-nvm use 20 && npm start                              # production start
-nvm use 20 && npm run lint                           # unused exports + variables (must be 0 warnings)
-nvm use 20 && npm test                               # all server tests (must pass before PR)
+nvm use 24 && npm run dev                            # dev server with auto-restart (port 3001)
+nvm use 24 && npm start                              # production start
+nvm use 24 && npm run lint                           # unused exports + variables (must be 0 warnings)
+nvm use 24 && npm test                               # all server tests (must pass before PR)
 
 # --- Git ---
 git checkout -b feature/<name>                       # new branch (always from main)

@@ -106,22 +106,24 @@ describe('SuggestionPanel — rendering', () => {
 });
 
 describe('SuggestionPanel — callbacks', () => {
+  const user = userEvent.setup();
+
   it('calls onConnect when Connect Google is clicked', async () => {
     const { onConnect } = setup({ authStatus: 'unauthenticated' });
-    await userEvent.click(screen.getByRole('button', { name: /connect google/i }));
+    await user.click(screen.getByRole('button', { name: /connect google/i }));
     expect(onConnect).toHaveBeenCalledTimes(1);
   });
 
   it('calls onScan when Scan now is clicked', async () => {
     const { onScan } = setup({ authStatus: 'authenticated' });
-    await userEvent.click(screen.getByRole('button', { name: /scan now/i }));
+    await user.click(screen.getByRole('button', { name: /scan now/i }));
     expect(onScan).toHaveBeenCalledTimes(1);
   });
 
   it('calls onReset when Reset is clicked and confirmed', async () => {
     jest.spyOn(window, 'confirm').mockReturnValue(true);
     const { onReset } = setup({ authStatus: 'authenticated' });
-    await userEvent.click(screen.getByRole('button', { name: /reset suggestions/i }));
+    await user.click(screen.getByRole('button', { name: /reset suggestions/i }));
     expect(onReset).toHaveBeenCalledTimes(1);
     window.confirm.mockRestore();
   });
@@ -129,14 +131,14 @@ describe('SuggestionPanel — callbacks', () => {
   it('does not call onReset when Reset is clicked but cancelled', async () => {
     jest.spyOn(window, 'confirm').mockReturnValue(false);
     const { onReset } = setup({ authStatus: 'authenticated' });
-    await userEvent.click(screen.getByRole('button', { name: /reset suggestions/i }));
+    await user.click(screen.getByRole('button', { name: /reset suggestions/i }));
     expect(onReset).not.toHaveBeenCalled();
     window.confirm.mockRestore();
   });
 
   it('calls onDisconnect when Disconnect is clicked', async () => {
     const { onDisconnect } = setup({ authStatus: 'authenticated' });
-    await userEvent.click(screen.getByRole('button', { name: /disconnect google/i }));
+    await user.click(screen.getByRole('button', { name: /disconnect google/i }));
     expect(onDisconnect).toHaveBeenCalledTimes(1);
   });
 
@@ -146,7 +148,7 @@ describe('SuggestionPanel — callbacks', () => {
       authStatus: 'authenticated',
       suggestions: [suggestion],
     });
-    await userEvent.click(screen.getByRole('button', { name: /dismiss google suggestion/i }));
+    await user.click(screen.getByRole('button', { name: /dismiss google suggestion/i }));
     expect(onDismiss).toHaveBeenCalledWith(suggestion);
   });
 
@@ -156,7 +158,7 @@ describe('SuggestionPanel — callbacks', () => {
       authStatus: 'authenticated',
       suggestions: [suggestion],
     });
-    await userEvent.click(screen.getByRole('button', { name: /schedule google interview/i }));
+    await user.click(screen.getByRole('button', { name: /schedule google interview/i }));
     expect(onAccept).toHaveBeenCalledWith(suggestion);
   });
 });

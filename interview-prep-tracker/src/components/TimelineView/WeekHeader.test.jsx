@@ -53,27 +53,29 @@ describe('WeekHeader — rendering', () => {
 // ---------------------------------------------------------------------------
 
 describe('WeekHeader — callbacks', () => {
-  it('calls onPrevWeek when left arrow is clicked', () => {
+  const user = userEvent.setup();
+
+  it('calls onPrevWeek when left arrow is clicked', async () => {
     const { onPrevWeek } = setup();
-    userEvent.click(screen.getByLabelText('Previous week'));
+    await user.click(screen.getByLabelText('Previous week'));
     expect(onPrevWeek).toHaveBeenCalledTimes(1);
   });
 
-  it('calls onNextWeek when right arrow is clicked', () => {
+  it('calls onNextWeek when right arrow is clicked', async () => {
     const { onNextWeek } = setup();
-    userEvent.click(screen.getByLabelText('Next week'));
+    await user.click(screen.getByLabelText('Next week'));
     expect(onNextWeek).toHaveBeenCalledTimes(1);
   });
 
-  it('calls onToday when Today button is clicked', () => {
+  it('calls onToday when Today button is clicked', async () => {
     const { onToday } = setup();
-    userEvent.click(screen.getByText('Today'));
+    await user.click(screen.getByText('Today'));
     expect(onToday).toHaveBeenCalledTimes(1);
   });
 
-  it('calls onAddClick when Schedule Interview button is clicked', () => {
+  it('calls onAddClick when Schedule Interview button is clicked', async () => {
     const { onAddClick } = setup();
-    userEvent.click(screen.getByText('Schedule Interview'));
+    await user.click(screen.getByText('Schedule Interview'));
     expect(onAddClick).toHaveBeenCalledTimes(1);
   });
 });

@@ -80,8 +80,13 @@ export function createAuthRouter(googleAuth) {
    * Clears stored tokens and disconnects from Google.
    */
   router.post('/disconnect', async (_req, res) => {
-    await googleAuth.disconnect();
-    res.json({ authenticated: false });
+    try {
+      await googleAuth.disconnect();
+      res.json({ authenticated: false });
+    } catch (err) {
+      console.error('[auth] disconnect failed:', err.message);
+      res.status(500).json({ error: 'Disconnect failed' });
+    }
   });
 
   return router;

@@ -35,6 +35,8 @@ function makeInterview(overrides = {}) {
 // H10: Unrecognised interview type not in TYPE_CONFIG
 // ---------------------------------------------------------------------------
 
+const user = userEvent.setup();
+
 describe('H10: unrecognised interview type', () => {
   it('renders without crashing when type is not in TYPE_CONFIG', () => {
     const interview = makeInterview({
@@ -83,13 +85,13 @@ describe('H10: unrecognised interview type', () => {
     expect(screen.getByText('Epsilon')).toBeInTheDocument();
   });
 
-  it('click handler works with unrecognised type', () => {
+  it('click handler works with unrecognised type', async () => {
     const handleClick = jest.fn();
     const interview = makeInterview({ id: 'i1', type: 'Alien Probe Interview' });
     render(
       <TodayInterviews interviews={[interview]} onInterviewClick={handleClick} />
     );
-    userEvent.click(screen.getByRole('button'));
+    await user.click(screen.getByRole('button'));
     expect(handleClick).toHaveBeenCalledTimes(1);
     expect(handleClick).toHaveBeenCalledWith(interview);
   });
@@ -146,7 +148,7 @@ describe('Large dataset rendering', () => {
     expect(screen.getByText('(100)')).toBeInTheDocument();
   });
 
-  it('clicking the correct chip in a large list calls back with the right interview', () => {
+  it('clicking the correct chip in a large list calls back with the right interview', async () => {
     const handleClick = jest.fn();
     const interviews = [];
     for (let i = 0; i < 30; i++) {
@@ -164,7 +166,7 @@ describe('Large dataset rendering', () => {
 
     // Click on the chip for Company 15 specifically
     const target = screen.getByText('Company 15');
-    userEvent.click(target.closest('[role="button"]'));
+    await user.click(target.closest('[role="button"]'));
 
     expect(handleClick).toHaveBeenCalledTimes(1);
     expect(handleClick).toHaveBeenCalledWith(

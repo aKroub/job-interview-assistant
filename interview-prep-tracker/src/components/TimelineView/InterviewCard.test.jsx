@@ -118,9 +118,11 @@ describe('InterviewCard — derived status badge', () => {
 // ---------------------------------------------------------------------------
 
 describe('InterviewCard — edit button', () => {
-  it('calls onEdit with the interview object when clicked', () => {
+  const user = userEvent.setup();
+
+  it('calls onEdit with the interview object when clicked', async () => {
     const { interview, onEdit } = setup();
-    userEvent.click(screen.getByLabelText(/edit acme corp interview/i));
+    await user.click(screen.getByLabelText(/edit acme corp interview/i));
     expect(onEdit).toHaveBeenCalledTimes(1);
     expect(onEdit).toHaveBeenCalledWith(interview);
   });
@@ -131,17 +133,19 @@ describe('InterviewCard — edit button', () => {
 // ---------------------------------------------------------------------------
 
 describe('InterviewCard — delete button', () => {
-  it('calls onDeleteInterview after confirmation', () => {
+  const user = userEvent.setup();
+
+  it('calls onDeleteInterview after confirmation', async () => {
     window.confirm = jest.fn(() => true);
     const { onDeleteInterview } = setup();
-    userEvent.click(screen.getByLabelText(/delete .+ interview/i));
+    await user.click(screen.getByLabelText(/delete .+ interview/i));
     expect(onDeleteInterview).toHaveBeenCalledWith('c1', 'i1');
   });
 
-  it('does not call onDeleteInterview when confirmation is cancelled', () => {
+  it('does not call onDeleteInterview when confirmation is cancelled', async () => {
     window.confirm = jest.fn(() => false);
     const { onDeleteInterview } = setup();
-    userEvent.click(screen.getByLabelText(/delete .+ interview/i));
+    await user.click(screen.getByLabelText(/delete .+ interview/i));
     expect(onDeleteInterview).not.toHaveBeenCalled();
   });
 });

@@ -168,12 +168,17 @@ export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, g
       return res.status(400).json({ error: 'suggestionId is required' });
     }
 
-    await tokenStore.addDismissed({
-      id: suggestionId,
-      emailId: typeof emailMessageId === 'string' ? emailMessageId : '',
-      calendarId: typeof calendarEventId === 'string' ? calendarEventId : '',
-    });
-    res.json({ dismissed: true });
+    try {
+      await tokenStore.addDismissed({
+        id: suggestionId,
+        emailId: typeof emailMessageId === 'string' ? emailMessageId : '',
+        calendarId: typeof calendarEventId === 'string' ? calendarEventId : '',
+      });
+      res.json({ dismissed: true });
+    } catch (err) {
+      console.error('[interviews] dismiss failed:', err.message);
+      res.status(500).json({ error: 'Dismiss failed' });
+    }
   });
 
   /**

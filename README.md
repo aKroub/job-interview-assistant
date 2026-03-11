@@ -56,20 +56,20 @@ A full-stack interview preparation and job application tracking tool. A React fr
 | Tool | Version | Notes |
 |---|---|---|
 | React | 19 | Hooks-based, functional components only |
-| Tailwind CSS | v3 | Utility-first styling (v4 incompatible with react-scripts 5) |
+| Tailwind CSS | v3 | Utility-first styling (v4 migration planned: CRA→Vite + Tailwind v4) |
 | lucide-react | latest | Icon library (Phone, Video, MapPin, etc.) |
 | react-scripts | 5.0.1 | Create React App — not ejected |
-| Node.js | 20 | Required (v14 is incompatible with @testing-library/dom v10) |
+| Node.js | 24 | Required (see `.nvmrc` at repo root) |
 
 ### Backend (`server/`)
 
 | Tool | Version | Notes |
 |---|---|---|
-| Express | 4.21 | HTTP server + REST + SSE |
-| googleapis | 144 | Gmail + Calendar + Drive API client |
+| Express | 5 | HTTP server + REST + SSE |
+| googleapis | 171 | Gmail + Calendar + Drive API client |
 | @anthropic-ai/sdk | ^0.78.0 | Claude LLM extraction of interview data |
 | dotenv | 16 | Env var loading |
-| Jest | 29 | `--experimental-vm-modules` for ESM |
+| Jest | 30 | `--experimental-vm-modules` for ESM |
 | supertest | 7 | HTTP route testing |
 | nodemon | 3 | Dev auto-restart (`npm run dev`) |
 
@@ -78,7 +78,7 @@ A full-stack interview preparation and job application tracking tool. A React fr
 ## Getting Started
 
 ### Prerequisites
-- Node.js **20+** (install via [nvm](https://github.com/nvm-sh/nvm))
+- Node.js **24+** (install via [nvm](https://github.com/nvm-sh/nvm))
 - npm (bundled with Node)
 - (Optional) A Google Cloud project for the Gmail + Calendar integration — see `SETUP.md`
 
@@ -90,7 +90,7 @@ git clone https://github.com/aKroub/job-interview-assistant.git
 cd job-interview-assistant
 
 # 2. Use the correct Node version
-nvm use 20
+nvm use 24
 
 # 3. Install frontend dependencies
 cd interview-prep-tracker
@@ -107,7 +107,7 @@ cd ..
 **Frontend only** (no backend features):
 ```bash
 cd interview-prep-tracker
-nvm use 20 && npm start
+nvm use 24 && npm start
 ```
 The app opens at `http://localhost:3000`.
 
@@ -115,11 +115,11 @@ The app opens at `http://localhost:3000`.
 ```bash
 # Terminal 1 — Backend
 cd server
-nvm use 20 && npm run dev    # → http://localhost:3001
+nvm use 24 && npm run dev    # → http://localhost:3001
 
 # Terminal 2 — Frontend
 cd interview-prep-tracker
-nvm use 20 && npm start       # → http://localhost:3000
+nvm use 24 && npm start       # → http://localhost:3000
 ```
 
 > For Google OAuth setup, follow the step-by-step guide in `SETUP.md`.
@@ -130,15 +130,15 @@ nvm use 20 && npm start       # → http://localhost:3000
 
 ```bash
 # --- Frontend (from interview-prep-tracker/) ---
-nvm use 20 && npm start                              # dev server with hot reload
-nvm use 20 && npm run lint                           # catch unused exports + variables
-nvm use 20 && npm run build                          # production build (must be 0 warnings)
-nvm use 20 && npm test -- --watchAll=false --verbose  # all tests (must pass before PR)
+nvm use 24 && npm start                              # dev server with hot reload
+nvm use 24 && npm run lint                           # catch unused exports + variables
+nvm use 24 && npm run build                          # production build (must be 0 warnings)
+nvm use 24 && npm test -- --watchAll=false --verbose  # all tests (must pass before PR)
 
 # --- Backend (from server/) ---
-nvm use 20 && npm run dev                            # dev server with auto-restart
-nvm use 20 && npm run lint                           # catch unused exports + variables
-nvm use 20 && npm test                               # all tests (must pass before PR)
+nvm use 24 && npm run dev                            # dev server with auto-restart
+nvm use 24 && npm run lint                           # catch unused exports + variables
+nvm use 24 && npm test                               # all tests (must pass before PR)
 ```
 
 ---

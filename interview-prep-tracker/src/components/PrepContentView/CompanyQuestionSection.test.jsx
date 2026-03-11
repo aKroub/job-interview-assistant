@@ -98,6 +98,8 @@ describe('CompanyQuestionSection — completed state', () => {
 // ---------------------------------------------------------------------------
 
 describe('CompanyQuestionSection — callbacks', () => {
+  const user = userEvent.setup();
+
   it('calls onReset with the company name when the Reset button is clicked', async () => {
     const { onReset } = setup({
       companyName:        'Meta',
@@ -105,7 +107,7 @@ describe('CompanyQuestionSection — callbacks', () => {
       totalQuestions:     2,
       totalSeen:          2,
     });
-    userEvent.click(screen.getByRole('button', { name: /reset meta questions/i }));
+    await user.click(screen.getByRole('button', { name: /reset meta questions/i }));
     expect(onReset).toHaveBeenCalledWith('Meta');
   });
 
@@ -113,7 +115,7 @@ describe('CompanyQuestionSection — callbacks', () => {
     const { onMarkSeen } = setup({
       availableQuestions: [makeQuestion('q1')],
     });
-    userEvent.click(screen.getByRole('button', { name: /mark seen/i }));
+    await user.click(screen.getByRole('button', { name: /mark seen/i }));
     expect(onMarkSeen).toHaveBeenCalledWith('q1');
   });
 });

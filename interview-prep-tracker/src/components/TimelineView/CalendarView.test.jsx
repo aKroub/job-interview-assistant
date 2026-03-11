@@ -113,35 +113,37 @@ describe('CalendarView — interview display', () => {
 // ---------------------------------------------------------------------------
 
 describe('CalendarView — week navigation', () => {
-  it('navigates to previous week when left arrow is clicked', () => {
+  const user = userEvent.setup();
+
+  it('navigates to previous week when left arrow is clicked', async () => {
     setup();
     const weekLabel = screen.getByRole('heading', { level: 3 });
     const initialText = weekLabel.textContent;
 
-    userEvent.click(screen.getByLabelText('Previous week'));
+    await user.click(screen.getByLabelText('Previous week'));
     expect(weekLabel.textContent).not.toBe(initialText);
   });
 
-  it('navigates to next week when right arrow is clicked', () => {
+  it('navigates to next week when right arrow is clicked', async () => {
     setup();
     const weekLabel = screen.getByRole('heading', { level: 3 });
     const initialText = weekLabel.textContent;
 
-    userEvent.click(screen.getByLabelText('Next week'));
+    await user.click(screen.getByLabelText('Next week'));
     expect(weekLabel.textContent).not.toBe(initialText);
   });
 
-  it('returns to current week when Today is clicked after navigating', () => {
+  it('returns to current week when Today is clicked after navigating', async () => {
     setup();
     const weekLabel = screen.getByRole('heading', { level: 3 });
     const initialText = weekLabel.textContent;
 
     // Navigate away
-    userEvent.click(screen.getByLabelText('Next week'));
+    await user.click(screen.getByLabelText('Next week'));
     expect(weekLabel.textContent).not.toBe(initialText);
 
     // Come back
-    userEvent.click(screen.getByText('Today'));
+    await user.click(screen.getByText('Today'));
     expect(weekLabel.textContent).toBe(initialText);
   });
 });
@@ -151,24 +153,26 @@ describe('CalendarView — week navigation', () => {
 // ---------------------------------------------------------------------------
 
 describe('CalendarView — add interview modal', () => {
-  it('opens the modal when Schedule Interview is clicked', () => {
+  const user = userEvent.setup();
+
+  it('opens the modal when Schedule Interview is clicked', async () => {
     const companies = [makeCompany({ id: 'c1', name: 'Google' })];
     setup({ companies });
 
-    userEvent.click(screen.getByText('Schedule Interview'));
+    await user.click(screen.getByText('Schedule Interview'));
     // Modal should show the "Schedule Interview" heading (inside modal)
     // and the company dropdown
     expect(screen.getByText('Select a company…')).toBeInTheDocument();
   });
 
-  it('closes the modal when Cancel is clicked', () => {
+  it('closes the modal when Cancel is clicked', async () => {
     const companies = [makeCompany({ id: 'c1', name: 'Google' })];
     setup({ companies });
 
-    userEvent.click(screen.getByText('Schedule Interview'));
+    await user.click(screen.getByText('Schedule Interview'));
     expect(screen.getByText('Select a company…')).toBeInTheDocument();
 
-    userEvent.click(screen.getByText('Cancel'));
+    await user.click(screen.getByText('Cancel'));
     expect(screen.queryByText('Select a company…')).not.toBeInTheDocument();
   });
 });

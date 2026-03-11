@@ -283,9 +283,10 @@ src/
 │   ├── shared/
 │   │   ├── CloudSyncMenu.jsx    ← gear icon dropdown for Google Drive backup/restore
 │   │   ├── DifficultyBadge.jsx
-│   │   ├── TabNav.jsx
 │   │   ├── FieldLabel.jsx
-│   │   └── FormError.jsx
+│   │   ├── FormError.jsx
+│   │   ├── TabNav.jsx
+│   │   └── TodayInterviews.jsx  ← today's upcoming interviews summary strip
 │   ├── AddCompanyModal/
 │   ├── KanbanBoard/    (KanbanBoard, KanbanColumn, CompanyCard)
 │   ├── TimelineView/   (TimelineView, CalendarView, WeekHeader, DayColumn,

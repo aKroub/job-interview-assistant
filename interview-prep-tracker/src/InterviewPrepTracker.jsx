@@ -6,6 +6,7 @@ import { CloudSyncMenu } from './components/shared/CloudSyncMenu';
 import { TabNav } from './components/shared/TabNav';
 import { ConnectionStatus } from './components/Suggestions/ConnectionStatus';
 import { SuggestionPanel } from './components/Suggestions/SuggestionPanel';
+import { TodayInterviews } from './components/shared/TodayInterviews';
 import { AddInterviewModal } from './components/TimelineView/AddInterviewModal';
 import { TimelineView } from './components/TimelineView/TimelineView';
 import { APP_TITLE } from './constants/app';
@@ -14,7 +15,7 @@ import { DEFAULT_PIPELINE, PIPELINES, PIPELINE_LABELS } from './constants/pipeli
 import { POSITIONS } from './constants/positions';
 import { ACTIVE_STAGES, CLOSED_STAGE, STAGES, STAGE_LABELS } from './constants/stages';
 import { useInterviewTracker } from './hooks/useInterviewTracker';
-import { findCompanyByFuzzyName, isInPipeline, matchByNameOnly, matchSuggestionToInterview } from './utils/companyUtils';
+import { findCompanyByFuzzyName, getTodaysUpcomingInterviews, isInPipeline, matchByNameOnly, matchSuggestionToInterview } from './utils/companyUtils';
 
 const EMPTY_DRAFT = { name: '', position: '', stage: STAGES[0], pipeline: [DEFAULT_PIPELINE] };
 
@@ -73,6 +74,12 @@ const InterviewPrepTracker = () => {
   function handleOpenModal() {
     setCompanyDraft({ ...EMPTY_DRAFT, pipeline: [activePipeline] });
     setShowModal(true);
+  }
+
+  const todaysInterviews = getTodaysUpcomingInterviews(companies);
+
+  function handleTodayInterviewClick(_interview) {
+    setActiveTab('timeline');
   }
 
   const pipelineCompanies = companies.filter(
@@ -232,6 +239,12 @@ const InterviewPrepTracker = () => {
             />
           </div>
         )}
+
+        {/* Today's upcoming interviews */}
+        <TodayInterviews
+          interviews={todaysInterviews}
+          onInterviewClick={handleTodayInterviewClick}
+        />
 
         {/* Tab navigation */}
         <TabNav activeTab={activeTab} onTabChange={setActiveTab} />

@@ -11,6 +11,8 @@ import {
   applyDelete,
   applyStageUpdate,
   createCompany,
+  deriveInterviewStatus,
+  getTodaysUpcomingInterviews,
   isInPipeline,
   isMultiPipeline,
   migrateCompanies,
@@ -280,5 +282,418 @@ describe('H5: migration field preservation', () => {
     // The original array and objects must be untouched
     expect(companies[0]).toBe(originalRef);
     expect(companies[0].pipeline).toBe('us');
+  });
+});
+
+// ===========================================================================
+// Stress tests for getTodaysUpcomingInterviews (PR: feature/today-interviews)
+// ===========================================================================
+
+/** Returns a minimal interview object with sensible defaults. */
+function makeInterview(overrides = {}) {
+  return {
+    id:     'i1',
+    type:   'Phone Interview',
+    date:   '2026-03-11',
+    time:   '14:00',
+    status: 'scheduled',
+    ...overrides,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// H6: Empty / no-interview companies — defensive against missing data
+// ---------------------------------------------------------------------------
+
+describe('H6: empty and no-interview companies', () => {
+  const NOW = new Date(2026, 2, 11, 12, 0, 0); // March 11, 2026 at noon
+
+  it('returns empty array for empty companies list', () => {
+    expect(getTodaysUpcomingInterviews([], NOW)).toEqual([]);
+  });
+
+  it('returns empty array when all companies have zero interviews', () => {
+    const companies = [
+      makeCompany({ id: 'c1', interviews: [] }),
+      makeCompany({ id: 'c2', interviews: [] }),
+      makeCompany({ id: 'c3', interviews: [] }),
+    ];
+    expect(getTodaysUpcomingInterviews(companies, NOW)).toEqual([]);
+  });
+
+  it('handles a mix of companies with and without interviews', () => {
+    const companies = [
+      makeCompany({ id: 'c1', name: 'Empty Corp', interviews: [] }),
+      makeCompany({
+        id: 'c2',
+        name: 'Has Interview',
+        interviews: [makeInterview({ id: 'i1', date: '2026-03-11', time: '15:00' })],
+      }),
+      makeCompany({ id: 'c3', name: 'Also Empty', interviews: [] }),
+    ];
+    const result = getTodaysUpcomingInterviews(companies, NOW);
+    expect(result).toHaveLength(1);
+    expect(result[0].companyName).toBe('Has Interview');
+  });
+
+  it('handles company with interviews but none scheduled for today', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        interviews: [
+          makeInterview({ id: 'i1', date: '2026-03-10', time: '10:00' }),
+          makeInterview({ id: 'i2', date: '2026-03-12', time: '10:00' }),
+          makeInterview({ id: 'i3', date: '2026-04-01', time: '10:00' }),
+        ],
+      }),
+    ];
+    expect(getTodaysUpcomingInterviews(companies, NOW)).toEqual([]);
+  });
+
+  it('handles companies with interviews in all non-scheduled statuses for today', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        interviews: [
+          makeInterview({ id: 'i1', date: '2026-03-11', time: '15:00', status: 'completed' }),
+          makeInterview({ id: 'i2', date: '2026-03-11', time: '16:00', status: 'cancelled' }),
+          makeInterview({ id: 'i3', date: '2026-03-11', time: '09:00', status: 'scheduled' }), // passed (before noon)
+        ],
+      }),
+    ];
+    expect(getTodaysUpcomingInterviews(companies, NOW)).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// H7: Midnight boundary — "today" changes between calls
+// ---------------------------------------------------------------------------
+
+describe('H7: midnight boundary — today changes', () => {
+  it('at exactly midnight (00:00:00.000), includes all interviews for that new day', () => {
+    // Midnight of March 11 — interviews at any time today should be in the future
+    const midnight = new Date(2026, 2, 11, 0, 0, 0, 0);
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        name: 'Early Corp',
+        interviews: [
+          makeInterview({ id: 'i1', date: '2026-03-11', time: '00:01' }),
+          makeInterview({ id: 'i2', date: '2026-03-11', time: '08:00' }),
+          makeInterview({ id: 'i3', date: '2026-03-11', time: '23:59' }),
+        ],
+      }),
+    ];
+    const result = getTodaysUpcomingInterviews(companies, midnight);
+    // All three should be upcoming — 00:01, 08:00, 23:59 are all after midnight
+    expect(result).toHaveLength(3);
+    expect(result.map((r) => r.id)).toEqual(['i1', 'i2', 'i3']);
+  });
+
+  it('at 23:59:59.999, an interview at 23:59 is treated as passed', () => {
+    // One millisecond before midnight on March 11
+    const almostMidnight = new Date(2026, 2, 11, 23, 59, 59, 999);
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        interviews: [
+          makeInterview({ id: 'i1', date: '2026-03-11', time: '23:59' }),
+        ],
+      }),
+    ];
+    // deriveInterviewStatus compares new Date('2026-03-11T23:59') < almostMidnight
+    // new Date('2026-03-11T23:59') is 23:59:00.000, almostMidnight is 23:59:59.999
+    // So 23:59:00 < 23:59:59.999 → true → status is 'passed'
+    const result = getTodaysUpcomingInterviews(companies, almostMidnight);
+    expect(result).toEqual([]);
+  });
+
+  it('yesterday interview does not appear today even at midnight', () => {
+    const midnight = new Date(2026, 2, 11, 0, 0, 0, 0);
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        interviews: [
+          makeInterview({ id: 'i1', date: '2026-03-10', time: '23:59' }),
+        ],
+      }),
+    ];
+    // Date string for yesterday (2026-03-10) does not match today (2026-03-11)
+    expect(getTodaysUpcomingInterviews(companies, midnight)).toEqual([]);
+  });
+
+  it('tomorrow interview does not appear today even at 23:59', () => {
+    const lateTonight = new Date(2026, 2, 11, 23, 59, 0);
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        interviews: [
+          makeInterview({ id: 'i1', date: '2026-03-12', time: '00:01' }),
+        ],
+      }),
+    ];
+    expect(getTodaysUpcomingInterviews(companies, lateTonight)).toEqual([]);
+  });
+
+  it('date formatting is correct for single-digit months and days', () => {
+    // January 5 at noon — tests that month/day are zero-padded
+    const jan5 = new Date(2026, 0, 5, 12, 0, 0);
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        interviews: [
+          makeInterview({ id: 'i1', date: '2026-01-05', time: '14:00' }),
+          makeInterview({ id: 'i2', date: '2026-1-5', time: '14:00' }), // non-padded — should NOT match
+        ],
+      }),
+    ];
+    const result = getTodaysUpcomingInterviews(companies, jan5);
+    // Only i1 matches because the function zero-pads to '2026-01-05'
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('i1');
+  });
+
+  it('December 31 date formatting is correct (month 12, day 31)', () => {
+    const dec31 = new Date(2026, 11, 31, 10, 0, 0);
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        interviews: [
+          makeInterview({ id: 'i1', date: '2026-12-31', time: '14:00' }),
+        ],
+      }),
+    ];
+    const result = getTodaysUpcomingInterviews(companies, dec31);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('i1');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// H8: Interview time exactly equal to now — boundary precision
+// ---------------------------------------------------------------------------
+
+describe('H8: interview time exactly at current moment', () => {
+  it('interview at exactly now is NOT marked as passed (uses strict < comparison)', () => {
+    // NOW = 14:00:00.000, interview time = 14:00
+    // deriveInterviewStatus: new Date('2026-03-11T14:00') < new Date(2026, 2, 11, 14, 0, 0, 0)
+    // They should be equal → < returns false → status = 'scheduled'
+    const exactlyNow = new Date(2026, 2, 11, 14, 0, 0, 0);
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        interviews: [
+          makeInterview({ id: 'i1', date: '2026-03-11', time: '14:00' }),
+        ],
+      }),
+    ];
+    const result = getTodaysUpcomingInterviews(companies, exactlyNow);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('i1');
+  });
+
+  it('interview one minute before now IS marked as passed', () => {
+    const now = new Date(2026, 2, 11, 14, 1, 0, 0);
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        interviews: [
+          makeInterview({ id: 'i1', date: '2026-03-11', time: '14:00' }),
+        ],
+      }),
+    ];
+    // 14:00 < 14:01 → passed
+    expect(getTodaysUpcomingInterviews(companies, now)).toEqual([]);
+  });
+
+  it('interview one minute after now is still scheduled', () => {
+    const now = new Date(2026, 2, 11, 13, 59, 0, 0);
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        interviews: [
+          makeInterview({ id: 'i1', date: '2026-03-11', time: '14:00' }),
+        ],
+      }),
+    ];
+    const result = getTodaysUpcomingInterviews(companies, now);
+    expect(result).toHaveLength(1);
+  });
+
+  it('deriveInterviewStatus boundary: equal time returns scheduled', () => {
+    const interview = { date: '2026-03-11', time: '14:00', status: 'scheduled' };
+    const now = new Date(2026, 2, 11, 14, 0, 0, 0);
+    expect(deriveInterviewStatus(interview, now)).toBe('scheduled');
+  });
+
+  it('interview with no time and now at 23:58:59 is still scheduled (uses 23:59 fallback)', () => {
+    // No time → deriveInterviewStatus uses '23:59' → new Date('2026-03-11T23:59')
+    const now = new Date(2026, 2, 11, 23, 58, 59);
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        interviews: [
+          makeInterview({ id: 'i1', date: '2026-03-11', time: '', status: 'scheduled' }),
+        ],
+      }),
+    ];
+    const result = getTodaysUpcomingInterviews(companies, now);
+    expect(result).toHaveLength(1);
+  });
+
+  it('interview with no time at exactly 23:59:00.000 is still scheduled (equal, not less than)', () => {
+    const now = new Date(2026, 2, 11, 23, 59, 0, 0);
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        interviews: [
+          makeInterview({ id: 'i1', date: '2026-03-11', time: '', status: 'scheduled' }),
+        ],
+      }),
+    ];
+    const result = getTodaysUpcomingInterviews(companies, now);
+    expect(result).toHaveLength(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// H9: Duplicate times and large dataset (50+ interviews)
+// ---------------------------------------------------------------------------
+
+describe('H9: duplicate times and large dataset performance', () => {
+  const NOW = new Date(2026, 2, 11, 8, 0, 0); // March 11, 2026 at 8am
+
+  it('multiple interviews at the same time all appear in results', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        name: 'Alpha',
+        interviews: [makeInterview({ id: 'i1', date: '2026-03-11', time: '14:00' })],
+      }),
+      makeCompany({
+        id: 'c2',
+        name: 'Beta',
+        interviews: [makeInterview({ id: 'i2', date: '2026-03-11', time: '14:00' })],
+      }),
+      makeCompany({
+        id: 'c3',
+        name: 'Gamma',
+        interviews: [makeInterview({ id: 'i3', date: '2026-03-11', time: '14:00' })],
+      }),
+    ];
+    const result = getTodaysUpcomingInterviews(companies, NOW);
+    expect(result).toHaveLength(3);
+    // All should have the same time
+    expect(result.every((r) => r.time === '14:00')).toBe(true);
+  });
+
+  it('same company with multiple interviews at same time returns all of them', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        name: 'Busy Corp',
+        interviews: [
+          makeInterview({ id: 'i1', date: '2026-03-11', time: '10:00' }),
+          makeInterview({ id: 'i2', date: '2026-03-11', time: '10:00' }),
+          makeInterview({ id: 'i3', date: '2026-03-11', time: '10:00' }),
+        ],
+      }),
+    ];
+    const result = getTodaysUpcomingInterviews(companies, NOW);
+    expect(result).toHaveLength(3);
+  });
+
+  it('handles 50+ interviews across many companies without error', () => {
+    const companies = [];
+    for (let c = 0; c < 20; c++) {
+      const interviews = [];
+      for (let i = 0; i < 5; i++) {
+        const hour = String(8 + Math.floor(i * 2)).padStart(2, '0');
+        interviews.push(
+          makeInterview({
+            id: `i-${c}-${i}`,
+            date: '2026-03-11',
+            time: `${hour}:00`,
+          })
+        );
+      }
+      companies.push(
+        makeCompany({ id: `c${c}`, name: `Company ${c}`, interviews })
+      );
+    }
+    // 20 companies x 5 interviews = 100 interviews, all today at 8am+ and NOW is 8am
+    const result = getTodaysUpcomingInterviews(companies, NOW);
+    // All interviews at 08:00 are exactly at NOW, so they should be 'scheduled' (not <, so not passed)
+    // Interviews at 08:00, 10:00, 12:00, 14:00, 16:00 — all >= 08:00 = NOW
+    expect(result).toHaveLength(100);
+  });
+
+  it('large dataset returns results sorted by time ascending', () => {
+    const times = ['16:00', '09:00', '14:00', '11:00', '20:00', '13:00', '08:30'];
+    const companies = times.map((time, i) =>
+      makeCompany({
+        id: `c${i}`,
+        name: `Company ${i}`,
+        interviews: [makeInterview({ id: `i${i}`, date: '2026-03-11', time })],
+      })
+    );
+    const result = getTodaysUpcomingInterviews(companies, NOW);
+    const resultTimes = result.map((r) => r.time);
+    const sortedTimes = [...resultTimes].sort();
+    expect(resultTimes).toEqual(sortedTimes);
+  });
+
+  it('mixed timed and untimed interviews: untimed sort last', () => {
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        name: 'A',
+        interviews: [makeInterview({ id: 'i1', date: '2026-03-11', time: '' })],
+      }),
+      makeCompany({
+        id: 'c2',
+        name: 'B',
+        interviews: [makeInterview({ id: 'i2', date: '2026-03-11', time: '09:00' })],
+      }),
+      makeCompany({
+        id: 'c3',
+        name: 'C',
+        interviews: [makeInterview({ id: 'i3', date: '2026-03-11', time: '' })],
+      }),
+      makeCompany({
+        id: 'c4',
+        name: 'D',
+        interviews: [makeInterview({ id: 'i4', date: '2026-03-11', time: '10:00' })],
+      }),
+    ];
+    const result = getTodaysUpcomingInterviews(companies, NOW);
+    expect(result).toHaveLength(4);
+    // Timed first (sorted), then untimed
+    expect(result[0].time).toBe('09:00');
+    expect(result[1].time).toBe('10:00');
+    expect(result[2].time).toBe('');
+    expect(result[3].time).toBe('');
+  });
+
+  it('does not mutate the input when processing 50+ interviews', () => {
+    const companies = [];
+    for (let c = 0; c < 10; c++) {
+      const interviews = [];
+      for (let i = 0; i < 6; i++) {
+        interviews.push(
+          makeInterview({
+            id: `i-${c}-${i}`,
+            date: '2026-03-11',
+            time: `${String(9 + i).padStart(2, '0')}:00`,
+          })
+        );
+      }
+      companies.push(
+        makeCompany({ id: `c${c}`, name: `Company ${c}`, interviews })
+      );
+    }
+    const snapshot = JSON.stringify(companies);
+    getTodaysUpcomingInterviews(companies, NOW);
+    expect(JSON.stringify(companies)).toBe(snapshot);
   });
 });

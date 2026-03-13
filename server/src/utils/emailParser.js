@@ -686,8 +686,15 @@ export function extractPlainTextBody(message) {
  * Calendly, etc.) embed `.ics` attachments that contain precise DTSTART/DTEND
  * properties — these are more reliable than regex on the email body.
  *
+ * Known limitations:
+ * - UTC times (suffix `Z`) are treated as local — no timezone conversion.
+ *   The caller should prefer TZID-stamped times or fall back to regex/LLM.
+ * - All-day events (`VALUE=DATE:20260315`, no `T` separator) return null
+ *   since they have no meaningful start/end time for an interview.
+ * - When multiple VEVENTs are present, the first DTSTART/DTEND wins.
+ *
  * @param {Object} message - Gmail API message resource (format: 'full')
- * @returns {{ date: string, startTime: string, endTime: string, duration: number } | null}
+ * @returns {{ date: string, startTime: string, endTime: string | null, duration: number | null } | null}
  *   Parsed calendar data, or null if no text/calendar part or unparseable
  */
 export function extractCalendarData(message) {
@@ -720,7 +727,9 @@ export function extractCalendarData(message) {
   const encoded = findCalendarPart(payload);
   if (!encoded) return null;
 
-  const icsText = Buffer.from(encoded, 'base64url').toString('utf-8');
+  // Unfold long lines per RFC 5545 §3.1: CRLF + whitespace is a continuation
+  const icsText = Buffer.from(encoded, 'base64url').toString('utf-8')
+    .replace(/\r\n[ \t]/g, '');
 
   // Extract DTSTART and DTEND — handles both value-param and inline forms:
   //   DTSTART:20260315T150000Z

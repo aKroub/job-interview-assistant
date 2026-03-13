@@ -1028,4 +1028,56 @@ describe('extractCalendarData', () => {
     expect(result.startTime).toBe('23:00');
     expect(result.endTime).toBe('01:00');
   });
+
+  it('handles RFC 5545 line folding (CRLF + whitespace continuation)', () => {
+    // Per RFC 5545 §3.1, long lines may be folded with CRLF + space/tab
+    const icsContent = [
+      'BEGIN:VEVENT',
+      'DTSTART;TZID=America/New_',
+      ' York:20260315T150000',
+      'DTEND;TZID=America/New_',
+      ' York:20260315T160000',
+      'END:VEVENT',
+    ].join('\r\n');
+
+    const message = {
+      payload: { mimeType: 'text/calendar', body: { data: encode(icsContent) } },
+    };
+
+    expect(extractCalendarData(message)).toEqual({
+      date: '2026-03-15',
+      startTime: '15:00',
+      endTime: '16:00',
+      duration: 60,
+    });
+  });
+
+  it('extracts first DTSTART/DTEND when multiple VEVENTs are present', () => {
+    const icsContent = [
+      'BEGIN:VCALENDAR',
+      'BEGIN:VEVENT',
+      'DTSTART:20260315T100000',
+      'DTEND:20260315T110000',
+      'SUMMARY:First interview',
+      'END:VEVENT',
+      'BEGIN:VEVENT',
+      'DTSTART:20260316T140000',
+      'DTEND:20260316T150000',
+      'SUMMARY:Second interview',
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ].join('\r\n');
+
+    const message = {
+      payload: { mimeType: 'text/calendar', body: { data: encode(icsContent) } },
+    };
+
+    // First VEVENT wins
+    expect(extractCalendarData(message)).toEqual({
+      date: '2026-03-15',
+      startTime: '10:00',
+      endTime: '11:00',
+      duration: 60,
+    });
+  });
 });

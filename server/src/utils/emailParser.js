@@ -681,6 +681,75 @@ export function extractPlainTextBody(message) {
 }
 
 /**
+ * Extracts structured date/time data from a `text/calendar` (ICS) MIME
+ * attachment in a Gmail API message. Many scheduling platforms (Spark Hire,
+ * Calendly, etc.) embed `.ics` attachments that contain precise DTSTART/DTEND
+ * properties — these are more reliable than regex on the email body.
+ *
+ * @param {Object} message - Gmail API message resource (format: 'full')
+ * @returns {{ date: string, startTime: string, endTime: string, duration: number } | null}
+ *   Parsed calendar data, or null if no text/calendar part or unparseable
+ */
+export function extractCalendarData(message) {
+  const payload = message?.payload;
+  if (!payload) return null;
+
+  /**
+   * Recursively find the first text/calendar part in the MIME tree.
+   *
+   * @param {Object} part - a MIME part node
+   * @returns {string | null} base64url-encoded data, or null
+   */
+  function findCalendarPart(part) {
+    if (!part) return null;
+
+    if (part.mimeType === 'text/calendar' && part.body?.data) {
+      return part.body.data;
+    }
+
+    if (part.parts) {
+      for (const child of part.parts) {
+        const found = findCalendarPart(child);
+        if (found) return found;
+      }
+    }
+
+    return null;
+  }
+
+  const encoded = findCalendarPart(payload);
+  if (!encoded) return null;
+
+  const icsText = Buffer.from(encoded, 'base64url').toString('utf-8');
+
+  // Extract DTSTART and DTEND — handles both value-param and inline forms:
+  //   DTSTART:20260315T150000Z
+  //   DTSTART;TZID=Asia/Jerusalem:20260315T150000
+  //   DTSTART;VALUE=DATE-TIME:20260315T150000
+  const dtStartMatch = icsText.match(/DTSTART[^:\r\n]*:(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/);
+  const dtEndMatch = icsText.match(/DTEND[^:\r\n]*:(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/);
+
+  if (!dtStartMatch) return null;
+
+  const date = `${dtStartMatch[1]}-${dtStartMatch[2]}-${dtStartMatch[3]}`;
+  const startTime = `${dtStartMatch[4]}:${dtStartMatch[5]}`;
+
+  if (!dtEndMatch) {
+    // Have start but no end — still useful for date/time
+    return { date, startTime, endTime: null, duration: null };
+  }
+
+  const endTime = `${dtEndMatch[4]}:${dtEndMatch[5]}`;
+
+  // Compute duration in minutes
+  const startMinutes = parseInt(dtStartMatch[4]) * 60 + parseInt(dtStartMatch[5]);
+  const endMinutes = parseInt(dtEndMatch[4]) * 60 + parseInt(dtEndMatch[5]);
+  const duration = endMinutes > startMinutes ? endMinutes - startMinutes : null;
+
+  return { date, startTime, endTime, duration };
+}
+
+/**
  * Detects the intent of an interview-related email by scanning for
  * cancellation and rescheduling phrases.
  *

@@ -36,26 +36,32 @@ function encode(text) {
  * Creates a Gmail message fixture for testing.
  * When `body` is provided, the payload includes a text/plain part
  * to simulate `format: 'full'` responses.
+ * When `icsContent` is provided, a text/calendar part is added.
  */
-function makeMessage({ id = 'msg1', subject = '', from = '', snippet = '', body = '' }) {
-  const payload = body
-    ? {
-      mimeType: 'multipart/alternative',
-      headers: [
-        { name: 'Subject', value: subject },
-        { name: 'From', value: from },
-      ],
-      parts: [
-        { mimeType: 'text/plain', body: { data: encode(body) } },
-        { mimeType: 'text/html', body: { data: encode(`<p>${body}</p>`) } },
-      ],
-    }
-    : {
-      headers: [
-        { name: 'Subject', value: subject },
-        { name: 'From', value: from },
-      ],
-    };
+function makeMessage({ id = 'msg1', subject = '', from = '', snippet = '', body = '', icsContent = '' }) {
+  const headers = [
+    { name: 'Subject', value: subject },
+    { name: 'From', value: from },
+  ];
+
+  if (!body && !icsContent) {
+    return { id, snippet, payload: { headers } };
+  }
+
+  const parts = [];
+  if (body) {
+    parts.push({ mimeType: 'text/plain', body: { data: encode(body) } });
+    parts.push({ mimeType: 'text/html', body: { data: encode(`<p>${body}</p>`) } });
+  }
+  if (icsContent) {
+    parts.push({ mimeType: 'text/calendar', body: { data: encode(icsContent) } });
+  }
+
+  const payload = {
+    mimeType: parts.length > 1 ? 'multipart/mixed' : parts[0].mimeType,
+    headers,
+    ...(parts.length > 1 ? { parts } : { body: parts[0].body }),
+  };
 
   return { id, snippet, payload };
 }
@@ -487,6 +493,60 @@ describe('createGmailService', () => {
       // Should return the successful message, skip the failed one
       expect(results.length).toBe(1);
       expect(results[0].messageId).toBe('good');
+    });
+
+    it('prefers ICS attachment data over regex-extracted date/time/duration', async () => {
+      const icsContent = [
+        'BEGIN:VCALENDAR',
+        'BEGIN:VEVENT',
+        'DTSTART;TZID=Asia/Jerusalem:20260315T150000',
+        'DTEND;TZID=Asia/Jerusalem:20260315T160000',
+        'SUMMARY:Interview with Dream',
+        'END:VEVENT',
+        'END:VCALENDAR',
+      ].join('\r\n');
+
+      const messages = [
+        makeMessage({
+          id: 'ics1',
+          subject: 'Your Zoom Interview for the Engineering Team Leader at Dream',
+          from: 'Dream Recruiting <noreply@sparkhire.com>',
+          snippet: 'Reply above to continue the conversation with Shani',
+          body: 'Reply above to continue the conversation with Shani Gincberg.',
+          icsContent,
+        }),
+      ];
+
+      const gmailApi = createMockGmailApi(messages);
+      const service = createGmailService({}, { gmailApi, minScore: 0.1 });
+
+      const results = await service.scanForInterviews();
+
+      expect(results.length).toBe(1);
+      expect(results[0].extractedDate).toBe('2026-03-15');
+      expect(results[0].extractedTime).toBe('15:00');
+      expect(results[0].extractedDuration).toBe(60);
+    });
+
+    it('falls back to regex extraction when no ICS attachment exists', async () => {
+      const messages = [
+        makeMessage({
+          id: 'noics',
+          subject: 'Interview Scheduled - 2:00 PM to 3:00 PM on March 20, 2026',
+          from: 'recruiter@company.com',
+          snippet: 'Your interview is confirmed for March 20, 2026 at 2:00 PM to 3:00 PM',
+        }),
+      ];
+
+      const gmailApi = createMockGmailApi(messages);
+      const service = createGmailService({}, { gmailApi, minScore: 0.1 });
+
+      const results = await service.scanForInterviews();
+
+      expect(results.length).toBe(1);
+      expect(results[0].extractedDate).toBe('2026-03-20');
+      expect(results[0].extractedTime).toBe('14:00');
+      expect(results[0].extractedDuration).toBe(60);
     });
   });
 });

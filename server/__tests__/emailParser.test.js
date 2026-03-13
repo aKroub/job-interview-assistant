@@ -9,6 +9,7 @@ import {
   extractCompanyNameFromText,
   normalizeCompanyName,
   extractPlainTextBody,
+  extractCalendarData,
   detectEmailIntent,
   SCHEDULING_PLATFORM_DOMAINS,
 } from '../src/utils/emailParser.js';
@@ -856,5 +857,227 @@ describe('detectEmailIntent', () => {
 
   it('detects update in subject only', () => {
     expect(detectEmailIntent('Interview rescheduled to Friday', '')).toBe('update');
+  });
+});
+
+/** Helper: base64url-encode a UTF-8 string. */
+function encode(text) {
+  return Buffer.from(text, 'utf-8').toString('base64url');
+}
+
+describe('extractCalendarData', () => {
+  it('extracts date, start/end times, and duration from a standard ICS attachment', () => {
+    const icsContent = [
+      'BEGIN:VCALENDAR',
+      'BEGIN:VEVENT',
+      'DTSTART:20260315T150000Z',
+      'DTEND:20260315T160000Z',
+      'SUMMARY:Interview with Dream',
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ].join('\r\n');
+
+    const message = {
+      payload: {
+        mimeType: 'multipart/mixed',
+        parts: [
+          { mimeType: 'text/plain', body: { data: encode('Hello') } },
+          { mimeType: 'text/calendar', body: { data: encode(icsContent) } },
+        ],
+      },
+    };
+
+    const result = extractCalendarData(message);
+    expect(result).toEqual({
+      date: '2026-03-15',
+      startTime: '15:00',
+      endTime: '16:00',
+      duration: 60,
+    });
+  });
+
+  it('handles DTSTART with TZID parameter', () => {
+    const icsContent = [
+      'BEGIN:VEVENT',
+      'DTSTART;TZID=Asia/Jerusalem:20260315T150000',
+      'DTEND;TZID=Asia/Jerusalem:20260315T152000',
+      'END:VEVENT',
+    ].join('\r\n');
+
+    const message = {
+      payload: {
+        mimeType: 'text/calendar',
+        body: { data: encode(icsContent) },
+      },
+    };
+
+    const result = extractCalendarData(message);
+    expect(result).toEqual({
+      date: '2026-03-15',
+      startTime: '15:00',
+      endTime: '15:20',
+      duration: 20,
+    });
+  });
+
+  it('handles DTSTART with VALUE=DATE-TIME parameter', () => {
+    const icsContent = [
+      'BEGIN:VEVENT',
+      'DTSTART;VALUE=DATE-TIME:20260120T093000',
+      'DTEND;VALUE=DATE-TIME:20260120T103000',
+      'END:VEVENT',
+    ].join('\r\n');
+
+    const message = {
+      payload: {
+        mimeType: 'multipart/alternative',
+        parts: [
+          { mimeType: 'text/html', body: { data: encode('<p>Hi</p>') } },
+          { mimeType: 'text/calendar', body: { data: encode(icsContent) } },
+        ],
+      },
+    };
+
+    expect(extractCalendarData(message)).toEqual({
+      date: '2026-01-20',
+      startTime: '09:30',
+      endTime: '10:30',
+      duration: 60,
+    });
+  });
+
+  it('returns partial result when DTEND is missing', () => {
+    const icsContent = 'BEGIN:VEVENT\r\nDTSTART:20260315T140000Z\r\nEND:VEVENT';
+
+    const message = {
+      payload: { mimeType: 'text/calendar', body: { data: encode(icsContent) } },
+    };
+
+    expect(extractCalendarData(message)).toEqual({
+      date: '2026-03-15',
+      startTime: '14:00',
+      endTime: null,
+      duration: null,
+    });
+  });
+
+  it('returns null when no text/calendar part exists', () => {
+    const message = {
+      payload: {
+        mimeType: 'text/plain',
+        body: { data: encode('Just a plain email') },
+      },
+    };
+
+    expect(extractCalendarData(message)).toBeNull();
+  });
+
+  it('returns null for null/undefined message', () => {
+    expect(extractCalendarData(null)).toBeNull();
+    expect(extractCalendarData(undefined)).toBeNull();
+    expect(extractCalendarData({})).toBeNull();
+  });
+
+  it('returns null when ICS content has no DTSTART', () => {
+    const icsContent = 'BEGIN:VCALENDAR\r\nBEGIN:VEVENT\r\nSUMMARY:Meeting\r\nEND:VEVENT\r\nEND:VCALENDAR';
+
+    const message = {
+      payload: { mimeType: 'text/calendar', body: { data: encode(icsContent) } },
+    };
+
+    expect(extractCalendarData(message)).toBeNull();
+  });
+
+  it('finds text/calendar nested deep in multipart MIME tree', () => {
+    const icsContent = 'BEGIN:VEVENT\r\nDTSTART:20260401T100000\r\nDTEND:20260401T110000\r\nEND:VEVENT';
+
+    const message = {
+      payload: {
+        mimeType: 'multipart/mixed',
+        parts: [
+          {
+            mimeType: 'multipart/alternative',
+            parts: [
+              { mimeType: 'text/plain', body: { data: encode('body') } },
+              { mimeType: 'text/html', body: { data: encode('<p>body</p>') } },
+            ],
+          },
+          { mimeType: 'text/calendar', body: { data: encode(icsContent) } },
+        ],
+      },
+    };
+
+    expect(extractCalendarData(message)).toEqual({
+      date: '2026-04-01',
+      startTime: '10:00',
+      endTime: '11:00',
+      duration: 60,
+    });
+  });
+
+  it('returns null duration when end is before start (overnight event)', () => {
+    const icsContent = 'BEGIN:VEVENT\r\nDTSTART:20260315T230000\r\nDTEND:20260316T010000\r\nEND:VEVENT';
+
+    const message = {
+      payload: { mimeType: 'text/calendar', body: { data: encode(icsContent) } },
+    };
+
+    const result = extractCalendarData(message);
+    // End time is on a different day, so same-day duration calc returns null
+    expect(result.duration).toBeNull();
+    expect(result.startTime).toBe('23:00');
+    expect(result.endTime).toBe('01:00');
+  });
+
+  it('handles RFC 5545 line folding (CRLF + whitespace continuation)', () => {
+    // Per RFC 5545 §3.1, long lines may be folded with CRLF + space/tab
+    const icsContent = [
+      'BEGIN:VEVENT',
+      'DTSTART;TZID=America/New_',
+      ' York:20260315T150000',
+      'DTEND;TZID=America/New_',
+      ' York:20260315T160000',
+      'END:VEVENT',
+    ].join('\r\n');
+
+    const message = {
+      payload: { mimeType: 'text/calendar', body: { data: encode(icsContent) } },
+    };
+
+    expect(extractCalendarData(message)).toEqual({
+      date: '2026-03-15',
+      startTime: '15:00',
+      endTime: '16:00',
+      duration: 60,
+    });
+  });
+
+  it('extracts first DTSTART/DTEND when multiple VEVENTs are present', () => {
+    const icsContent = [
+      'BEGIN:VCALENDAR',
+      'BEGIN:VEVENT',
+      'DTSTART:20260315T100000',
+      'DTEND:20260315T110000',
+      'SUMMARY:First interview',
+      'END:VEVENT',
+      'BEGIN:VEVENT',
+      'DTSTART:20260316T140000',
+      'DTEND:20260316T150000',
+      'SUMMARY:Second interview',
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ].join('\r\n');
+
+    const message = {
+      payload: { mimeType: 'text/calendar', body: { data: encode(icsContent) } },
+    };
+
+    // First VEVENT wins
+    expect(extractCalendarData(message)).toEqual({
+      date: '2026-03-15',
+      startTime: '10:00',
+      endTime: '11:00',
+      duration: 60,
+    });
   });
 });

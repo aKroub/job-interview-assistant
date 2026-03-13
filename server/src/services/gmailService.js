@@ -8,6 +8,7 @@ import {
   extractDateTimeFromText,
   extractCompanyNameFromText,
   extractPlainTextBody,
+  extractCalendarData,
   detectEmailIntent,
 } from '../utils/emailParser.js';
 
@@ -132,6 +133,9 @@ export function createGmailService(authClient, options = {}) {
       const dateTimeSource = bodyText ? `${subject} ${bodyText}` : combinedText;
       const { date, time, duration, allDates } = extractDateTimeFromText(dateTimeSource);
 
+      // ICS attachments carry precise DTSTART/DTEND — prefer them over regex
+      const icsData = extractCalendarData(message);
+
       // Classify the email's purpose — invitation, cancellation, or reschedule
       const intent = detectEmailIntent(subject, bodyText || snippet);
 
@@ -146,9 +150,9 @@ export function createGmailService(authClient, options = {}) {
           companyName,
           score,
           matchedKeywords,
-          extractedDate: date,
-          extractedTime: time,
-          extractedDuration: duration,
+          extractedDate: icsData?.date ?? date,
+          extractedTime: icsData?.startTime ?? time,
+          extractedDuration: icsData?.duration ?? duration,
           extractedAllDates: allDates,
           intent,
           bodyText: bodyText || '',

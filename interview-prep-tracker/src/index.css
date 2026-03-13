@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Tailwind v4 removed automatic cursor:pointer on buttons — restore it globally */
+button,
+[role="button"] {
+  cursor: pointer;
+}
+
 body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',

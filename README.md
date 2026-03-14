@@ -8,6 +8,9 @@ A full-stack interview preparation and job application tracking tool. A React fr
 - Visual kanban board to track companies through your interview pipeline
 - Six active stages: Interested → Applied → CV Screening → Technical → HR → Offer, plus a collapsible "Closed" row below the board
 - Stage changes via drag-and-drop between columns
+- **Company logos** displayed on cards, interview cards, suggestions, and prep sections
+- **Searchable company dropdown** with 45 pre-loaded companies and their logos
+- Add custom companies with domain-based logo fetching or manual upload
 - Track position titles and company names
 - Easy company deletion
 
@@ -151,6 +154,7 @@ interview-prep-tracker/src/
 │
 ├── constants/                     # Static data — no logic, no React
 │   ├── app.js                     # APP_TITLE env var with fallback
+│   ├── companies.js               # COMPANY_POOL array + lookup map + aliases
 │   ├── interviewTypes.js          # INTERVIEW_TYPES, TYPE_CONFIG, DURATION_OPTIONS
 │   ├── positions.js               # POSITIONS array
 │   ├── questions.js               # SYSTEM_DESIGN_QUESTIONS (Google / Microsoft / Facebook)
@@ -162,7 +166,9 @@ interview-prep-tracker/src/
 │
 ├── utils/                         # Pure functions — no React, no globals
 │   ├── calendarUtils.js           # getWeekStart, getWeekDays, groupInterviewsByDate, …
+│   ├── companyLogoUtils.js        # getCompanyLogoUrl, resolveCompanyLogoUrl, guessDomain
 │   ├── companyUtils.js            # createCompany, applyStageUpdate, applyDelete, …
+│   ├── imageUtils.js              # normalizeImage (Canvas-based 128×128 PNG conversion)
 │   └── questionUtils.js           # getAvailableQuestions, addSeenQuestion, …
 │
 ├── hooks/                         # React state + persistence
@@ -175,6 +181,8 @@ interview-prep-tracker/src/
 ├── components/
 │   ├── shared/
 │   │   ├── CloudSyncMenu.jsx      # Gear icon dropdown for Google Drive backup/restore
+│   │   ├── CompanyCombobox.jsx    # Searchable company dropdown with custom company flow
+│   │   ├── CompanyLogo.jsx        # Shared logo image (renders nothing if no URL)
 │   │   ├── DifficultyBadge.jsx    # Reusable difficulty colour badge
 │   │   ├── FieldLabel.jsx         # Form field label component
 │   │   ├── FormError.jsx          # Error message display component
@@ -229,6 +237,7 @@ server/src/
 ├── routes/
 │   ├── auth.js                    # GET /api/auth/status|url|callback, POST disconnect
 │   ├── interviews.js              # GET /api/interviews/suggestions (SSE), POST dismiss|scan|reset
+│   ├── logo.js                    # GET /api/logo?domain= (favicon proxy with SSRF protection)
 │   └── sync.js                    # GET /api/sync/status|load, POST /api/sync/save (Drive backup)
 │
 └── index.js                       # createApp(deps) factory + server bootstrap
@@ -247,19 +256,19 @@ server/src/
 
 The test suite covers every layer across both frontend and backend:
 
-### Frontend (42 test suites)
+### Frontend (44 test suites)
 
 | Layer | Test files | What they test |
 |---|---|---|
 | Constants | `constants.test.js` | Stage keys, positions, interview types, question bank integrity |
 | Services | `storageService.test.js`, `apiService.test.js` | Storage interface, REST calls, SSE stream |
-| Utils | `companyUtils.test.js`, `questionUtils.test.js`, `calendarUtils.test.js`, `companyUtils.stress.test.js`, `cancelUpdateStress.test.js` | Pure function unit tests and stress tests (no React) |
+| Utils | `companyUtils.test.js`, `questionUtils.test.js`, `calendarUtils.test.js`, `companyLogoUtils.test.js`, `companyLogoUtils.stress.test.js`, `companyUtils.stress.test.js`, `cancelUpdateStress.test.js` | Pure function unit tests and stress tests (no React) |
 | Hooks | `useCompanies.test.js`, `useSeenQuestions.test.js`, `useInterviewSuggestions.test.js`, `useInterviewSuggestions.stress.test.js`, `useInterviewTracker.test.js`, `useCloudSync.test.js` | Hook tests with injected in-memory storage / mock API, stress tests |
 | Components | 24 test files (one per component) including `CloudSyncMenu.test.jsx`, `TodayInterviews.test.jsx`, `KanbanBoard.stress.test.jsx`, `TodayInterviews.stress.test.jsx`, `editInterview.stress.test.jsx`, `depsUpgrade.stress.test.jsx` | Rendering, user interactions, callback wiring, stress tests |
 | Integration | `App.test.jsx` | Smoke test — app renders and default view loads |
 | Migration | `viteMigration.stress.test.jsx` | Vite/Vitest/Tailwind v4 migration regression tests (env vars, globals isolation, class renames, ESM resolution, Testing Library compatibility) |
 
-### Backend (32 test suites)
+### Backend (34 test suites)
 
 | Layer | Test files | What they test |
 |---|---|---|
@@ -268,7 +277,7 @@ The test suite covers every layer across both frontend and backend:
 | Utils | `emailParser.test.js`, `matchingUtils.test.js`, `llmEnrichment.test.js`, `llmEnrichment.stress.test.js`, `phraseExpansionStress.test.js`, `gcalScoringStress.test.js`, `gcalCancellationRepro.test.js`, `cancelUpdateStress.test.js`, `cancellationEmailRepro.test.js` | Scoring, parsing, LLM enrichment, stress and regression tests |
 | Resilience | `llmResilience.stress.test.js`, `llmDuplication.repro.test.js`, `extractionCacheStress.test.js`, `logLevelGating.stress.test.js`, `dismissedLogGating.stress.test.js`, `interviewsRoute.test.js`, `resetSuggestions.stress.test.js`, `llmExtractionImprovements.stress.test.js`, `depsUpgrade.stress.test.js` | Semaphore deadlock, extraction cache, circuit breaker, log-level gating, dismissed-log gating, scan cooldown, reset races, stats consistency, concurrent error batches, duration computation edge cases, Express 5 / Jest 30 / googleapis 171 compatibility |
 | Integration | `indexWiring.stress.test.js` | App factory wiring stress tests |
-| Routes | `auth.test.js`, `interviews.test.js`, `sync.test.js` | HTTP route tests via supertest |
+| Routes | `auth.test.js`, `interviews.test.js`, `logo.test.js`, `logo.stress.test.js`, `sync.test.js` | HTTP route tests via supertest |
 
 ```bash
 # Run all frontend tests (Vitest)
@@ -289,8 +298,9 @@ Tests never mock `localStorage` globally — they inject a `createMemoryStorage(
 ### Adding Companies
 1. Navigate to the **Pipeline** tab
 2. Click **Add Company**
-3. Enter company name, position, and initial stage
-4. Click **Add Company** to save
+3. Search for a company in the dropdown (45 pre-loaded companies with logos), or type a custom name and follow the "Add custom company" flow to fetch/upload a logo
+4. Fill in position and initial stage
+5. Click **Add Company** to save
 
 ### Managing the Pipeline
 - Drag and drop cards between columns to move a company to a different stage

@@ -1,6 +1,8 @@
 import React from 'react';
-import { Calendar, Mail, Building2, X, CalendarPlus, XCircle, CalendarClock } from 'lucide-react';
+import { Calendar, Mail, X, CalendarPlus, XCircle, CalendarClock } from 'lucide-react';
 import { TYPE_CONFIG } from '../../constants/interviewTypes';
+import { getCompanyLogoUrl } from '../../utils/companyLogoUtils';
+import { CompanyLogo } from '../shared/CompanyLogo';
 
 /**
  * Per-action visual configuration for suggestion cards.
@@ -98,7 +100,7 @@ export function SuggestionCard({ suggestion, onDismiss, onAccept }) {
       {/* Header: company + type + dismiss */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <Building2 size={16} className="text-gray-500 shrink-0" />
+          <CompanyLogo logoUrl={getCompanyLogoUrl(suggestion.companyName)} companyName={suggestion.companyName} size={16} />
           <span className="font-semibold text-gray-900 text-sm truncate">
             {suggestion.companyName}
           </span>

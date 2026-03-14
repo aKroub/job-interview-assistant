@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FieldLabel } from '../shared/FieldLabel';
 import { FormError } from '../shared/FormError';
+import { CompanyCombobox } from '../shared/CompanyCombobox';
 
 /**
  * Modal dialog for adding a new company to the pipeline.
@@ -8,8 +9,12 @@ import { FormError } from '../shared/FormError';
  * Owns only ephemeral UI state (submitted flag for showing validation errors).
  * All persisted data and callbacks arrive via props.
  *
+ * Company selection uses a searchable combobox with logo thumbnails from the
+ * pre-populated company pool. Users can also add custom companies not in the
+ * pool, with optional domain-based logo fetching or manual upload.
+ *
  * @param {{
- *   draft:          { name: string, position: string, stage: string, pipeline: string[] },
+ *   draft:          { name: string, position: string, stage: string, pipeline: string[], domain?: string, customLogoUrl?: string },
  *   onDraftChange:  (updatedDraft: Object) => void,
  *   onAdd:          () => void,
  *   onClose:        () => void,
@@ -94,6 +99,19 @@ export function AddCompanyModal({
     onDraftChange({ ...draft, pipeline: updated });
   }
 
+  function handleCompanyNameChange(name) {
+    onDraftChange({ ...draft, name, domain: undefined, customLogoUrl: undefined });
+  }
+
+  function handleCustomCompany(info) {
+    onDraftChange({
+      ...draft,
+      name: info.name,
+      domain: info.domain || undefined,
+      customLogoUrl: info.customLogoUrl || undefined,
+    });
+  }
+
   return (
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
@@ -108,17 +126,13 @@ export function AddCompanyModal({
 
         <div className="space-y-4">
 
-          {/* Company Name */}
+          {/* Company Name — searchable combobox */}
           <div>
-            <FieldLabel htmlFor="company-name" required>Company Name</FieldLabel>
-            <input
-              id="company-name"
-              type="text"
+            <FieldLabel htmlFor="company-combobox" required>Company Name</FieldLabel>
+            <CompanyCombobox
               value={draft.name}
-              onChange={(e) => onDraftChange({ ...draft, name: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-              placeholder="e.g., Google"
-              maxLength={100}
+              onChange={handleCompanyNameChange}
+              onCustomCompany={handleCustomCompany}
             />
             <FormError message={submitted ? errors.name : null} />
           </div>

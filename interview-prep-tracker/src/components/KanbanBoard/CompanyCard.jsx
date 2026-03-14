@@ -2,6 +2,8 @@ import React from 'react';
 import { Calendar, X } from 'lucide-react';
 import { isMultiPipeline } from '../../utils/companyUtils';
 import { STAGES, STAGE_LABELS } from '../../constants/stages';
+import { resolveCompanyLogoUrl } from '../../utils/companyLogoUtils';
+import { CompanyLogo } from '../shared/CompanyLogo';
 
 /**
  * A single company card within a Kanban column.
@@ -32,8 +34,15 @@ export function CompanyCard({ company, onDelete, onStageChange, onDragStart, onD
       className="bg-white p-3 rounded-lg shadow-sm border border-gray-200 hover:shadow-md transition cursor-grab active:cursor-grabbing active:opacity-60"
     >
       <div className="flex justify-between items-start mb-2">
-        <div className="flex-1">
-          <h4 className="font-semibold text-gray-800 text-sm">{company.name}</h4>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <CompanyLogo
+              logoUrl={resolveCompanyLogoUrl(company)}
+              companyName={company.name}
+              size={16}
+            />
+            <h4 className="font-semibold text-gray-800 text-sm truncate">{company.name}</h4>
+          </div>
           <p className="text-xs text-gray-600 mt-1">{company.position}</p>
         </div>
         <button

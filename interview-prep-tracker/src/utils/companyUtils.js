@@ -34,12 +34,12 @@ export function isMultiPipeline(company) {
 /**
  * Builds a complete company object from a user-supplied draft.
  *
- * @param {{ name: string, position: string, stage: string, pipeline: string[] }} draft
+ * @param {{ name: string, position: string, stage: string, pipeline: string[], domain?: string, customLogoUrl?: string }} draft
  * @param {() => number} [idFn=Date.now] - injectable ID generator (use in tests to get deterministic IDs)
- * @returns {Object} Full company object with id, pipeline, interviews, notes, createdAt
+ * @returns {Object} Full company object with id, pipeline, interviews, notes, createdAt, and optional domain/customLogoUrl
  */
 export function createCompany(draft, idFn = Date.now) {
-  return {
+  const company = {
     id:         String(idFn()),
     name:       draft.name,
     position:   draft.position,
@@ -49,6 +49,9 @@ export function createCompany(draft, idFn = Date.now) {
     notes:      '',
     createdAt:  new Date().toISOString(),
   };
+  if (draft.domain) company.domain = draft.domain;
+  if (draft.customLogoUrl) company.customLogoUrl = draft.customLogoUrl;
+  return company;
 }
 
 /**

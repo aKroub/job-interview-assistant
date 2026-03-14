@@ -262,6 +262,7 @@ src/
 │   ├── stages.js       STAGES array + STAGE_LABELS map
 │   ├── positions.js    POSITIONS array
 │   ├── interviewTypes.js  INTERVIEW_TYPES array + TYPE_CONFIG map + DURATION_OPTIONS
+│   ├── companies.js    COMPANY_POOL array + COMPANY_POOL_BY_NAME map + COMPANY_ALIASES
 │   └── app.js          APP_TITLE env var with fallback
 │
 ├── services/           I/O abstractions — no React, injectable in tests
@@ -271,6 +272,8 @@ src/
 ├── utils/              Pure functions — no React, no globals, no side effects
 │   ├── calendarUtils.js
 │   ├── companyUtils.js
+│   ├── companyLogoUtils.js  getCompanyLogoUrl + resolveCompanyLogoUrl + guessDomain
+│   ├── imageUtils.js        normalizeImage (Canvas-based 128×128 PNG conversion)
 │   └── questionUtils.js
 │
 ├── hooks/              React state + persistence (inject storage/api via param)
@@ -283,6 +286,8 @@ src/
 ├── components/         Presentational — receive props, call callbacks, own no global state
 │   ├── shared/
 │   │   ├── CloudSyncMenu.jsx    ← gear icon dropdown for Google Drive backup/restore
+│   │   ├── CompanyCombobox.jsx  ← searchable company dropdown with custom company flow
+│   │   ├── CompanyLogo.jsx      ← shared logo image (renders nothing if no URL)
 │   │   ├── DifficultyBadge.jsx
 │   │   ├── FieldLabel.jsx
 │   │   ├── FormError.jsx
@@ -328,6 +333,7 @@ server/src/
 ├── routes/             Express routers — thin HTTP adapters
 │   ├── auth.js             GET /api/auth/status|url|callback, POST /api/auth/disconnect
 │   ├── interviews.js       GET /api/interviews/suggestions (SSE), POST /dismiss|scan|reset (with scan cooldown)
+│   ├── logo.js             GET /api/logo?domain= (favicon proxy with SSRF protection + rate limiting)
 │   └── sync.js             GET /api/sync/status|load, POST /api/sync/save (Drive backup/restore)
 │
 └── index.js            createApp(deps) factory + server bootstrap

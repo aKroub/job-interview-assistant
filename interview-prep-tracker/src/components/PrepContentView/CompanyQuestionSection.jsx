@@ -2,7 +2,6 @@ import React from 'react';
 import { Check } from 'lucide-react';
 import { QuestionCard } from './QuestionCard';
 import { getCompanyLogoUrl } from '../../utils/companyLogoUtils';
-import { COMPANY_ALIASES } from '../../constants/companies';
 import { CompanyLogo } from '../shared/CompanyLogo';
 
 /**
@@ -33,7 +32,7 @@ export function CompanyQuestionSection({
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <CompanyLogo
-            logoUrl={getCompanyLogoUrl(companyName) || getCompanyLogoUrl(COMPANY_ALIASES[companyName.toLowerCase()] || '')}
+            logoUrl={getCompanyLogoUrl(companyName)}
             companyName={companyName}
             size={24}
           />

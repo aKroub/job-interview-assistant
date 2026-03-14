@@ -16,13 +16,17 @@ export function getCompanyLogoUrl(companyName) {
 
   const key = companyName.toLowerCase();
 
-  const direct = COMPANY_POOL_BY_NAME[key];
-  if (direct) return direct.hasLogo === false ? null : `/logos/${direct.slug}.png`;
+  if (Object.hasOwn(COMPANY_POOL_BY_NAME, key)) {
+    const direct = COMPANY_POOL_BY_NAME[key];
+    return direct.hasLogo === false ? null : `/logos/${direct.slug}.png`;
+  }
 
-  const aliasTarget = COMPANY_ALIASES[key];
-  if (aliasTarget) {
-    const aliased = COMPANY_POOL_BY_NAME[aliasTarget];
-    if (aliased) return aliased.hasLogo === false ? null : `/logos/${aliased.slug}.png`;
+  if (Object.hasOwn(COMPANY_ALIASES, key)) {
+    const aliasTarget = COMPANY_ALIASES[key];
+    if (Object.hasOwn(COMPANY_POOL_BY_NAME, aliasTarget)) {
+      const aliased = COMPANY_POOL_BY_NAME[aliasTarget];
+      return aliased.hasLogo === false ? null : `/logos/${aliased.slug}.png`;
+    }
   }
 
   return null;

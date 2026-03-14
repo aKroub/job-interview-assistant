@@ -19,6 +19,8 @@ const BLOCKED_PATTERNS = [
   /^0\.0\.0\.0$/,
   /^172\.(1[6-9]|2\d|3[01])\./,
   /^\d+\.\d+\.\d+\.\d+$/,     // block all raw IP addresses
+  /^0x[0-9a-f]/i,              // block hex-encoded IP segments (e.g. 0x7f.0.0.1)
+  /^0\d/,                      // block octal-encoded IP segments (e.g. 0177.0.0.1)
 ];
 
 /**

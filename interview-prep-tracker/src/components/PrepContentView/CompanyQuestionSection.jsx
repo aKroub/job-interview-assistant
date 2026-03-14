@@ -1,6 +1,9 @@
 import React from 'react';
 import { Check } from 'lucide-react';
 import { QuestionCard } from './QuestionCard';
+import { getCompanyLogoUrl } from '../../utils/companyLogoUtils';
+import { COMPANY_ALIASES } from '../../constants/companies';
+import { CompanyLogo } from '../shared/CompanyLogo';
 
 /**
  * A card showing the available questions for one company.
@@ -28,7 +31,14 @@ export function CompanyQuestionSection({
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xl font-semibold text-gray-800">{companyName}</h3>
+        <div className="flex items-center gap-2">
+          <CompanyLogo
+            logoUrl={getCompanyLogoUrl(companyName) || getCompanyLogoUrl(COMPANY_ALIASES[companyName.toLowerCase()] || '')}
+            companyName={companyName}
+            size={24}
+          />
+          <h3 className="text-xl font-semibold text-gray-800">{companyName}</h3>
+        </div>
         <span className="text-sm text-gray-600">
           {totalSeen} / {totalQuestions} completed
         </span>

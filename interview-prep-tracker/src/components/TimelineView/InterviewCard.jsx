@@ -1,7 +1,9 @@
-import { Building2, Clock, Pencil, Trash2 } from 'lucide-react';
+import { Clock, Pencil, Trash2 } from 'lucide-react';
 import React from 'react';
 import { TYPE_CONFIG } from '../../constants/interviewTypes';
 import { deriveInterviewStatus } from '../../utils/companyUtils';
+import { getCompanyLogoUrl } from '../../utils/companyLogoUtils';
+import { CompanyLogo } from '../shared/CompanyLogo';
 
 /** Tailwind class sets for each display status (matches InterviewRow pattern). */
 const STATUS_STYLES = {
@@ -28,8 +30,9 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit }) {
   const displayStatus = deriveInterviewStatus(interview);
   const statusStyle   = STATUS_STYLES[displayStatus] ?? STATUS_STYLES.scheduled;
 
-  const typeConfig = TYPE_CONFIG[interview.type] || { Icon: Building2 };
-  const InterviewIcon = typeConfig.Icon
+  const typeConfig = TYPE_CONFIG[interview.type] || {};
+  const InterviewIcon = typeConfig.Icon;
+  const logoUrl = getCompanyLogoUrl(interview.companyName);
 
   function handleDelete() {
     if (window.confirm(`Are you sure you want to delete the ${interview.companyName} interview?`)) {
@@ -73,7 +76,11 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit }) {
 
       {/* Company name */}
       <div className="flex items-center gap-1 mb-1 pr-12">
-        <InterviewIcon size={12} className="text-purple-500 shrink-0" />
+        {logoUrl ? (
+          <CompanyLogo logoUrl={logoUrl} companyName={interview.companyName} size={12} />
+        ) : InterviewIcon ? (
+          <InterviewIcon size={12} className="text-purple-500 shrink-0" />
+        ) : null}
         <span className="text-xs font-medium text-gray-800 truncate">
           {interview.companyName}
         </span>

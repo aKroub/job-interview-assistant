@@ -1,6 +1,8 @@
 import React from 'react';
 import { CalendarCheck, HelpCircle } from 'lucide-react';
 import { TYPE_CONFIG } from '../../constants/interviewTypes';
+import { getCompanyLogoUrl } from '../../utils/companyLogoUtils';
+import { CompanyLogo } from './CompanyLogo';
 
 /**
  * A single compact interview chip within the today strip.
@@ -52,6 +54,7 @@ function TodayInterviewItem({ interview, onClick }) {
       {interview.time && (
         <span className="text-gray-300" aria-hidden="true">&middot;</span>
       )}
+      <CompanyLogo logoUrl={getCompanyLogoUrl(interview.companyName)} companyName={interview.companyName} size={14} />
       <span className="text-gray-700 truncate max-w-[80px] sm:max-w-[120px] md:max-w-[200px]" title={interview.companyName}>{interview.companyName}</span>
       <InterviewIcon size={14} className={`${iconColour} shrink-0`} aria-hidden="true" />
     </div>

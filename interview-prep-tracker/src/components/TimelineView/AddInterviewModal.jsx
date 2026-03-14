@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FieldLabel } from '../shared/FieldLabel';
 import { FormError } from '../shared/FormError';
+import { CompanyLogo } from '../shared/CompanyLogo';
 import { DURATION_OPTIONS } from '../../constants/interviewTypes';
+import { getCompanyLogoUrl } from '../../utils/companyLogoUtils';
 
 const EMPTY_INTERVIEW = {
   companyId: '',
@@ -156,9 +158,10 @@ export function AddInterviewModal({
           {isEditMode ? (
             <div>
               <FieldLabel>Company</FieldLabel>
-              <p className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700" data-testid="edit-company-display">
-                {editingInterview.companyName}{editingInterview.position ? ` — ${editingInterview.position}` : ''}
-              </p>
+              <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700" data-testid="edit-company-display">
+                <CompanyLogo logoUrl={getCompanyLogoUrl(editingInterview.companyName)} companyName={editingInterview.companyName} size={18} />
+                <span>{editingInterview.companyName}{editingInterview.position ? ` — ${editingInterview.position}` : ''}</span>
+              </div>
             </div>
           ) : (
             <div>

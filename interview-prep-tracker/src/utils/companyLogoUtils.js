@@ -29,6 +29,34 @@ export function getCompanyLogoUrl(companyName) {
 }
 
 /**
+ * Resolves the best logo URL for a company object using the full fallback chain.
+ *
+ * Resolution order:
+ * 1. Static pool match (via getCompanyLogoUrl)
+ * 2. User-uploaded custom logo (customLogoUrl on the company object)
+ * 3. Domain-based API fetch (domain on the company object)
+ * 4. No match → null
+ *
+ * Custom uploads take priority over domain guesses because the user
+ * explicitly chose that image.
+ *
+ * @param {{ name: string, domain?: string, customLogoUrl?: string }} company
+ * @returns {string | null}
+ */
+export function resolveCompanyLogoUrl(company) {
+  if (!company) return null;
+
+  const poolUrl = getCompanyLogoUrl(company.name);
+  if (poolUrl) return poolUrl;
+
+  if (company.customLogoUrl) return company.customLogoUrl;
+
+  if (company.domain) return `/api/logo?domain=${company.domain}`;
+
+  return null;
+}
+
+/**
  * Best-effort heuristic to guess a company's website domain from its name.
  *
  * Strips non-alphanumeric characters, lowercases, and appends ".com".

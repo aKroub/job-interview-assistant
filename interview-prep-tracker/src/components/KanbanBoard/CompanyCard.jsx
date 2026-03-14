@@ -2,7 +2,7 @@ import React from 'react';
 import { Calendar, X } from 'lucide-react';
 import { isMultiPipeline } from '../../utils/companyUtils';
 import { STAGES, STAGE_LABELS } from '../../constants/stages';
-import { getCompanyLogoUrl } from '../../utils/companyLogoUtils';
+import { resolveCompanyLogoUrl } from '../../utils/companyLogoUtils';
 import { CompanyLogo } from '../shared/CompanyLogo';
 
 /**
@@ -37,7 +37,7 @@ export function CompanyCard({ company, onDelete, onStageChange, onDragStart, onD
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5">
             <CompanyLogo
-              logoUrl={getCompanyLogoUrl(company.name) || (company.domain ? `/api/logo?domain=${company.domain}` : null) || company.customLogoUrl}
+              logoUrl={resolveCompanyLogoUrl(company)}
               companyName={company.name}
               size={16}
             />

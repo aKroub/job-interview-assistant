@@ -42,6 +42,16 @@ export function createRateLimiter(maxRequests = 30, windowMs = 60_000) {
         return false;
       }
 
+      if (recent.length === 0) {
+        // First request in this window — clean up any stale IPs to prevent
+        // unbounded Map growth from many unique visitors.
+        if (requests.size > 1000) {
+          for (const [key, ts] of requests) {
+            if (ts.every((t) => now - t >= windowMs)) requests.delete(key);
+          }
+        }
+      }
+
       recent.push(now);
       requests.set(ip, recent);
       return true;

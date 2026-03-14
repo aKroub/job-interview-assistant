@@ -51,7 +51,7 @@ export function resolveCompanyLogoUrl(company) {
 
   if (company.customLogoUrl) return company.customLogoUrl;
 
-  if (company.domain) return `/api/logo?domain=${company.domain}`;
+  if (company.domain) return `/api/logo?domain=${encodeURIComponent(company.domain)}`;
 
   return null;
 }

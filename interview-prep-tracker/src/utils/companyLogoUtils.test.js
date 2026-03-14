@@ -64,6 +64,11 @@ describe('resolveCompanyLogoUrl', () => {
       .toBe('/api/logo?domain=acme.com');
   });
 
+  it('encodes domain parameter in API URL', () => {
+    expect(resolveCompanyLogoUrl({ name: 'Acme Corp', domain: 'acme&co.com' }))
+      .toBe('/api/logo?domain=acme%26co.com');
+  });
+
   it('returns null when no match, no custom logo, and no domain', () => {
     expect(resolveCompanyLogoUrl({ name: 'Acme Corp' })).toBeNull();
   });

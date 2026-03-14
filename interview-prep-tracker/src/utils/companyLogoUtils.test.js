@@ -1,4 +1,4 @@
-import { getCompanyLogoUrl, guessDomain } from './companyLogoUtils';
+import { getCompanyLogoUrl, guessDomain, resolveCompanyLogoUrl } from './companyLogoUtils';
 import { COMPANY_POOL } from '../constants/companies';
 
 // ---------------------------------------------------------------------------
@@ -16,20 +16,9 @@ describe('getCompanyLogoUrl', () => {
     expect(getCompanyLogoUrl('GoOgLe')).toBe('/logos/google.png');
   });
 
-  it('returns correct paths for all pool companies with logos', () => {
-    const companiesWithLogos = COMPANY_POOL.filter((c) => c.hasLogo !== false);
-
-    for (const c of companiesWithLogos) {
+  it('returns correct paths for every company in the pool', () => {
+    for (const c of COMPANY_POOL) {
       expect(getCompanyLogoUrl(c.name)).toBe(`/logos/${c.slug}.png`);
-    }
-  });
-
-  it('returns null for pool companies with hasLogo: false', () => {
-    const companiesWithoutLogos = COMPANY_POOL.filter((c) => c.hasLogo === false);
-    expect(companiesWithoutLogos.length).toBeGreaterThan(0);
-
-    for (const c of companiesWithoutLogos) {
-      expect(getCompanyLogoUrl(c.name)).toBeNull();
     }
   });
 
@@ -48,6 +37,40 @@ describe('getCompanyLogoUrl', () => {
     expect(getCompanyLogoUrl('')).toBeNull();
     expect(getCompanyLogoUrl(null)).toBeNull();
     expect(getCompanyLogoUrl(undefined)).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// resolveCompanyLogoUrl
+// ---------------------------------------------------------------------------
+
+describe('resolveCompanyLogoUrl', () => {
+  it('returns static pool logo when company name matches', () => {
+    expect(resolveCompanyLogoUrl({ name: 'Google' })).toBe('/logos/google.png');
+  });
+
+  it('prefers static pool over customLogoUrl', () => {
+    expect(resolveCompanyLogoUrl({ name: 'Google', customLogoUrl: 'data:image/png;base64,abc' }))
+      .toBe('/logos/google.png');
+  });
+
+  it('prefers customLogoUrl over domain-based fetch', () => {
+    const company = { name: 'Acme Corp', domain: 'acme.com', customLogoUrl: 'data:image/png;base64,abc' };
+    expect(resolveCompanyLogoUrl(company)).toBe('data:image/png;base64,abc');
+  });
+
+  it('falls back to domain-based API URL when no pool match and no custom logo', () => {
+    expect(resolveCompanyLogoUrl({ name: 'Acme Corp', domain: 'acme.com' }))
+      .toBe('/api/logo?domain=acme.com');
+  });
+
+  it('returns null when no match, no custom logo, and no domain', () => {
+    expect(resolveCompanyLogoUrl({ name: 'Acme Corp' })).toBeNull();
+  });
+
+  it('returns null for null/undefined input', () => {
+    expect(resolveCompanyLogoUrl(null)).toBeNull();
+    expect(resolveCompanyLogoUrl(undefined)).toBeNull();
   });
 });
 

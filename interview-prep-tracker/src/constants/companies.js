@@ -2,8 +2,8 @@
  * Pre-populated company pool with slugs and domains for logo resolution.
  *
  * Each entry maps to a static logo file at `/logos/{slug}.png` when
- * `hasLogo` is true (default). Companies without a reliable favicon
- * are included for the dropdown but display no logo.
+ * `hasLogo` is true (default). Companies where `hasLogo` is explicitly
+ * `false` are included for the dropdown but display no logo.
  *
  * The pool is the source of truth for the company selection dropdown
  * and logo display across the app.
@@ -21,7 +21,7 @@ export const COMPANY_POOL = [
   { slug: 'corsight-ai',    name: 'Corsight AI',    domain: 'corsight.ai' },
   { slug: 'databricks',     name: 'Databricks',     domain: 'databricks.com' },
   { slug: 'datarails',      name: 'Datarails',      domain: 'datarails.com' },
-  { slug: 'dream-security', name: 'Dream Security', domain: 'dream.security', hasLogo: false },
+  { slug: 'dream-security', name: 'Dream Security', domain: 'dreamgroup.com' },
   { slug: 'forter',         name: 'Forter',         domain: 'forter.com' },
   { slug: 'genpact',        name: 'Genpact',        domain: 'genpact.com' },
   { slug: 'google',         name: 'Google',         domain: 'google.com' },
@@ -53,12 +53,12 @@ export const COMPANY_POOL = [
   { slug: 'uber',           name: 'Uber',           domain: 'uber.com' },
   { slug: 'unipaas',        name: 'Unipaas',        domain: 'unipaas.com' },
   { slug: 'varonis',        name: 'Varonis',        domain: 'varonis.com' },
-  { slug: 'vayu',           name: 'Vayu',           domain: 'vayu.ai' },
+  { slug: 'vayu',           name: 'Vayu',           domain: 'withvayu.com' },
   { slug: 'wonderful',      name: 'Wonderful',      domain: 'wonderful.com' },
   { slug: 'x',              name: 'X (Twitter)',     domain: 'x.com' },
   { slug: 'yotpo',          name: 'Yotpo',          domain: 'yotpo.com' },
   { slug: 'zoom',           name: 'Zoom',           domain: 'zoom.us' },
-  { slug: 'zyg',            name: 'ZyG',            domain: 'zyg.ai', hasLogo: false },
+  { slug: 'zyg',            name: 'ZyG',            domain: 'zyg.com' },
 ];
 
 /**

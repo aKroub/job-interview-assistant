@@ -13,6 +13,7 @@ import { createDriveService } from './services/driveService.js';
 import { createAuthRouter } from './routes/auth.js';
 import { createInterviewsRouter } from './routes/interviews.js';
 import { createSyncRouter } from './routes/sync.js';
+import { createLogoRouter } from './routes/logo.js';
 
 /**
  * Creates an async function that lazily fetches and caches the authenticated user's email.
@@ -109,6 +110,9 @@ export function createApp(deps = {}) {
 
   // Cloud sync routes (Google Drive backup/restore)
   app.use('/api/sync', createSyncRouter({ driveService, googleAuth }));
+
+  // Logo proxy (favicon lookup for custom companies)
+  app.use('/api/logo', createLogoRouter());
 
   // Health check
   app.get('/api/health', (_req, res) => {

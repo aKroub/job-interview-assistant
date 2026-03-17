@@ -6,4 +6,5 @@ export const POSITIONS = [
   'Senior Software Engineer',
   'Software Engineering Manager',
   'Software Engineering Group Lead',
+  'Head of Engineering',
 ];

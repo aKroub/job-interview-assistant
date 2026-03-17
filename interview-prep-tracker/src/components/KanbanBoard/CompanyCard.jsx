@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, X } from 'lucide-react';
+import { Calendar, Pencil, X } from 'lucide-react';
 import { isMultiPipeline } from '../../utils/companyUtils';
 import { STAGES, STAGE_LABELS } from '../../constants/stages';
 import { resolveCompanyLogoUrl } from '../../utils/companyLogoUtils';
@@ -19,13 +19,14 @@ import { CompanyLogo } from '../shared/CompanyLogo';
  * @param {{
  *   company:        Object,
  *   onDelete:       (companyId: string) => void,
+ *   onEdit:         (company: Object) => void,
  *   onStageChange:  (companyId: string, newStage: string) => void,
  *   onDragStart:    (e: DragEvent, companyId: string) => void,
  *   onDragEnd:      (e: DragEvent) => void,
  *   pipelineLabels: Record<string, string>,
  * }} props
  */
-export function CompanyCard({ company, onDelete, onStageChange, onDragStart, onDragEnd, pipelineLabels }) {
+export function CompanyCard({ company, onDelete, onEdit, onStageChange, onDragStart, onDragEnd, pipelineLabels }) {
   return (
     <div
       draggable
@@ -45,17 +46,28 @@ export function CompanyCard({ company, onDelete, onStageChange, onDragStart, onD
           </div>
           <p className="text-xs text-gray-600 mt-1">{company.position}</p>
         </div>
-        <button
-          onClick={() => {
-            if (window.confirm(`Delete ${company.name}? This cannot be undone.`)) {
-              onDelete(company.id);
-            }
-          }}
-          className="text-gray-400 hover:text-red-600 transition"
-          aria-label={`Delete ${company.name}`}
-        >
-          <X size={16} />
-        </button>
+        <div className="flex items-center gap-1">
+          {onEdit && (
+            <button
+              onClick={() => onEdit(company)}
+              className="text-gray-400 hover:text-purple-600 transition"
+              aria-label={`Edit ${company.name}`}
+            >
+              <Pencil size={14} />
+            </button>
+          )}
+          <button
+            onClick={() => {
+              if (window.confirm(`Delete ${company.name}? This cannot be undone.`)) {
+                onDelete(company.id);
+              }
+            }}
+            className="text-gray-400 hover:text-red-600 transition"
+            aria-label={`Delete ${company.name}`}
+          >
+            <X size={16} />
+          </button>
+        </div>
       </div>
 
       {pipelineLabels && isMultiPipeline(company) && (

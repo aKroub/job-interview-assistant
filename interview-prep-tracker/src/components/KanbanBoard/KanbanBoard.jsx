@@ -22,13 +22,14 @@ import { CompanyCard } from './CompanyCard';
  *   onPipelineChange: (pipeline: string) => void,
  *   onAddCompany:     () => void,
  *   onDeleteCompany:  (companyId: string) => void,
+ *   onEditCompany:    (company: Object) => void,
  *   onUpdateStage:    (companyId: string, newStage: string) => void,
  * }} props
  */
 export function KanbanBoard({
   companies, stages, stageLabels, closedStage,
   activePipeline, pipelines, pipelineLabels, pipelineCounts, onPipelineChange,
-  onAddCompany, onDeleteCompany, onUpdateStage,
+  onAddCompany, onDeleteCompany, onEditCompany, onUpdateStage,
 }) {
   const [draggingId, setDraggingId] = useState(null);
   const [closedExpanded, setClosedExpanded] = useState(false);
@@ -117,6 +118,7 @@ export function KanbanBoard({
             label={stageLabels[stage]}
             companies={activeCompanies}
             onDelete={onDeleteCompany}
+            onEditCompany={onEditCompany}
             onUpdateStage={onUpdateStage}
             onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
@@ -165,6 +167,7 @@ export function KanbanBoard({
                 <CompanyCard
                   company={company}
                   onDelete={onDeleteCompany}
+                  onEdit={onEditCompany}
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
                   pipelineLabels={pipelineLabels}

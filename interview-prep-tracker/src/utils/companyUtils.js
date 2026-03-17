@@ -94,6 +94,20 @@ export function applyStageUpdate(companies, companyId, newStage) {
 }
 
 /**
+ * Returns a new companies array with the specified company's fields updated.
+ *
+ * @param {Object[]} companies
+ * @param {string}   companyId
+ * @param {Object}   updates - fields to merge (e.g. { position, pipeline })
+ * @returns {Object[]}
+ */
+export function applyEditCompany(companies, companyId, updates) {
+  return companies.map((c) =>
+    c.id === companyId ? { ...c, ...updates } : c
+  );
+}
+
+/**
  * Returns a new companies array with the specified company removed.
  *
  * @param {Object[]} companies

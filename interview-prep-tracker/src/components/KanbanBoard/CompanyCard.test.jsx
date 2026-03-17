@@ -23,6 +23,7 @@ function makeCompany(overrides = {}) {
 function setup(companyOverrides = {}, handlers = {}, { pipelineLabels = PIPELINE_LABELS } = {}) {
   const company      = makeCompany(companyOverrides);
   const onDelete     = handlers.onDelete     ?? vi.fn();
+  const onEdit       = handlers.onEdit       ?? vi.fn();
   const onStageChange = handlers.onStageChange ?? vi.fn();
   const onDragStart  = handlers.onDragStart  ?? vi.fn();
   const onDragEnd    = handlers.onDragEnd    ?? vi.fn();
@@ -31,6 +32,7 @@ function setup(companyOverrides = {}, handlers = {}, { pipelineLabels = PIPELINE
     <CompanyCard
       company={company}
       onDelete={onDelete}
+      onEdit={onEdit}
       onStageChange={onStageChange}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
@@ -38,7 +40,7 @@ function setup(companyOverrides = {}, handlers = {}, { pipelineLabels = PIPELINE
     />
   );
 
-  return { company, onDelete, onStageChange, onDragStart, onDragEnd };
+  return { company, onDelete, onEdit, onStageChange, onDragStart, onDragEnd };
 }
 
 // ---------------------------------------------------------------------------
@@ -59,6 +61,25 @@ describe('CompanyCard — rendering', () => {
   it('renders a delete button with accessible label', () => {
     setup();
     expect(screen.getByRole('button', { name: /delete acme corp/i })).toBeInTheDocument();
+  });
+
+  it('renders an edit button with accessible label', () => {
+    setup();
+    expect(screen.getByRole('button', { name: /edit acme corp/i })).toBeInTheDocument();
+  });
+
+  it('does not render an edit button when onEdit is not provided', () => {
+    const company = makeCompany();
+    render(
+      <CompanyCard
+        company={company}
+        onDelete={vi.fn()}
+        onDragStart={vi.fn()}
+        onDragEnd={vi.fn()}
+        pipelineLabels={PIPELINE_LABELS}
+      />
+    );
+    expect(screen.queryByRole('button', { name: /edit acme corp/i })).not.toBeInTheDocument();
   });
 
   it('does not show the interview count when there are no interviews', () => {
@@ -108,6 +129,12 @@ describe('CompanyCard — callbacks', () => {
     const { onDelete } = setup();
     await user.click(screen.getByRole('button', { name: /delete acme corp/i }));
     expect(onDelete).toHaveBeenCalledWith('c1');
+  });
+
+  it('calls onEdit with the company object when edit button is clicked', async () => {
+    const { onEdit, company } = setup();
+    await user.click(screen.getByRole('button', { name: /edit acme corp/i }));
+    expect(onEdit).toHaveBeenCalledWith(company);
   });
 });
 

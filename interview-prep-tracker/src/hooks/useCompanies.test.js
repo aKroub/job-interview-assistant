@@ -99,6 +99,31 @@ describe('useCompanies — deleteCompany', () => {
 });
 
 // ---------------------------------------------------------------------------
+// updateCompany
+// ---------------------------------------------------------------------------
+
+describe('useCompanies — updateCompany', () => {
+  it('updates the specified fields on the matching company', () => {
+    const { result } = setup();
+    act(() => { result.current.addCompany(DRAFT); });
+    const companyId = result.current.companies[0].id;
+
+    act(() => { result.current.updateCompany(companyId, { position: 'Head of Engineering' }); });
+    expect(result.current.companies[0].position).toBe('Head of Engineering');
+  });
+
+  it('persists the update to storage', () => {
+    const { result, storage } = setup();
+    act(() => { result.current.addCompany(DRAFT); });
+    const companyId = result.current.companies[0].id;
+
+    act(() => { result.current.updateCompany(companyId, { position: 'Manager' }); });
+    const stored = JSON.parse(storage.getItem('companies'));
+    expect(stored[0].position).toBe('Manager');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // addInterview
 // ---------------------------------------------------------------------------
 

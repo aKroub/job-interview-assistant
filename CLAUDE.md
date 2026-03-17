@@ -260,6 +260,7 @@ src/
 ├── constants/          Static data — no logic, no React
 │   ├── questions.js    SYSTEM_DESIGN_QUESTIONS (the full question bank)
 │   ├── stages.js       STAGES array + STAGE_LABELS map
+│   ├── pipelines.js    PIPELINES array + PIPELINE_LABELS map + DEFAULT_PIPELINE
 │   ├── positions.js    POSITIONS array
 │   ├── interviewTypes.js  INTERVIEW_TYPES array + TYPE_CONFIG map + DURATION_OPTIONS
 │   ├── companies.js    COMPANY_POOL array + COMPANY_POOL_BY_NAME map + COMPANY_ALIASES
@@ -300,7 +301,7 @@ src/
 │   ├── PrepContentView/(PrepContentView, CompanyQuestionSection, QuestionCard)
 │   └── Suggestions/    (SuggestionPanel, SuggestionCard, ConnectionStatus)
 │
-├── InterviewPrepTracker.jsx   Thin orchestrating shell (~150 lines)
+├── InterviewPrepTracker.jsx   Orchestrating shell (~360 lines)
 └── App.jsx                    Renders <InterviewPrepTracker />
 ```
 

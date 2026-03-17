@@ -72,6 +72,14 @@ export function AddInterviewModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const modalRef = useRef(null);
 
+  const editLogoUrl = isEditMode
+    ? resolveCompanyLogoUrl({
+      name: editingInterview.companyName,
+      domain: editingInterview.companyDomain,
+      customLogoUrl: editingInterview.companyCustomLogoUrl,
+    })
+    : null;
+
   useEffect(() => {
     const modal = modalRef.current;
     if (!modal) return;
@@ -159,7 +167,7 @@ export function AddInterviewModal({
             <div>
               <FieldLabel>Company</FieldLabel>
               <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-gray-700" data-testid="edit-company-display">
-                <CompanyLogo logoUrl={resolveCompanyLogoUrl({ name: editingInterview.companyName, domain: editingInterview.companyDomain, customLogoUrl: editingInterview.companyCustomLogoUrl })} companyName={editingInterview.companyName} size={18} />
+                <CompanyLogo logoUrl={editLogoUrl} companyName={editingInterview.companyName} size={18} />
                 <span>{editingInterview.companyName}{editingInterview.position ? ` — ${editingInterview.position}` : ''}</span>
               </div>
             </div>

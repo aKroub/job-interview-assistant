@@ -33,7 +33,7 @@ export function DayColumn({ date, interviews, isToday, isCollapsed = false, onDe
       className={`rounded-lg border flex flex-col ${
         isCollapsed ? 'min-h-[80px] border-dashed overflow-hidden' : 'min-h-[140px]'
       } ${columnClasses}`}
-      aria-label={formatFullDate(date)}
+      aria-label={isCollapsed ? `${formatFullDate(date)}, no interviews` : formatFullDate(date)}
       data-testid={`day-column-${date.getDay()}`}
     >
       {/* Day header */}
@@ -42,7 +42,7 @@ export function DayColumn({ date, interviews, isToday, isCollapsed = false, onDe
           isToday
             ? 'text-purple-700 bg-purple-100 border-purple-300'
             : isCollapsed
-              ? 'text-gray-400 bg-gray-100/50 border-gray-200'
+              ? 'text-gray-500 bg-gray-100/50 border-gray-200'
               : 'text-gray-600 bg-gray-100 border-gray-200'
         } rounded-t-lg`}
       >

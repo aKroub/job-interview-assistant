@@ -151,4 +151,16 @@ describe('DayColumn — collapsed state', () => {
     const column = screen.getByTestId('day-column-3');
     expect(column.className).not.toContain('border-dashed');
   });
+
+  it('includes "no interviews" in aria-label when collapsed', () => {
+    setup({ date: new Date(2026, 1, 20), isCollapsed: true }); // Fri 20
+    const column = screen.getByTestId('day-column-5');
+    expect(column.getAttribute('aria-label')).toContain('no interviews');
+  });
+
+  it('does not include "no interviews" in aria-label when not collapsed', () => {
+    setup({ date: new Date(2026, 1, 20), isCollapsed: false });
+    const column = screen.getByTestId('day-column-5');
+    expect(column.getAttribute('aria-label')).not.toContain('no interviews');
+  });
 });

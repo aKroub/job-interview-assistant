@@ -4,6 +4,7 @@ import {
   groupInterviewsByDate,
   shiftWeek,
   isSameDay,
+  isWeekend,
   formatDayHeader,
   formatFullDate,
   formatWeekRange,
@@ -292,6 +293,49 @@ describe('formatWeekRange', () => {
     const weekStart = new Date(2025, 11, 28); // Sun Dec 28, 2025
     const result = formatWeekRange(weekStart);
     expect(result).toBe('Dec 28, 2025 – Jan 3, 2026');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isWeekend
+// ---------------------------------------------------------------------------
+
+describe('isWeekend', () => {
+  it('returns true for Friday (default weekend)', () => {
+    const fri = new Date(2026, 1, 20); // Friday
+    expect(fri.getDay()).toBe(5);
+    expect(isWeekend(fri)).toBe(true);
+  });
+
+  it('returns true for Saturday (default weekend)', () => {
+    const sat = new Date(2026, 1, 21); // Saturday
+    expect(sat.getDay()).toBe(6);
+    expect(isWeekend(sat)).toBe(true);
+  });
+
+  it('returns false for Sunday through Thursday', () => {
+    // Sun Feb 15 through Thu Feb 19, 2026
+    for (let dayOfMonth = 15; dayOfMonth <= 19; dayOfMonth++) {
+      const d = new Date(2026, 1, dayOfMonth);
+      expect(isWeekend(d)).toBe(false);
+    }
+  });
+
+  it('accepts custom weekend days (e.g. Sat/Sun = [0, 6])', () => {
+    const sun = new Date(2026, 1, 15); // Sunday
+    const sat = new Date(2026, 1, 21); // Saturday
+    const fri = new Date(2026, 1, 20); // Friday
+
+    expect(isWeekend(sun, [0, 6])).toBe(true);
+    expect(isWeekend(sat, [0, 6])).toBe(true);
+    expect(isWeekend(fri, [0, 6])).toBe(false);
+  });
+
+  it('does not mutate the input date', () => {
+    const original = new Date(2026, 1, 20);
+    const originalTime = original.getTime();
+    isWeekend(original);
+    expect(original.getTime()).toBe(originalTime);
   });
 });
 

@@ -4,6 +4,7 @@ import {
   getWeekStart,
   groupInterviewsByDate,
   isSameDay,
+  isWeekend,
   shiftWeek,
   toDateString,
 } from '../../utils/calendarUtils';
@@ -32,10 +33,23 @@ export function CalendarView({ companies, interviewTypes, onAddInterview, onDele
   const [showAddModal,      setShowAddModal]      = useState(false);
   const [editingInterview,  setEditingInterview]   = useState(null);
 
-  const allInterviews  = flattenAndSortInterviews(companies);
-  const weekDays       = getWeekDays(currentWeekStart);
+  const allInterviews    = flattenAndSortInterviews(companies);
+  const weekDays         = getWeekDays(currentWeekStart);
   const interviewsByDate = groupInterviewsByDate(allInterviews);
-  const today          = new Date();
+  const today            = new Date();
+
+  // Weekend days with no interviews collapse to narrow markers.
+  const collapsedDays = new Set(
+    weekDays
+      .filter(day => isWeekend(day) && (interviewsByDate.get(toDateString(day)) || []).length === 0)
+      .map(day => toDateString(day))
+  );
+
+  // Dynamic grid: full-width for normal/occupied days, 48px for collapsed weekends.
+  // Uses a CSS custom property so the mobile grid-cols-1 breakpoint still works.
+  const weekColsValue = weekDays
+    .map(day => collapsedDays.has(toDateString(day)) ? '48px' : '1fr')
+    .join(' ');
 
   const handlePrevWeek = useCallback(() => {
     setCurrentWeekStart((prev) => shiftWeek(prev, -1));
@@ -66,8 +80,12 @@ export function CalendarView({ companies, interviewTypes, onAddInterview, onDele
         onAddClick={() => setShowAddModal(true)}
       />
 
-      {/* Day columns grid — 7 columns on desktop, stacked on mobile */}
-      <div className="grid grid-cols-1 md:grid-cols-7 gap-2">
+      {/* Day columns grid — dynamic widths on desktop, stacked on mobile */}
+      <div
+        className="grid grid-cols-1 md:[grid-template-columns:var(--week-cols)] gap-2"
+        style={{ '--week-cols': weekColsValue }}
+        data-testid="week-grid"
+      >
         {weekDays.map((day) => {
           const dateKey    = toDateString(day);
           const interviews = interviewsByDate.get(dateKey) || [];
@@ -78,6 +96,7 @@ export function CalendarView({ companies, interviewTypes, onAddInterview, onDele
               date={day}
               interviews={interviews}
               isToday={isSameDay(day, today)}
+              isCollapsed={collapsedDays.has(dateKey)}
               onDeleteInterview={onDeleteInterview}
               onEdit={setEditingInterview}
             />

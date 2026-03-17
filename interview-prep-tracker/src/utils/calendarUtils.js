@@ -141,6 +141,21 @@ export function formatFullDate(date) {
 }
 
 /**
+ * Returns true if the given date falls on a weekend day.
+ *
+ * Defaults to Friday (getDay()=5) and Saturday (getDay()=6) to match the
+ * local work-week. Pass a different array for other locales — e.g.
+ * `[0, 6]` for the common Saturday/Sunday weekend.
+ *
+ * @param {Date} date
+ * @param {number[]} weekendDays - day-of-week indices (0=Sun … 6=Sat)
+ * @returns {boolean}
+ */
+export function isWeekend(date, weekendDays = [5, 6]) {
+  return weekendDays.includes(date.getDay());
+}
+
+/**
  * Converts a Date to a YYYY-MM-DD string in local time.
  * Used as a key for groupInterviewsByDate lookups.
  *

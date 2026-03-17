@@ -46,11 +46,11 @@ export function CompanyCard({ company, onDelete, onEdit, onStageChange, onDragSt
           </div>
           <p className="text-xs text-gray-600 mt-1">{company.position}</p>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5">
           {onEdit && (
             <button
               onClick={() => onEdit(company)}
-              className="text-gray-400 hover:text-purple-600 transition"
+              className="p-1 rounded text-gray-400 hover:text-purple-600 focus:outline-none focus:ring-2 focus:ring-purple-400 transition"
               aria-label={`Edit ${company.name}`}
             >
               <Pencil size={14} />
@@ -62,7 +62,7 @@ export function CompanyCard({ company, onDelete, onEdit, onStageChange, onDragSt
                 onDelete(company.id);
               }
             }}
-            className="text-gray-400 hover:text-red-600 transition"
+            className="p-1 rounded text-gray-400 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-400 transition"
             aria-label={`Delete ${company.name}`}
           >
             <X size={16} />

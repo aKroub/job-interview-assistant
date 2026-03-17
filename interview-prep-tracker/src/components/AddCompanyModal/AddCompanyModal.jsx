@@ -146,7 +146,7 @@ export function AddCompanyModal({
                 type="text"
                 value={draft.name}
                 disabled
-                className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
               />
             ) : (
               <CompanyCombobox
@@ -203,7 +203,7 @@ export function AddCompanyModal({
 
           {/* Initial Stage */}
           <div>
-            <FieldLabel htmlFor="company-stage">Initial Stage</FieldLabel>
+            <FieldLabel htmlFor="company-stage">{isEditMode ? 'Stage' : 'Initial Stage'}</FieldLabel>
             <select
               id="company-stage"
               value={draft.stage}

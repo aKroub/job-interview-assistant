@@ -93,6 +93,7 @@ const InterviewPrepTracker = () => {
   }
 
   function handleEditCompany() {
+    if (!editingCompany) return;
     updateCompany(editingCompany.id, {
       position:      companyDraft.position,
       stage:         companyDraft.stage,

@@ -95,6 +95,12 @@ describe('InterviewCard — role', () => {
     const el = screen.getByText('Staff Software Engineer, Platform Infrastructure');
     expect(el).toHaveClass('truncate');
   });
+
+  it('shows full position as hover tooltip via title attribute', () => {
+    setup({ position: 'Staff Software Engineer, Platform Infrastructure' });
+    const el = screen.getByText('Staff Software Engineer, Platform Infrastructure');
+    expect(el).toHaveAttribute('title', 'Staff Software Engineer, Platform Infrastructure');
+  });
 });
 
 // ---------------------------------------------------------------------------

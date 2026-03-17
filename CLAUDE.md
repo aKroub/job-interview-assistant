@@ -270,7 +270,7 @@ src/
 │   └── apiService.js       REST calls + SSE stream (injectable fetch/EventSource)
 │
 ├── utils/              Pure functions — no React, no globals, no side effects
-│   ├── calendarUtils.js
+│   ├── calendarUtils.js    getWeekDays + isWeekend + date formatting helpers
 │   ├── companyUtils.js
 │   ├── companyLogoUtils.js  getCompanyLogoUrl + resolveCompanyLogoUrl + guessDomain
 │   ├── imageUtils.js        normalizeImage (Canvas-based 128×128 PNG conversion)

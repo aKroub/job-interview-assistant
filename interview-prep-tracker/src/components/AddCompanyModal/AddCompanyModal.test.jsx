@@ -216,3 +216,64 @@ describe('AddCompanyModal — callbacks', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Edit mode
+// ---------------------------------------------------------------------------
+
+function setupEditMode(draftOverrides = {}, handlers = {}) {
+  const editingCompany = {
+    id: 'c1', name: 'Vayu', position: 'Software Engineering Manager',
+    stage: 'applied', pipeline: ['tel-aviv'], interviews: [],
+  };
+  const draft = makeDraft({ name: 'Vayu', position: 'Software Engineering Manager', ...draftOverrides });
+  const onDraftChange = handlers.onDraftChange ?? vi.fn();
+  const onAdd         = handlers.onAdd         ?? vi.fn();
+  const onEdit        = handlers.onEdit        ?? vi.fn();
+  const onClose       = handlers.onClose       ?? vi.fn();
+
+  render(
+    <AddCompanyModal
+      draft={draft}
+      onDraftChange={onDraftChange}
+      onAdd={onAdd}
+      onEdit={onEdit}
+      onClose={onClose}
+      stages={ACTIVE_STAGES}
+      stageLabels={STAGE_LABELS}
+      positions={POSITIONS}
+      pipelines={PIPELINES}
+      pipelineLabels={PIPELINE_LABELS}
+      editingCompany={editingCompany}
+    />
+  );
+
+  return { onDraftChange, onAdd, onEdit, onClose };
+}
+
+describe('AddCompanyModal — edit mode', () => {
+  const user = userEvent.setup();
+
+  it('renders "Edit Company" heading in edit mode', () => {
+    setupEditMode();
+    expect(screen.getByRole('heading', { name: /edit company/i })).toBeInTheDocument();
+  });
+
+  it('renders "Save Changes" button instead of "Add Company"', () => {
+    setupEditMode();
+    expect(screen.getByRole('button', { name: /save changes/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /add company/i })).not.toBeInTheDocument();
+  });
+
+  it('disables the company name input', () => {
+    setupEditMode();
+    expect(screen.getByLabelText(/company name/i)).toBeDisabled();
+  });
+
+  it('calls onEdit (not onAdd) when submitting in edit mode', async () => {
+    const { onEdit, onAdd } = setupEditMode({ position: POSITIONS[0] });
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    expect(onAdd).not.toHaveBeenCalled();
+  });
+});

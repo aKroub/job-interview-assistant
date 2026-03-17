@@ -11,6 +11,7 @@ A full-stack interview preparation and job application tracking tool. A React fr
 - **Company logos** displayed on cards, interview cards, suggestions, and prep sections
 - **Searchable company dropdown** with 45 pre-loaded companies and their logos
 - Add custom companies with domain-based logo fetching or manual upload
+- **Edit company cards** — click the pencil icon to change position, stage, or pipeline
 - Track position titles and company names
 - Easy company deletion
 
@@ -156,6 +157,7 @@ interview-prep-tracker/src/
 │   ├── app.js                     # APP_TITLE env var with fallback
 │   ├── companies.js               # COMPANY_POOL array + lookup map + aliases
 │   ├── interviewTypes.js          # INTERVIEW_TYPES, TYPE_CONFIG, DURATION_OPTIONS
+│   ├── pipelines.js               # PIPELINES array + PIPELINE_LABELS map + DEFAULT_PIPELINE
 │   ├── positions.js               # POSITIONS array
 │   ├── questions.js               # SYSTEM_DESIGN_QUESTIONS (Google / Microsoft / Facebook)
 │   └── stages.js                  # STAGES array + STAGE_LABELS map
@@ -210,7 +212,7 @@ interview-prep-tracker/src/
 │       ├── SuggestionCard.jsx     # Individual suggestion card
 │       └── ConnectionStatus.jsx   # OAuth connection status indicator
 │
-├── InterviewPrepTracker.jsx       # Thin orchestrating shell (~150 lines)
+├── InterviewPrepTracker.jsx       # Orchestrating shell (~360 lines)
 ├── App.jsx                        # Renders <InterviewPrepTracker />
 └── App.test.jsx                   # Integration smoke tests
 ```
@@ -256,7 +258,7 @@ server/src/
 
 The test suite covers every layer across both frontend and backend:
 
-### Frontend (44 test suites)
+### Frontend (47 test suites)
 
 | Layer | Test files | What they test |
 |---|---|---|
@@ -264,7 +266,7 @@ The test suite covers every layer across both frontend and backend:
 | Services | `storageService.test.js`, `apiService.test.js` | Storage interface, REST calls, SSE stream |
 | Utils | `companyUtils.test.js`, `questionUtils.test.js`, `calendarUtils.test.js`, `companyLogoUtils.test.js`, `companyLogoUtils.stress.test.js`, `companyUtils.stress.test.js`, `cancelUpdateStress.test.js` | Pure function unit tests and stress tests (no React) |
 | Hooks | `useCompanies.test.js`, `useSeenQuestions.test.js`, `useInterviewSuggestions.test.js`, `useInterviewSuggestions.stress.test.js`, `useInterviewTracker.test.js`, `useCloudSync.test.js` | Hook tests with injected in-memory storage / mock API, stress tests |
-| Components | 24 test files (one per component) including `CloudSyncMenu.test.jsx`, `TodayInterviews.test.jsx`, `KanbanBoard.stress.test.jsx`, `TodayInterviews.stress.test.jsx`, `editInterview.stress.test.jsx`, `depsUpgrade.stress.test.jsx` | Rendering, user interactions, callback wiring, stress tests |
+| Components | 25 test files (one per component) including `CloudSyncMenu.test.jsx`, `TodayInterviews.test.jsx`, `KanbanBoard.stress.test.jsx`, `TodayInterviews.stress.test.jsx`, `editInterview.stress.test.jsx`, `editCompany.stress.test.jsx`, `depsUpgrade.stress.test.jsx` | Rendering, user interactions, callback wiring, stress tests |
 | Integration | `App.test.jsx` | Smoke test — app renders and default view loads |
 | Migration | `viteMigration.stress.test.jsx` | Vite/Vitest/Tailwind v4 migration regression tests (env vars, globals isolation, class renames, ESM resolution, Testing Library compatibility) |
 
@@ -304,6 +306,7 @@ Tests never mock `localStorage` globally — they inject a `createMemoryStorage(
 
 ### Managing the Pipeline
 - Drag and drop cards between columns to move a company to a different stage
+- Click the **✏️** pencil icon on a card to edit its position, stage, or pipeline
 - Click the **✕** icon to remove a company
 
 ### Scheduling Interviews

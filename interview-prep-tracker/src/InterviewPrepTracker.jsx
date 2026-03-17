@@ -34,11 +34,13 @@ const InterviewPrepTracker = () => {
   const [showModal,       setShowModal]       = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [companyDraft,    setCompanyDraft]    = useState(EMPTY_DRAFT);
+  const [editingCompany,  setEditingCompany]  = useState(null);
   const [suggestionDraft, setSuggestionDraft] = useState(null);
 
   const {
     companies,
     addCompany,
+    updateCompany,
     updateCompanyStage,
     deleteCompany,
     addInterview,
@@ -72,8 +74,36 @@ const InterviewPrepTracker = () => {
   }
 
   function handleOpenModal() {
+    setEditingCompany(null);
     setCompanyDraft({ ...EMPTY_DRAFT, pipeline: [activePipeline] });
     setShowModal(true);
+  }
+
+  function handleOpenEditModal(company) {
+    setEditingCompany(company);
+    setCompanyDraft({
+      name:     company.name,
+      position: company.position,
+      stage:    company.stage,
+      pipeline: company.pipeline,
+      domain:   company.domain,
+      customLogoUrl: company.customLogoUrl,
+    });
+    setShowModal(true);
+  }
+
+  function handleEditCompany() {
+    if (!editingCompany) return;
+    updateCompany(editingCompany.id, {
+      position:      companyDraft.position,
+      stage:         companyDraft.stage,
+      pipeline:      companyDraft.pipeline,
+      domain:        companyDraft.domain,
+      customLogoUrl: companyDraft.customLogoUrl,
+    });
+    setEditingCompany(null);
+    setCompanyDraft(EMPTY_DRAFT);
+    setShowModal(false);
   }
 
   const todaysInterviews = getTodaysUpcomingInterviews(companies);
@@ -264,6 +294,7 @@ const InterviewPrepTracker = () => {
               onPipelineChange={setActivePipeline}
               onAddCompany={handleOpenModal}
               onDeleteCompany={deleteCompany}
+              onEditCompany={handleOpenEditModal}
               onUpdateStage={updateCompanyStage}
             />
           )}
@@ -286,18 +317,20 @@ const InterviewPrepTracker = () => {
           )}
         </div>
 
-        {/* Add Company modal */}
+        {/* Add / Edit Company modal */}
         {showModal && (
           <AddCompanyModal
             draft={companyDraft}
             onDraftChange={setCompanyDraft}
             onAdd={handleAddCompany}
-            onClose={() => setShowModal(false)}
+            onEdit={handleEditCompany}
+            onClose={() => { setShowModal(false); setEditingCompany(null); }}
             stages={ACTIVE_STAGES}
             stageLabels={STAGE_LABELS}
             positions={POSITIONS}
             pipelines={PIPELINES}
             pipelineLabels={PIPELINE_LABELS}
+            editingCompany={editingCompany}
           />
         )}
 

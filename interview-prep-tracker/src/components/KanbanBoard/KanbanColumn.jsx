@@ -12,13 +12,14 @@ import { CompanyCard } from './CompanyCard';
  *   label:          string,
  *   companies:      Object[],
  *   onDelete:       (companyId: string) => void,
+ *   onEditCompany:  (company: Object) => void,
  *   onUpdateStage:  (companyId: string, newStage: string) => void,
  *   onDragStart:    (e: DragEvent, companyId: string) => void,
  *   onDragEnd:      (e: DragEvent) => void,
  *   pipelineLabels: Record<string, string>,
  * }} props
  */
-export function KanbanColumn({ stage, label, companies, onDelete, onUpdateStage, onDragStart, onDragEnd, pipelineLabels }) {
+export function KanbanColumn({ stage, label, companies, onDelete, onEditCompany, onUpdateStage, onDragStart, onDragEnd, pipelineLabels }) {
   const [isDragOver, setIsDragOver] = useState(false);
 
   const columnCompanies = companies.filter((c) => c.stage === stage);
@@ -65,6 +66,7 @@ export function KanbanColumn({ stage, label, companies, onDelete, onUpdateStage,
             key={company.id}
             company={company}
             onDelete={onDelete}
+            onEdit={onEditCompany}
             onStageChange={onUpdateStage}
             onDragStart={onDragStart}
             onDragEnd={onDragEnd}

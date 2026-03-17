@@ -5,6 +5,7 @@ import {
   applyAddInterview,
   applyDeleteInterview,
   applyDelete,
+  applyEditCompany,
   applyInterviewStatusUpdate,
   applyInterviewUpdate,
   applyStageUpdate,
@@ -90,6 +91,10 @@ export function useCompanies(storage = localStorageService) {
     persistWith(prev => applyStageUpdate(prev, companyId, newStage));
   }
 
+  function updateCompany(companyId, updates) {
+    persistWith(prev => applyEditCompany(prev, companyId, updates));
+  }
+
   function deleteCompany(companyId) {
     persistWith(prev => applyDelete(prev, companyId));
   }
@@ -127,6 +132,7 @@ export function useCompanies(storage = localStorageService) {
   return {
     companies,
     addCompany,
+    updateCompany,
     updateCompanyStage,
     deleteCompany,
     addInterview,

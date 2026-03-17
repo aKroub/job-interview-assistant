@@ -1,6 +1,7 @@
 import {
   applyAddInterview,
   applyDelete,
+  applyEditCompany,
   applyInterviewStatusUpdate,
   applyInterviewUpdate,
   applyStageUpdate,
@@ -202,6 +203,50 @@ describe('migrateCompanies', () => {
     const companies = [];
     const result = migrateCompanies(companies, 'tel-aviv');
     expect(result).toBe(companies);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// applyEditCompany
+// ---------------------------------------------------------------------------
+
+describe('applyEditCompany', () => {
+  it('updates the specified fields on the matching company', () => {
+    const companies = [makeCompany({ id: '1', position: 'Engineer' })];
+    const result = applyEditCompany(companies, '1', { position: 'Head of Engineering' });
+    expect(result[0].position).toBe('Head of Engineering');
+  });
+
+  it('does not mutate the original array or company', () => {
+    const original = makeCompany({ id: '1', position: 'Engineer' });
+    const companies = [original];
+    const result = applyEditCompany(companies, '1', { position: 'Manager' });
+    expect(result).not.toBe(companies);
+    expect(result[0]).not.toBe(original);
+    expect(original.position).toBe('Engineer');
+  });
+
+  it('leaves other companies unchanged', () => {
+    const companies = [
+      makeCompany({ id: '1', position: 'Engineer' }),
+      makeCompany({ id: '2', position: 'Designer' }),
+    ];
+    const result = applyEditCompany(companies, '1', { position: 'Manager' });
+    expect(result[1].position).toBe('Designer');
+  });
+
+  it('preserves fields not included in updates', () => {
+    const companies = [makeCompany({ id: '1', name: 'Acme Corp', position: 'Engineer', stage: 'applied' })];
+    const result = applyEditCompany(companies, '1', { position: 'Manager' });
+    expect(result[0].name).toBe('Acme Corp');
+    expect(result[0].stage).toBe('applied');
+  });
+
+  it('can update multiple fields at once', () => {
+    const companies = [makeCompany({ id: '1', position: 'Engineer', pipeline: ['tel-aviv'] })];
+    const result = applyEditCompany(companies, '1', { position: 'Manager', pipeline: ['us'] });
+    expect(result[0].position).toBe('Manager');
+    expect(result[0].pipeline).toEqual(['us']);
   });
 });
 

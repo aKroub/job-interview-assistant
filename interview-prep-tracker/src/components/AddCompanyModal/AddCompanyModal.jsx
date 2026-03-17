@@ -4,25 +4,27 @@ import { FormError } from '../shared/FormError';
 import { CompanyCombobox } from '../shared/CompanyCombobox';
 
 /**
- * Modal dialog for adding a new company to the pipeline.
+ * Modal dialog for adding a new company or editing an existing one.
  *
  * Owns only ephemeral UI state (submitted flag for showing validation errors).
  * All persisted data and callbacks arrive via props.
  *
- * Company selection uses a searchable combobox with logo thumbnails from the
- * pre-populated company pool. Users can also add custom companies not in the
- * pool, with optional domain-based logo fetching or manual upload.
+ * When `editingCompany` is provided, the modal switches to edit mode:
+ * the title changes to "Edit Company", the company name field is disabled,
+ * and the submit button reads "Save Changes".
  *
  * @param {{
- *   draft:          { name: string, position: string, stage: string, pipeline: string[], domain?: string, customLogoUrl?: string },
- *   onDraftChange:  (updatedDraft: Object) => void,
- *   onAdd:          () => void,
- *   onClose:        () => void,
- *   stages:         string[],
- *   stageLabels:    Object,
- *   positions:      string[],
- *   pipelines:      string[],
- *   pipelineLabels: Record<string, string>,
+ *   draft:            { name: string, position: string, stage: string, pipeline: string[], domain?: string, customLogoUrl?: string },
+ *   onDraftChange:    (updatedDraft: Object) => void,
+ *   onAdd:            () => void,
+ *   onClose:          () => void,
+ *   stages:           string[],
+ *   stageLabels:      Object,
+ *   positions:        string[],
+ *   pipelines:        string[],
+ *   pipelineLabels:   Record<string, string>,
+ *   editingCompany?:  Object | null,
+ *   onEdit?:          () => void,
  * }} props
  */
 export function AddCompanyModal({
@@ -35,7 +37,10 @@ export function AddCompanyModal({
   positions,
   pipelines,
   pipelineLabels,
+  editingCompany = null,
+  onEdit,
 }) {
+  const isEditMode = !!editingCompany;
   const [submitted, setSubmitted] = useState(false);
   const modalRef = useRef(null);
 
@@ -74,10 +79,14 @@ export function AddCompanyModal({
 
   const isValid = !errors.name && !errors.position && !errors.pipeline;
 
-  function handleAdd() {
+  function handleSubmit() {
     setSubmitted(true);
     if (!isValid) return;
-    onAdd();
+    if (isEditMode) {
+      onEdit();
+    } else {
+      onAdd();
+    }
   }
 
   function handleClose() {
@@ -122,18 +131,30 @@ export function AddCompanyModal({
       onClick={(e) => { if (e.target === e.currentTarget) handleClose(); }}
     >
       <div ref={modalRef} className="bg-white rounded-lg p-6 w-full max-w-md">
-        <h3 id="add-company-title" className="text-xl font-bold text-gray-800 mb-4">Add Company</h3>
+        <h3 id="add-company-title" className="text-xl font-bold text-gray-800 mb-4">
+          {isEditMode ? 'Edit Company' : 'Add Company'}
+        </h3>
 
         <div className="space-y-4">
 
-          {/* Company Name — searchable combobox */}
+          {/* Company Name — searchable combobox (disabled in edit mode) */}
           <div>
             <FieldLabel htmlFor="company-combobox" required>Company Name</FieldLabel>
-            <CompanyCombobox
-              value={draft.name}
-              onChange={handleCompanyNameChange}
-              onCustomCompany={handleCustomCompany}
-            />
+            {isEditMode ? (
+              <input
+                id="company-combobox"
+                type="text"
+                value={draft.name}
+                disabled
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+              />
+            ) : (
+              <CompanyCombobox
+                value={draft.name}
+                onChange={handleCompanyNameChange}
+                onCustomCompany={handleCustomCompany}
+              />
+            )}
             <FormError message={submitted ? errors.name : null} />
           </div>
 
@@ -182,7 +203,7 @@ export function AddCompanyModal({
 
           {/* Initial Stage */}
           <div>
-            <FieldLabel htmlFor="company-stage">Initial Stage</FieldLabel>
+            <FieldLabel htmlFor="company-stage">{isEditMode ? 'Stage' : 'Initial Stage'}</FieldLabel>
             <select
               id="company-stage"
               value={draft.stage}
@@ -199,10 +220,10 @@ export function AddCompanyModal({
 
         <div className="flex gap-3 mt-6">
           <button
-            onClick={handleAdd}
+            onClick={handleSubmit}
             className="flex-1 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
           >
-            Add Company
+            {isEditMode ? 'Save Changes' : 'Add Company'}
           </button>
           <button
             onClick={handleClose}

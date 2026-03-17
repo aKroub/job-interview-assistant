@@ -697,3 +697,250 @@ describe('H9: duplicate times and large dataset performance', () => {
     expect(JSON.stringify(companies)).toBe(snapshot);
   });
 });
+
+// ===========================================================================
+// Stress tests for applyEditCompany (PR: feature/edit-company-card)
+// ===========================================================================
+
+import { applyEditCompany, applyAddInterview, flattenAndSortInterviews } from './companyUtils';
+
+// ---------------------------------------------------------------------------
+// H1: editing a company with interviews could corrupt interview data
+// ---------------------------------------------------------------------------
+
+describe('H1 (edit): editing a company preserves interview data', () => {
+  it('applyEditCompany does not touch the interviews array', () => {
+    const interviews = [
+      { id: 'i1', type: 'Phone', date: '2026-03-20', time: '10:00', status: 'scheduled' },
+      { id: 'i2', type: 'Technical', date: '2026-03-22', time: '14:00', status: 'completed' },
+    ];
+    const companies = [makeCompany({ id: '1', interviews })];
+
+    const result = applyEditCompany(companies, '1', { position: 'Staff Engineer' });
+
+    expect(result[0].interviews).toHaveLength(2);
+    expect(result[0].interviews[0].id).toBe('i1');
+    expect(result[0].interviews[1].id).toBe('i2');
+    expect(result[0].interviews[0].status).toBe('scheduled');
+    expect(result[0].interviews[1].status).toBe('completed');
+  });
+
+  it('editing position does not affect flattenAndSortInterviews interview fields', () => {
+    const interviews = [
+      { id: 'i1', type: 'Phone', date: '2026-03-20', time: '10:00', status: 'scheduled', duration: 45 },
+    ];
+    const companies = [makeCompany({ id: '1', name: 'Acme', interviews })];
+
+    const edited = applyEditCompany(companies, '1', { position: 'Head of Engineering' });
+    const flat = flattenAndSortInterviews(edited);
+
+    expect(flat).toHaveLength(1);
+    expect(flat[0].type).toBe('Phone');
+    expect(flat[0].date).toBe('2026-03-20');
+    expect(flat[0].time).toBe('10:00');
+    expect(flat[0].duration).toBe(45);
+    expect(flat[0].position).toBe('Head of Engineering');
+    expect(flat[0].companyName).toBe('Acme');
+  });
+
+  it('editing pipeline does not lose or duplicate interviews', () => {
+    const interviews = [
+      { id: 'i1', type: 'HR', date: '2026-04-01', time: '09:00', status: 'scheduled' },
+      { id: 'i2', type: 'Technical', date: '2026-04-02', time: '11:00', status: 'scheduled' },
+      { id: 'i3', type: 'Phone', date: '2026-04-03', time: '16:00', status: 'cancelled' },
+    ];
+    const companies = [makeCompany({ id: '1', pipeline: ['tel-aviv'], interviews })];
+
+    const edited = applyEditCompany(companies, '1', { pipeline: ['tel-aviv', 'us'] });
+
+    expect(edited[0].interviews).toHaveLength(3);
+    expect(edited[0].interviews.map(i => i.id)).toEqual(['i1', 'i2', 'i3']);
+  });
+
+  it('adding an interview after editing does not corrupt the edit', () => {
+    const companies = [makeCompany({ id: '1', position: 'SWE', interviews: [] })];
+
+    const edited = applyEditCompany(companies, '1', { position: 'Head of Engineering' });
+    const withInterview = applyAddInterview(edited, '1', {
+      type: 'Phone', date: '2026-04-10', time: '10:00', status: 'scheduled',
+    }, () => 999);
+
+    expect(withInterview[0].position).toBe('Head of Engineering');
+    expect(withInterview[0].interviews).toHaveLength(1);
+    expect(withInterview[0].interviews[0].id).toBe('999');
+  });
+
+  it('editing a company does not affect other companies or their interviews', () => {
+    const companies = [
+      makeCompany({
+        id: '1', name: 'Alpha',
+        interviews: [{ id: 'i1', type: 'Phone', date: '2026-03-20', time: '10:00', status: 'scheduled' }],
+      }),
+      makeCompany({
+        id: '2', name: 'Beta',
+        interviews: [{ id: 'i2', type: 'HR', date: '2026-03-21', time: '11:00', status: 'completed' }],
+      }),
+    ];
+
+    const edited = applyEditCompany(companies, '1', { position: 'Manager' });
+
+    // Company 2 should be completely untouched (same reference)
+    expect(edited[1]).toBe(companies[1]);
+    expect(edited[1].interviews[0].id).toBe('i2');
+    expect(edited[1].interviews[0].status).toBe('completed');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// H2: editing position/pipeline while the company is in multiple pipelines
+// ---------------------------------------------------------------------------
+
+describe('H2 (edit): editing multi-pipeline company', () => {
+  it('editing position on a multi-pipeline company updates it for both pipelines', () => {
+    const companies = [makeCompany({ id: '1', pipeline: ['tel-aviv', 'us'], position: 'SWE' })];
+
+    const edited = applyEditCompany(companies, '1', { position: 'Head of Engineering' });
+
+    // Same company object in both pipeline views
+    const inTelAviv = edited.filter(c => isInPipeline(c, 'tel-aviv'));
+    const inUs = edited.filter(c => isInPipeline(c, 'us'));
+
+    expect(inTelAviv).toHaveLength(1);
+    expect(inUs).toHaveLength(1);
+    expect(inTelAviv[0].position).toBe('Head of Engineering');
+    expect(inUs[0].position).toBe('Head of Engineering');
+    expect(inTelAviv[0]).toBe(inUs[0]); // same reference
+  });
+
+  it('removing a pipeline via edit still keeps the company in remaining pipelines', () => {
+    const companies = [makeCompany({ id: '1', pipeline: ['tel-aviv', 'us'] })];
+
+    const edited = applyEditCompany(companies, '1', { pipeline: ['us'] });
+
+    expect(isInPipeline(edited[0], 'tel-aviv')).toBe(false);
+    expect(isInPipeline(edited[0], 'us')).toBe(true);
+    expect(isMultiPipeline(edited[0])).toBe(false);
+  });
+
+  it('adding a pipeline via edit makes the company appear in the new pipeline', () => {
+    const companies = [makeCompany({ id: '1', pipeline: ['tel-aviv'] })];
+
+    const edited = applyEditCompany(companies, '1', { pipeline: ['tel-aviv', 'us'] });
+
+    expect(isInPipeline(edited[0], 'tel-aviv')).toBe(true);
+    expect(isInPipeline(edited[0], 'us')).toBe(true);
+    expect(isMultiPipeline(edited[0])).toBe(true);
+  });
+
+  it('editing stage on a multi-pipeline company is reflected in both pipeline views', () => {
+    const companies = [makeCompany({ id: '1', pipeline: ['tel-aviv', 'us'], stage: 'applied' })];
+
+    const edited = applyEditCompany(companies, '1', { stage: 'offer' });
+
+    const inTelAviv = edited.filter(c => isInPipeline(c, 'tel-aviv'));
+    const inUs = edited.filter(c => isInPipeline(c, 'us'));
+    expect(inTelAviv[0].stage).toBe('offer');
+    expect(inUs[0].stage).toBe('offer');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// H4 (edit): rapid sequential edits — state consistency
+// ---------------------------------------------------------------------------
+
+describe('H4 (edit): rapid sequential edits produce consistent state', () => {
+  it('three sequential edits to the same company produce correct final state', () => {
+    let companies = [makeCompany({ id: '1', position: 'SWE', stage: 'applied', pipeline: ['tel-aviv'] })];
+
+    companies = applyEditCompany(companies, '1', { position: 'Manager' });
+    companies = applyEditCompany(companies, '1', { stage: 'technical' });
+    companies = applyEditCompany(companies, '1', { pipeline: ['tel-aviv', 'us'] });
+
+    expect(companies[0].position).toBe('Manager');
+    expect(companies[0].stage).toBe('technical');
+    expect(companies[0].pipeline).toEqual(['tel-aviv', 'us']);
+  });
+
+  it('editing the same field multiple times keeps only the last value', () => {
+    let companies = [makeCompany({ id: '1', position: 'SWE' })];
+
+    companies = applyEditCompany(companies, '1', { position: 'Manager' });
+    companies = applyEditCompany(companies, '1', { position: 'Head of Engineering' });
+    companies = applyEditCompany(companies, '1', { position: 'Senior Software Engineer' });
+
+    expect(companies[0].position).toBe('Senior Software Engineer');
+  });
+
+  it('interleaving edits on different companies does not cross-contaminate', () => {
+    let companies = [
+      makeCompany({ id: '1', name: 'Alpha', position: 'SWE' }),
+      makeCompany({ id: '2', name: 'Beta', position: 'SWE' }),
+    ];
+
+    companies = applyEditCompany(companies, '1', { position: 'Manager' });
+    companies = applyEditCompany(companies, '2', { position: 'Head of Engineering' });
+    companies = applyEditCompany(companies, '1', { stage: 'offer' });
+
+    expect(companies[0].position).toBe('Manager');
+    expect(companies[0].stage).toBe('offer');
+    expect(companies[1].position).toBe('Head of Engineering');
+    expect(companies[1].stage).toBe('applied'); // unchanged
+  });
+
+  it('editing a non-existent company ID leaves the array unchanged', () => {
+    const companies = [makeCompany({ id: '1', position: 'SWE' })];
+
+    const result = applyEditCompany(companies, 'nonexistent', { position: 'Manager' });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].position).toBe('SWE'); // unchanged
+    // The company object should be the same reference (no unnecessary copy)
+    expect(result[0]).toBe(companies[0]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Immutability checks for applyEditCompany
+// ---------------------------------------------------------------------------
+
+describe('applyEditCompany immutability', () => {
+  it('does not mutate the original companies array', () => {
+    const companies = [makeCompany({ id: '1', position: 'SWE' })];
+    const snapshot = JSON.stringify(companies);
+
+    applyEditCompany(companies, '1', { position: 'Manager' });
+
+    expect(JSON.stringify(companies)).toBe(snapshot);
+  });
+
+  it('does not mutate the original company object', () => {
+    const original = makeCompany({ id: '1', position: 'SWE', pipeline: ['tel-aviv'] });
+    const companies = [original];
+
+    applyEditCompany(companies, '1', { position: 'Manager', pipeline: ['us'] });
+
+    expect(original.position).toBe('SWE');
+    expect(original.pipeline).toEqual(['tel-aviv']);
+  });
+
+  it('returns a new array reference', () => {
+    const companies = [makeCompany({ id: '1' })];
+    const result = applyEditCompany(companies, '1', { position: 'Manager' });
+    expect(result).not.toBe(companies);
+  });
+
+  it('returns a new object reference for the edited company', () => {
+    const companies = [makeCompany({ id: '1' })];
+    const result = applyEditCompany(companies, '1', { position: 'Manager' });
+    expect(result[0]).not.toBe(companies[0]);
+  });
+
+  it('preserves object identity for unedited companies', () => {
+    const companies = [
+      makeCompany({ id: '1' }),
+      makeCompany({ id: '2', name: 'Other' }),
+    ];
+    const result = applyEditCompany(companies, '1', { position: 'Manager' });
+    expect(result[1]).toBe(companies[1]);
+  });
+});

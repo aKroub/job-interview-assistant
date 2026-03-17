@@ -1,7 +1,7 @@
 import React from 'react';
 import { CalendarCheck, HelpCircle } from 'lucide-react';
 import { TYPE_CONFIG } from '../../constants/interviewTypes';
-import { getCompanyLogoUrl } from '../../utils/companyLogoUtils';
+import { resolveCompanyLogoUrl } from '../../utils/companyLogoUtils';
 import { CompanyLogo } from './CompanyLogo';
 
 /**
@@ -15,6 +15,11 @@ import { CompanyLogo } from './CompanyLogo';
 function TodayInterviewItem({ interview, onClick }) {
   const typeConfig = TYPE_CONFIG[interview.type];
   const InterviewIcon = typeConfig ? typeConfig.Icon : HelpCircle;
+  const logoUrl = resolveCompanyLogoUrl({
+    name: interview.companyName,
+    domain: interview.companyDomain,
+    customLogoUrl: interview.companyCustomLogoUrl,
+  });
 
   const baseClasses =
     'flex items-center gap-1.5 bg-white border border-purple-200 rounded-md px-3 py-1.5 text-sm transition';
@@ -54,7 +59,7 @@ function TodayInterviewItem({ interview, onClick }) {
       {interview.time && (
         <span className="text-gray-300" aria-hidden="true">&middot;</span>
       )}
-      <CompanyLogo logoUrl={getCompanyLogoUrl(interview.companyName)} companyName={interview.companyName} size={14} />
+      <CompanyLogo logoUrl={logoUrl} companyName={interview.companyName} size={14} />
       <span className="text-gray-700 truncate max-w-[80px] sm:max-w-[120px] md:max-w-[200px]" title={interview.companyName}>{interview.companyName}</span>
       <InterviewIcon size={14} className={`${iconColour} shrink-0`} aria-hidden="true" />
     </div>

@@ -373,6 +373,24 @@ describe('flattenAndSortInterviews', () => {
     ];
     expect(flattenAndSortInterviews(companies)).toHaveLength(2);
   });
+
+  it('decorates each interview with companyDomain and companyCustomLogoUrl', () => {
+    const companies = [
+      makeCompany({ id: 'c1', domain: 'start.io', customLogoUrl: 'data:image/png;base64,abc', interviews: [makeInterview({ id: 'i1', date: '2024-06-01' })] }),
+    ];
+    const result = flattenAndSortInterviews(companies);
+    expect(result[0].companyDomain).toBe('start.io');
+    expect(result[0].companyCustomLogoUrl).toBe('data:image/png;base64,abc');
+  });
+
+  it('sets companyDomain and companyCustomLogoUrl to null when absent', () => {
+    const companies = [
+      makeCompany({ id: 'c1', interviews: [makeInterview({ id: 'i1', date: '2024-06-01' })] }),
+    ];
+    const result = flattenAndSortInterviews(companies);
+    expect(result[0].companyDomain).toBeNull();
+    expect(result[0].companyCustomLogoUrl).toBeNull();
+  });
 });
 
 describe('deriveInterviewStatus', () => {

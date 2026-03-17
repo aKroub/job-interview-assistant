@@ -20,7 +20,7 @@ function makeInterview(overrides = {}) {
   };
 }
 
-function setup({ date, interviews = [], isToday = false, onEdit, onDeleteInterview } = {}) {
+function setup({ date, interviews = [], isToday = false, isCollapsed = false, onEdit, onDeleteInterview } = {}) {
   const editHandler   = onEdit            ?? vi.fn();
   const deleteHandler = onDeleteInterview  ?? vi.fn();
   const dateObj       = date ?? new Date(2026, 1, 18); // Wednesday Feb 18
@@ -30,6 +30,7 @@ function setup({ date, interviews = [], isToday = false, onEdit, onDeleteIntervi
       date={dateObj}
       interviews={interviews}
       isToday={isToday}
+      isCollapsed={isCollapsed}
       onDeleteInterview={deleteHandler}
       onEdit={editHandler}
     />
@@ -108,5 +109,46 @@ describe('DayColumn — interview cards', () => {
   it('renders the interview time in the card', () => {
     setup({ interviews: [makeInterview({ time: '14:30' })] });
     expect(screen.getByText('14:30')).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Collapsed state
+// ---------------------------------------------------------------------------
+
+describe('DayColumn — collapsed state', () => {
+  it('still renders the day header when collapsed', () => {
+    setup({ date: new Date(2026, 1, 20), isCollapsed: true }); // Fri 20
+    expect(screen.getByText('Fri 20')).toBeInTheDocument();
+  });
+
+  it('does not show "No interviews" placeholder when collapsed', () => {
+    setup({ interviews: [], isCollapsed: true });
+    expect(screen.queryByText('No interviews')).not.toBeInTheDocument();
+  });
+
+  it('applies dashed border when collapsed', () => {
+    setup({ isCollapsed: true });
+    const column = screen.getByTestId('day-column-3'); // Wednesday
+    expect(column.className).toContain('border-dashed');
+  });
+
+  it('applies muted background when collapsed (non-today)', () => {
+    setup({ isCollapsed: true, isToday: false });
+    const column = screen.getByTestId('day-column-3');
+    expect(column.className).toContain('border-gray-300');
+    expect(column.className).toContain('bg-gray-50/20');
+  });
+
+  it('keeps purple highlight when collapsed and isToday', () => {
+    setup({ isCollapsed: true, isToday: true });
+    const column = screen.getByTestId('day-column-3');
+    expect(column.className).toContain('border-purple-400');
+  });
+
+  it('does not apply dashed border when not collapsed', () => {
+    setup({ isCollapsed: false });
+    const column = screen.getByTestId('day-column-3');
+    expect(column.className).not.toContain('border-dashed');
   });
 });

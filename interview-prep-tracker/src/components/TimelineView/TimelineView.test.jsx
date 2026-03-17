@@ -71,10 +71,11 @@ describe('TimelineView — rendering', () => {
 // ---------------------------------------------------------------------------
 
 describe('TimelineView — empty state', () => {
-  it('shows "No interviews" placeholder in each day when there are no interviews', () => {
+  it('shows "No interviews" placeholder only for non-weekend days when there are no interviews', () => {
     setup({ companies: [makeCompany({ interviews: [] })] });
     const placeholders = screen.getAllByText('No interviews');
-    expect(placeholders.length).toBe(7);
+    // Weekend days (Fri/Sat) are collapsed and hide the placeholder → 5 visible
+    expect(placeholders.length).toBe(5);
   });
 });
 

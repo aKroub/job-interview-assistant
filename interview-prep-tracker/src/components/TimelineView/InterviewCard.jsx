@@ -90,6 +90,11 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit }) {
         </span>
       </div>
 
+      {/* Role / position */}
+      {typeof interview.position === 'string' && interview.position !== '' && (
+        <p className="text-xs text-gray-600 mb-1 truncate" title={interview.position}>{interview.position}</p>
+      )}
+
       {/* Interview type */}
       {interview.type && (
         <p className="text-xs text-gray-500 mb-1 truncate">{interview.type}</p>

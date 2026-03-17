@@ -67,6 +67,43 @@ describe('InterviewCard — rendering', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Role / position display
+// ---------------------------------------------------------------------------
+
+describe('InterviewCard — role', () => {
+  it('renders the position when present', () => {
+    setup({ position: 'Senior Software Engineer' });
+    expect(screen.getByText('Senior Software Engineer')).toBeInTheDocument();
+  });
+
+  it('does not render position when absent', () => {
+    setup({ position: undefined });
+    expect(screen.queryByText('Senior Software Engineer')).not.toBeInTheDocument();
+  });
+
+  it('does not render position when empty string', () => {
+    setup({ position: '' });
+    // No empty <p> tag should appear
+    const card = screen.getByText('Acme Corp').closest('div').parentElement;
+    const paragraphs = card.querySelectorAll('p');
+    const emptyParagraphs = [...paragraphs].filter((p) => p.textContent === '');
+    expect(emptyParagraphs).toHaveLength(0);
+  });
+
+  it('truncates long position text', () => {
+    setup({ position: 'Staff Software Engineer, Platform Infrastructure' });
+    const el = screen.getByText('Staff Software Engineer, Platform Infrastructure');
+    expect(el).toHaveClass('truncate');
+  });
+
+  it('shows full position as hover tooltip via title attribute', () => {
+    setup({ position: 'Staff Software Engineer, Platform Infrastructure' });
+    const el = screen.getByText('Staff Software Engineer, Platform Infrastructure');
+    expect(el).toHaveAttribute('title', 'Staff Software Engineer, Platform Infrastructure');
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Duration display
 // ---------------------------------------------------------------------------
 

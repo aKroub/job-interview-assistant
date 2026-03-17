@@ -173,9 +173,11 @@ export function flattenAndSortInterviews(companies) {
     .flatMap((company) =>
       company.interviews.map((interview) => ({
         ...interview,
-        companyName: company.name,
-        position:    company.position,
-        companyId:   company.id,
+        companyName:      company.name,
+        position:         company.position,
+        companyId:        company.id,
+        companyDomain:    company.domain || null,
+        companyCustomLogoUrl: company.customLogoUrl || null,
       }))
     )
     .sort((a, b) => new Date(a.date) - new Date(b.date));

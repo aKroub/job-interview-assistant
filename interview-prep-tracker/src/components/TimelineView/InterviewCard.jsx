@@ -2,7 +2,7 @@ import { Clock, Pencil, Trash2 } from 'lucide-react';
 import React from 'react';
 import { TYPE_CONFIG } from '../../constants/interviewTypes';
 import { deriveInterviewStatus } from '../../utils/companyUtils';
-import { getCompanyLogoUrl } from '../../utils/companyLogoUtils';
+import { resolveCompanyLogoUrl } from '../../utils/companyLogoUtils';
 import { CompanyLogo } from '../shared/CompanyLogo';
 
 /** Tailwind class sets for each display status (matches InterviewRow pattern). */
@@ -32,7 +32,11 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit }) {
 
   const typeConfig = TYPE_CONFIG[interview.type] || {};
   const InterviewIcon = typeConfig.Icon;
-  const logoUrl = getCompanyLogoUrl(interview.companyName);
+  const logoUrl = resolveCompanyLogoUrl({
+    name: interview.companyName,
+    domain: interview.companyDomain,
+    customLogoUrl: interview.companyCustomLogoUrl,
+  });
 
   function handleDelete() {
     if (window.confirm(`Are you sure you want to delete the ${interview.companyName} interview?`)) {

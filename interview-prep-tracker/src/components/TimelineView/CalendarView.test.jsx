@@ -3,7 +3,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CalendarView } from './CalendarView';
 import { INTERVIEW_TYPES } from '../../constants/interviewTypes';
-import { toDateString } from '../../utils/calendarUtils';
+import { getWeekStart, toDateString } from '../../utils/calendarUtils';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -171,14 +171,10 @@ describe('CalendarView — weekend auto-collapse', () => {
   });
 
   it('does not collapse weekend day that has interviews', () => {
-    // Find the upcoming Friday date to place an interview there
-    const now = new Date();
-    const dayOfWeek = now.getDay();
-    const daysUntilFriday = (5 - dayOfWeek + 7) % 7 || 7;
-    const friday = new Date(now);
-    friday.setDate(now.getDate() + daysUntilFriday);
-    // If Friday is not in the current week, navigate; for simplicity,
-    // we use the week that contains this Friday
+    // Derive this week's Friday deterministically from the current week start (Sunday)
+    const weekStart = getWeekStart(new Date());
+    const friday = new Date(weekStart);
+    friday.setDate(weekStart.getDate() + 5); // Sunday + 5 = Friday
     const fridayStr = toDateString(friday);
 
     const companies = [
@@ -188,15 +184,7 @@ describe('CalendarView — weekend auto-collapse', () => {
     ];
     setup({ companies });
 
-    // Navigate to the week containing the Friday interview
-    // The CalendarView starts at the current week, so if Friday is this week it works.
-    // If not, this test still verifies the non-collapse behavior for occupied days.
     const fridayCol = screen.getByTestId('day-column-5');
-    // If the interview is in this week, the column should not be collapsed
-    if (fridayCol.className.includes('border-dashed')) {
-      // Interview is in a different week — still valid that empty weekend collapses
-      return;
-    }
     expect(fridayCol.className).not.toContain('border-dashed');
   });
 

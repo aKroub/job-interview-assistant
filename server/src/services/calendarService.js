@@ -14,6 +14,24 @@ import { extractCompanyNameFromText } from '../utils/emailParser.js';
  * @param {Function} [options.nowFn=() => new Date()] - injectable clock for testing
  * @returns {{ scanForInterviews: () => Promise<Object[]> }}
  */
+/**
+ * Extracts the video-conference URL from a Google Calendar event.
+ *
+ * Prefers `hangoutLink` (direct Google Meet URL) over `conferenceData`
+ * entry points. Returns `''` if neither exists.
+ *
+ * @param {Object} event - Google Calendar event resource
+ * @returns {string}
+ */
+function extractVideoCallUrlFromEvent(event) {
+  if (event.hangoutLink) return event.hangoutLink;
+
+  const videoEntry = event.conferenceData?.entryPoints?.find(
+    (ep) => ep.entryPointType === 'video',
+  );
+  return videoEntry?.uri || '';
+}
+
 export function createCalendarService(authClient, options = {}) {
   const {
     lookaheadDays = 30,
@@ -121,6 +139,7 @@ export function createCalendarService(authClient, options = {}) {
           score: 0.8,
           matchedKeywords,
           reasons: ['cancelled-event'],
+          videoCallLink: extractVideoCallUrlFromEvent(event),
           hasVideoLink: !!(event.hangoutLink || event.conferenceData),
           location: event.location || '',
           companyName,
@@ -151,6 +170,7 @@ export function createCalendarService(authClient, options = {}) {
           score,
           matchedKeywords,
           reasons,
+          videoCallLink: extractVideoCallUrlFromEvent(event),
           hasVideoLink: !!(event.hangoutLink || event.conferenceData),
           location: event.location || '',
           companyName,

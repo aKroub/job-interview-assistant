@@ -327,7 +327,7 @@ server/src/
 │   └── driveService.js     Google Drive save/load/list for versioned app-state backups (keeps last 5)
 │
 ├── utils/              Pure functions — no Express, no globals
-│   ├── emailParser.js      Scores + parses Gmail messages
+│   ├── emailParser.js      Scores + parses Gmail messages + extracts video call URLs
 │   ├── llmEnrichment.js    Merges LLM-extracted fields into regex results (per-field fallback)
 │   └── matchingUtils.js    Scores + cross-references calendar events with emails
 │

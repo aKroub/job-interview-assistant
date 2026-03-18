@@ -280,6 +280,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
    *   calendarEventId: string,
    *   emailMessageId: string,
    *   detectedAt: string,
+   *   videoCallLink: string,
    * }>>}
    */
   async function detect() {
@@ -397,6 +398,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
             calendarEventId: event.eventId,
             emailMessageId: email.messageId,
             detectedAt: new Date(idFn()).toISOString(),
+            videoCallLink: event.videoCallLink || email.videoCallLink || '',
           });
 
           usedEventIds.add(event.eventId);
@@ -452,6 +454,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
         calendarEventId: '',
         emailMessageId: email.messageId,
         detectedAt: new Date(idFn()).toISOString(),
+        videoCallLink: email.videoCallLink || '',
       });
     }
 
@@ -486,6 +489,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
         calendarEventId: event.eventId,
         emailMessageId: '',
         detectedAt: new Date(idFn()).toISOString(),
+        videoCallLink: event.videoCallLink || '',
       });
     }
 

@@ -790,3 +790,36 @@ export function detectEmailIntent(subject, body) {
 
   return 'add';
 }
+
+/**
+ * Video-conference URL patterns anchored on `https?://` to avoid matching
+ * inside tracking-wrapper URLs (e.g. redirect?url=https://zoom.us/j/123).
+ * Each pattern captures the full URL from scheme to the next whitespace or
+ * delimiter character.
+ */
+const VIDEO_URL_PATTERNS = [
+  /https?:\/\/[a-zA-Z0-9.-]*zoom\.us\/j\/[^\s<>"')\]]+/i,
+  /https?:\/\/meet\.google\.com\/[a-z]{3}-[a-z]{4}-[a-z]{3}[^\s<>"')\]]*/i,
+  /https?:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^\s<>"')\]]+/i,
+  /https?:\/\/[a-zA-Z0-9.-]*webex\.com\/[^\s<>"')\]]+/i,
+];
+
+/**
+ * Extracts the first video-conference URL from plain text (email body,
+ * snippet, or any free-form string).
+ *
+ * Supports Zoom, Google Meet, Microsoft Teams, and Webex links.
+ * Returns the matched URL or `''` if none is found.
+ *
+ * @param {string} text - plain text to search
+ * @returns {string} the first matching video URL, or `''`
+ */
+export function extractVideoCallUrl(text) {
+  if (!text) return '';
+
+  for (const pattern of VIDEO_URL_PATTERNS) {
+    const match = text.match(pattern);
+    if (match) return match[0];
+  }
+  return '';
+}

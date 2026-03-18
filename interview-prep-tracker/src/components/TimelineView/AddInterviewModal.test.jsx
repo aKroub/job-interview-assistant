@@ -426,11 +426,12 @@ describe('AddInterviewModal — edit mode submission', () => {
     expect(companyId).toBe('c1');
     expect(interviewId).toBe('i1');
     expect(updates).toEqual({
-      type:     'Phone Interview',
-      date:     '2025-10-15',
-      time:     '09:30',
-      duration: 60,
-      status:   'scheduled',
+      type:          'Phone Interview',
+      date:          '2025-10-15',
+      time:          '09:30',
+      duration:      60,
+      status:        'scheduled',
+      videoCallLink: '',
     });
   });
 
@@ -503,5 +504,59 @@ describe('AddInterviewModal — edit mode close', () => {
     const { onClose } = setupEditMode();
     await user.click(screen.getByTestId('modal-overlay'));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Video call link field
+// ---------------------------------------------------------------------------
+
+describe('AddInterviewModal — video call link', () => {
+  it('renders the video call link field in add mode', () => {
+    setup();
+    expect(screen.getByLabelText(/video call link/i)).toBeInTheDocument();
+  });
+
+  it('renders the video call link field in edit mode', () => {
+    setupEditMode();
+    expect(screen.getByLabelText(/video call link/i)).toBeInTheDocument();
+  });
+
+  it('includes videoCallLink in submitted data (add mode)', async () => {
+    const user = userEvent.setup();
+    const { onAdd } = setup();
+    await fillAllRequired(user);
+    await user.type(screen.getByLabelText(/video call link/i), 'https://zoom.us/j/999');
+    await user.click(screen.getByRole('button', { name: /schedule/i }));
+    expect(onAdd).toHaveBeenCalledTimes(1);
+    const [, interviewData] = onAdd.mock.calls[0];
+    expect(interviewData.videoCallLink).toBe('https://zoom.us/j/999');
+  });
+
+  it('includes videoCallLink in submitted data (edit mode)', async () => {
+    const user = userEvent.setup();
+    const { onEdit } = setupEditMode({
+      interview: makeEditInterview({ videoCallLink: 'https://meet.google.com/aaa-bbbb-ccc' }),
+    });
+    expect(screen.getByLabelText(/video call link/i)).toHaveValue('https://meet.google.com/aaa-bbbb-ccc');
+    await user.click(screen.getByRole('button', { name: /save changes/i }));
+    expect(onEdit).toHaveBeenCalledTimes(1);
+    const [, , updates] = onEdit.mock.calls[0];
+    expect(updates.videoCallLink).toBe('https://meet.google.com/aaa-bbbb-ccc');
+  });
+
+  it('pre-populates videoCallLink from initialValues', () => {
+    setup({ initialValues: { companyId: 'c1', type: 'Phone Interview', date: '2025-09-01', time: '10:00', videoCallLink: 'https://zoom.us/j/555' } });
+    expect(screen.getByLabelText(/video call link/i)).toHaveValue('https://zoom.us/j/555');
+  });
+
+  it('submits empty string when video call link is not filled', async () => {
+    const user = userEvent.setup();
+    const { onAdd } = setup();
+    await fillAllRequired(user);
+    await user.click(screen.getByRole('button', { name: /schedule/i }));
+    expect(onAdd).toHaveBeenCalledTimes(1);
+    const [, interviewData] = onAdd.mock.calls[0];
+    expect(interviewData.videoCallLink).toBe('');
   });
 });

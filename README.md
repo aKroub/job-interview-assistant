@@ -19,7 +19,8 @@ A full-stack interview preparation and job application tracking tool. A React fr
 - **Today's Interviews** summary strip above the tabs — shows today's upcoming scheduled interviews as compact chips with time, company name, and type icon; click a chip to jump to the Timeline view, auto-scroll to the correct week, and highlight the interview card with a purple pulse
 - Weekly calendar view (Sun–Sat) with day columns and interview cards
 - Navigate between weeks with prev / next / today buttons
-- Schedule interviews with type (Phone, Video, In-Person), date, time, and duration
+- Schedule interviews with type (Phone, Video, In-Person), date, time, duration, and optional video call link
+- **Video call links** on interview cards — clickable "Join call" button extracted from Google Calendar (`hangoutLink` / `conferenceData`) or Gmail (Zoom, Meet, Teams, WebEx URLs), or entered manually
 - Dynamic icons per interview type
 - Status tracking: Scheduled, Completed, Cancelled — plus auto-derived "Passed" for past-scheduled interviews
 - Delete interviews directly from the calendar
@@ -258,7 +259,7 @@ server/src/
 
 The test suite covers every layer across both frontend and backend:
 
-### Frontend (49 test suites)
+### Frontend (50 test suites)
 
 | Layer | Test files | What they test |
 |---|---|---|
@@ -266,18 +267,18 @@ The test suite covers every layer across both frontend and backend:
 | Services | `storageService.test.js`, `apiService.test.js` | Storage interface, REST calls, SSE stream |
 | Utils | `companyUtils.test.js`, `questionUtils.test.js`, `calendarUtils.test.js`, `companyLogoUtils.test.js`, `companyLogoUtils.stress.test.js`, `companyUtils.stress.test.js`, `cancelUpdateStress.test.js` | Pure function unit tests and stress tests (no React) |
 | Hooks | `useCompanies.test.js`, `useSeenQuestions.test.js`, `useInterviewSuggestions.test.js`, `useInterviewSuggestions.stress.test.js`, `useInterviewTracker.test.js`, `useCloudSync.test.js` | Hook tests with injected in-memory storage / mock API, stress tests |
-| Components | 27 test files (one per component) including `CloudSyncMenu.test.jsx`, `TodayInterviews.test.jsx`, `KanbanBoard.stress.test.jsx`, `TodayInterviews.stress.test.jsx`, `editInterview.stress.test.jsx`, `editCompany.stress.test.jsx`, `highlightInterview.stress.test.jsx`, `SuggestionCard.stress.test.jsx`, `depsUpgrade.stress.test.jsx` | Rendering, user interactions, callback wiring, stress tests |
+| Components | 28 test files (one per component) including `CloudSyncMenu.test.jsx`, `TodayInterviews.test.jsx`, `KanbanBoard.stress.test.jsx`, `TodayInterviews.stress.test.jsx`, `editInterview.stress.test.jsx`, `editCompany.stress.test.jsx`, `highlightInterview.stress.test.jsx`, `videoCallLink.stress.test.jsx`, `SuggestionCard.stress.test.jsx`, `depsUpgrade.stress.test.jsx` | Rendering, user interactions, callback wiring, stress tests |
 | Integration | `App.test.jsx` | Smoke test — app renders and default view loads |
 | Migration | `viteMigration.stress.test.jsx` | Vite/Vitest/Tailwind v4 migration regression tests (env vars, globals isolation, class renames, ESM resolution, Testing Library compatibility) |
 
-### Backend (35 test suites)
+### Backend (36 test suites)
 
 | Layer | Test files | What they test |
 |---|---|---|
 | Config | `config.test.js` | Env var loading + validation |
 | Services | `tokenStore.test.js`, `googleAuth.test.js`, `gmailService.test.js`, `calendarService.test.js`, `interviewDetector.test.js`, `interviewDetector.stress.test.js`, `llmExtractor.test.js`, `driveService.test.js` | Business logic with injectable mocks |
 | Utils | `emailParser.test.js`, `matchingUtils.test.js`, `llmEnrichment.test.js`, `llmEnrichment.stress.test.js`, `phraseExpansionStress.test.js`, `gcalScoringStress.test.js`, `gcalCancellationRepro.test.js`, `cancelUpdateStress.test.js`, `cancellationEmailRepro.test.js` | Scoring, parsing, LLM enrichment, stress and regression tests |
-| Resilience | `llmResilience.stress.test.js`, `llmDuplication.repro.test.js`, `extractionCacheStress.test.js`, `logLevelGating.stress.test.js`, `dismissedLogGating.stress.test.js`, `interviewsRoute.test.js`, `resetSuggestions.stress.test.js`, `llmExtractionImprovements.stress.test.js`, `depsUpgrade.stress.test.js` | Semaphore deadlock, extraction cache, circuit breaker, log-level gating, dismissed-log gating, scan cooldown, reset races, stats consistency, concurrent error batches, duration computation edge cases, Express 5 / Jest 30 / googleapis 171 compatibility |
+| Resilience | `llmResilience.stress.test.js`, `llmDuplication.repro.test.js`, `extractionCacheStress.test.js`, `logLevelGating.stress.test.js`, `dismissedLogGating.stress.test.js`, `interviewsRoute.test.js`, `resetSuggestions.stress.test.js`, `llmExtractionImprovements.stress.test.js`, `videoCallLink.stress.test.js`, `depsUpgrade.stress.test.js` | Semaphore deadlock, extraction cache, circuit breaker, log-level gating, dismissed-log gating, scan cooldown, reset races, stats consistency, concurrent error batches, duration computation edge cases, video call URL extraction, Express 5 / Jest 30 / googleapis 171 compatibility |
 | Integration | `indexWiring.stress.test.js` | App factory wiring stress tests |
 | Routes | `auth.test.js`, `interviews.test.js`, `logo.test.js`, `logo.stress.test.js`, `sync.test.js` | HTTP route tests via supertest |
 
@@ -312,7 +313,7 @@ Tests never mock `localStorage` globally — they inject a `createMemoryStorage(
 ### Scheduling Interviews
 1. Go to the **Timeline** tab
 2. Click **Schedule Interview**
-3. Select a company, then fill in type (Phone, Video, or In-Person), date, and time
+3. Select a company, then fill in type (Phone, Video, or In-Person), date, time, and optionally a video call link
 4. The interview appears in the weekly calendar on the correct day
 5. Navigate between weeks with the **◀ ▶** arrows or jump to **Today**
 6. Update or delete interviews directly from their cards

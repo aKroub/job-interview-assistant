@@ -218,11 +218,12 @@ describe('H3: edit-saves-wrong-fields — correct IDs per interview', () => {
 
     const [, , updates] = onEdit.mock.calls[0];
     expect(updates).toEqual({
-      type:     'Video Interview',
-      date:     '2026-06-15',
-      time:     '14:30',
-      duration: 90,
-      status:   'completed',
+      type:          'Video Interview',
+      date:          '2026-06-15',
+      time:          '14:30',
+      duration:      90,
+      status:        'completed',
+      videoCallLink: '',
     });
   });
 });

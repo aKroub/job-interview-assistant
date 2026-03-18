@@ -186,10 +186,11 @@ const InterviewPrepTracker = () => {
             companyId:   company.id,
             companyName: company.name,
             position:    company.position,
-            ...(suggestion.type     ? { type: suggestion.type }         : {}),
-            ...(suggestion.date     ? { date: suggestion.date }         : {}),
-            ...(suggestion.time     ? { time: suggestion.time }         : {}),
-            ...(suggestion.duration ? { duration: suggestion.duration } : {}),
+            ...(suggestion.type          ? { type: suggestion.type }                 : {}),
+            ...(suggestion.date          ? { date: suggestion.date }                 : {}),
+            ...(suggestion.time          ? { time: suggestion.time }                 : {}),
+            ...(suggestion.duration      ? { duration: suggestion.duration }         : {}),
+            ...(suggestion.videoCallLink ? { videoCallLink: suggestion.videoCallLink } : {}),
           };
           setSuggestionDraft({ suggestion, editInterview });
           return;
@@ -209,6 +210,9 @@ const InterviewPrepTracker = () => {
     };
     if (suggestion.duration) {
       values.duration = suggestion.duration;
+    }
+    if (suggestion.videoCallLink) {
+      values.videoCallLink = suggestion.videoCallLink;
     }
     setSuggestionDraft({ suggestion, initialValues: values });
   }

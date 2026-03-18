@@ -41,6 +41,8 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit, highlighte
   });
 
   const cardRef = useRef(null);
+  const highlightCompleteRef = useRef(onHighlightComplete);
+  highlightCompleteRef.current = onHighlightComplete;
   const isHighlighted = interview.id === highlightedInterviewId;
 
   useEffect(() => {
@@ -51,7 +53,7 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit, highlighte
     function handleAnimationEnd() {
       if (cleared) return;
       cleared = true;
-      if (onHighlightComplete) onHighlightComplete();
+      highlightCompleteRef.current?.();
     }
 
     const el = cardRef.current;
@@ -64,7 +66,7 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit, highlighte
       el?.removeEventListener('animationend', handleAnimationEnd);
       clearTimeout(fallbackTimer);
     };
-  }, [isHighlighted, onHighlightComplete]);
+  }, [isHighlighted]);
 
   function handleDelete() {
     if (window.confirm(`Are you sure you want to delete the ${interview.companyName} interview?`)) {

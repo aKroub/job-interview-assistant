@@ -116,6 +116,10 @@ const InterviewPrepTracker = () => {
     requestAnimationFrame(() => setHighlightedInterviewId(interview.id));
   }
 
+  function handleHighlightComplete() {
+    setHighlightedInterviewId(null);
+  }
+
   const pipelineCompanies = companies.filter(
     (c) => isInPipeline(c, activePipeline)
   );
@@ -310,7 +314,7 @@ const InterviewPrepTracker = () => {
               onDeleteInterview={deleteInterview}
               onUpdateInterview={updateInterview}
               highlightedInterviewId={highlightedInterviewId}
-              onHighlightComplete={() => setHighlightedInterviewId(null)}
+              onHighlightComplete={handleHighlightComplete}
             />
           )}
           {activeTab === 'prep' && (

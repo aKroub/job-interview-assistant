@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { InterviewCard } from './InterviewCard';
 
@@ -222,7 +222,7 @@ describe('InterviewCard — highlight', () => {
     const onHighlightComplete = vi.fn();
     setup({}, {}, { highlightedInterviewId: 'i1', onHighlightComplete });
     const card = screen.getByText('Acme Corp').closest('.animate-highlight-pulse');
-    card.dispatchEvent(new Event('animationend'));
+    act(() => { card.dispatchEvent(new Event('animationend')); });
     expect(onHighlightComplete).toHaveBeenCalledTimes(1);
   });
 });

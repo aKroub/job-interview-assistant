@@ -122,6 +122,12 @@ export function AddInterviewModal({
     if (!isValid || isSubmitting) return;
     setIsSubmitting(true);
 
+    // Sanitise the video call link — only allow http(s) URLs to prevent
+    // javascript: or data: URI injection when rendered as <a href>.
+    const safeVideoCallLink = /^https?:\/\//i.test(formData.videoCallLink)
+      ? formData.videoCallLink
+      : '';
+
     if (isEditMode) {
       onEdit(editingInterview.companyId, editingInterview.id, {
         type:          formData.type,
@@ -129,14 +135,14 @@ export function AddInterviewModal({
         time:          formData.time,
         duration:      formData.duration,
         status:        formData.status,
-        videoCallLink: formData.videoCallLink,
+        videoCallLink: safeVideoCallLink,
       });
       onClose();
       return;
     }
 
-    const { companyId, ...interviewData } = formData;
-    onAdd(companyId, interviewData);
+    const { companyId, videoCallLink: _raw, ...interviewData } = formData;
+    onAdd(companyId, { ...interviewData, videoCallLink: safeVideoCallLink });
     onClose();
   }
 

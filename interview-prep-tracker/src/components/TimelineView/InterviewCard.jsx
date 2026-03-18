@@ -1,4 +1,4 @@
-import { Clock, Pencil, Trash2, Video } from 'lucide-react';
+import { Clock, ExternalLink, Pencil, Trash2, Video } from 'lucide-react';
 import React, { useEffect, useRef } from 'react';
 import { TYPE_CONFIG } from '../../constants/interviewTypes';
 import { deriveInterviewStatus } from '../../utils/companyUtils';
@@ -111,18 +111,19 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit, highlighte
         </div>
       )}
 
-      {/* Video call link */}
-      {interview.videoCallLink && (
+      {/* Video call link — only render for http(s) URLs to prevent javascript: XSS */}
+      {interview.videoCallLink && /^https?:\/\//i.test(interview.videoCallLink) && (
         <a
           href={interview.videoCallLink}
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 py-1 px-2 rounded bg-blue-50 hover:bg-blue-100 transition mb-1"
+          className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 py-1 px-2 rounded bg-blue-50 hover:bg-blue-100 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1 focus-visible:outline-none transition mb-1"
           aria-label={`Join ${interview.companyName} video call`}
         >
           <Video size={14} aria-hidden="true" />
           <span>Join call</span>
+          <ExternalLink size={10} aria-hidden="true" className="opacity-60" />
         </a>
       )}
 

@@ -11,15 +11,17 @@ import { InterviewCard } from './InterviewCard';
  * narrow, visually muted marker showing only the day header.
  *
  * @param {{
- *   date:               Date,
- *   interviews:         Object[],
- *   isToday:            boolean,
- *   isCollapsed:        boolean,
- *   onDeleteInterview:  (companyId: string, interviewId: string) => void,
- *   onEdit:             (interview: Object) => void,
+ *   date:                   Date,
+ *   interviews:             Object[],
+ *   isToday:                boolean,
+ *   isCollapsed:            boolean,
+ *   onDeleteInterview:      (companyId: string, interviewId: string) => void,
+ *   onEdit:                 (interview: Object) => void,
+ *   highlightedInterviewId: string | null,
+ *   onHighlightComplete:    () => void,
  * }} props
  */
-export function DayColumn({ date, interviews, isToday, isCollapsed = false, onDeleteInterview, onEdit }) {
+export function DayColumn({ date, interviews, isToday, isCollapsed = false, onDeleteInterview, onEdit, highlightedInterviewId, onHighlightComplete }) {
   const headerLabel = formatDayHeader(date);
 
   const columnClasses = isToday
@@ -64,6 +66,8 @@ export function DayColumn({ date, interviews, isToday, isCollapsed = false, onDe
                   interview={interview}
                   onDeleteInterview={onDeleteInterview}
                   onEdit={onEdit}
+                  highlightedInterviewId={highlightedInterviewId}
+                  onHighlightComplete={onHighlightComplete}
                 />
               ))
           )}

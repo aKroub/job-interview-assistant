@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useLayoutEffect, useState } from 'react';
 import {
   getWeekDays,
   getWeekStart,
@@ -21,17 +21,32 @@ import { WeekHeader } from './WeekHeader';
  * callbacks arrive via props.
  *
  * @param {{
- *   companies:            Object[],
- *   interviewTypes:       string[],
- *   onAddInterview:       (companyId: string, interview: Object) => void,
- *   onDeleteInterview:    (companyId: string, interviewId: string) => void,
- *   onUpdateInterview:    (companyId: string, interviewId: string, updates: Object) => void,
+ *   companies:              Object[],
+ *   interviewTypes:         string[],
+ *   onAddInterview:         (companyId: string, interview: Object) => void,
+ *   onDeleteInterview:      (companyId: string, interviewId: string) => void,
+ *   onUpdateInterview:      (companyId: string, interviewId: string, updates: Object) => void,
+ *   highlightedInterviewId: string | null,
+ *   onHighlightComplete:    () => void,
  * }} props
  */
-export function CalendarView({ companies, interviewTypes, onAddInterview, onDeleteInterview, onUpdateInterview }) {
+export function CalendarView({ companies, interviewTypes, onAddInterview, onDeleteInterview, onUpdateInterview, highlightedInterviewId, onHighlightComplete }) {
   const [currentWeekStart,  setCurrentWeekStart]  = useState(() => getWeekStart(new Date()));
   const [showAddModal,      setShowAddModal]      = useState(false);
   const [editingInterview,  setEditingInterview]   = useState(null);
+
+  // When a highlighted interview is requested, navigate to its week.
+  // useLayoutEffect ensures the week is set before InterviewCard's scroll effect.
+  useLayoutEffect(() => {
+    if (!highlightedInterviewId) return;
+    for (const company of companies) {
+      const interview = company.interviews?.find((i) => i.id === highlightedInterviewId);
+      if (interview?.date) {
+        setCurrentWeekStart(getWeekStart(new Date(interview.date + 'T00:00:00')));
+        return;
+      }
+    }
+  }, [highlightedInterviewId, companies]);
 
   const allInterviews    = flattenAndSortInterviews(companies);
   const weekDays         = getWeekDays(currentWeekStart);
@@ -99,6 +114,8 @@ export function CalendarView({ companies, interviewTypes, onAddInterview, onDele
               isCollapsed={collapsedDays.has(dateKey)}
               onDeleteInterview={onDeleteInterview}
               onEdit={setEditingInterview}
+              highlightedInterviewId={highlightedInterviewId}
+              onHighlightComplete={onHighlightComplete}
             />
           );
         })}

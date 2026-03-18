@@ -229,3 +229,44 @@ describe('CalendarView — add interview modal', () => {
     expect(screen.queryByText('Select a company…')).not.toBeInTheDocument();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Highlight interview navigation
+// ---------------------------------------------------------------------------
+
+describe('CalendarView — highlight interview navigation', () => {
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+
+  it('navigates to the week containing the highlighted interview', () => {
+    // Place the interview two weeks from now so it's NOT in the default current week
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + 14);
+    const futureDateStr = toDateString(futureDate);
+
+    const companies = [
+      makeCompany({
+        id: 'c1',
+        name: 'FutureCo',
+        interviews: [makeInterview({ id: 'i-future', date: futureDateStr, time: '14:00' })],
+      }),
+    ];
+
+    render(
+      <CalendarView
+        companies={companies}
+        interviewTypes={INTERVIEW_TYPES}
+        onAddInterview={vi.fn()}
+        onDeleteInterview={vi.fn()}
+        onUpdateInterview={vi.fn()}
+        highlightedInterviewId="i-future"
+        onHighlightComplete={vi.fn()}
+      />
+    );
+
+    // The interview should be visible because CalendarView navigated to its week
+    expect(screen.getByText('FutureCo')).toBeInTheDocument();
+    expect(screen.getByText('14:00')).toBeInTheDocument();
+  });
+});

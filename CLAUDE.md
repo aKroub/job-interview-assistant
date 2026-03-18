@@ -301,7 +301,7 @@ src/
 │   ├── PrepContentView/(PrepContentView, CompanyQuestionSection, QuestionCard)
 │   └── Suggestions/    (SuggestionPanel, SuggestionCard, ConnectionStatus)
 │
-├── InterviewPrepTracker.jsx   Orchestrating shell (~360 lines)
+├── InterviewPrepTracker.jsx   Orchestrating shell (~370 lines)
 └── App.jsx                    Renders <InterviewPrepTracker />
 ```
 

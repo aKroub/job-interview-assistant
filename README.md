@@ -16,7 +16,7 @@ A full-stack interview preparation and job application tracking tool. A React fr
 - Easy company deletion
 
 ### 📅 Interview Calendar
-- **Today's Interviews** summary strip above the tabs — shows today's upcoming scheduled interviews as compact chips with time, company name, and type icon; click a chip to jump to the Timeline view
+- **Today's Interviews** summary strip above the tabs — shows today's upcoming scheduled interviews as compact chips with time, company name, and type icon; click a chip to jump to the Timeline view, auto-scroll to the correct week, and highlight the interview card with a purple pulse
 - Weekly calendar view (Sun–Sat) with day columns and interview cards
 - Navigate between weeks with prev / next / today buttons
 - Schedule interviews with type (Phone, Video, In-Person), date, time, and duration
@@ -212,7 +212,7 @@ interview-prep-tracker/src/
 │       ├── SuggestionCard.jsx     # Individual suggestion card
 │       └── ConnectionStatus.jsx   # OAuth connection status indicator
 │
-├── InterviewPrepTracker.jsx       # Orchestrating shell (~360 lines)
+├── InterviewPrepTracker.jsx       # Orchestrating shell (~370 lines)
 ├── App.jsx                        # Renders <InterviewPrepTracker />
 └── App.test.jsx                   # Integration smoke tests
 ```
@@ -258,7 +258,7 @@ server/src/
 
 The test suite covers every layer across both frontend and backend:
 
-### Frontend (47 test suites)
+### Frontend (49 test suites)
 
 | Layer | Test files | What they test |
 |---|---|---|
@@ -266,11 +266,11 @@ The test suite covers every layer across both frontend and backend:
 | Services | `storageService.test.js`, `apiService.test.js` | Storage interface, REST calls, SSE stream |
 | Utils | `companyUtils.test.js`, `questionUtils.test.js`, `calendarUtils.test.js`, `companyLogoUtils.test.js`, `companyLogoUtils.stress.test.js`, `companyUtils.stress.test.js`, `cancelUpdateStress.test.js` | Pure function unit tests and stress tests (no React) |
 | Hooks | `useCompanies.test.js`, `useSeenQuestions.test.js`, `useInterviewSuggestions.test.js`, `useInterviewSuggestions.stress.test.js`, `useInterviewTracker.test.js`, `useCloudSync.test.js` | Hook tests with injected in-memory storage / mock API, stress tests |
-| Components | 25 test files (one per component) including `CloudSyncMenu.test.jsx`, `TodayInterviews.test.jsx`, `KanbanBoard.stress.test.jsx`, `TodayInterviews.stress.test.jsx`, `editInterview.stress.test.jsx`, `editCompany.stress.test.jsx`, `depsUpgrade.stress.test.jsx` | Rendering, user interactions, callback wiring, stress tests |
+| Components | 27 test files (one per component) including `CloudSyncMenu.test.jsx`, `TodayInterviews.test.jsx`, `KanbanBoard.stress.test.jsx`, `TodayInterviews.stress.test.jsx`, `editInterview.stress.test.jsx`, `editCompany.stress.test.jsx`, `highlightInterview.stress.test.jsx`, `SuggestionCard.stress.test.jsx`, `depsUpgrade.stress.test.jsx` | Rendering, user interactions, callback wiring, stress tests |
 | Integration | `App.test.jsx` | Smoke test — app renders and default view loads |
 | Migration | `viteMigration.stress.test.jsx` | Vite/Vitest/Tailwind v4 migration regression tests (env vars, globals isolation, class renames, ESM resolution, Testing Library compatibility) |
 
-### Backend (34 test suites)
+### Backend (35 test suites)
 
 | Layer | Test files | What they test |
 |---|---|---|

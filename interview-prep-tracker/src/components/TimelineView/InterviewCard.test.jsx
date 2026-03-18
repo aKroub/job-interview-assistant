@@ -21,7 +21,7 @@ function makeInterview(overrides = {}) {
   };
 }
 
-function setup(interviewOverrides = {}, handlers = {}) {
+function setup(interviewOverrides = {}, handlers = {}, { highlightedInterviewId, onHighlightComplete } = {}) {
   const interview         = makeInterview(interviewOverrides);
   const onDeleteInterview = handlers.onDeleteInterview ?? vi.fn();
   const onEdit            = handlers.onEdit ?? vi.fn();
@@ -30,6 +30,8 @@ function setup(interviewOverrides = {}, handlers = {}) {
       interview={interview}
       onDeleteInterview={onDeleteInterview}
       onEdit={onEdit}
+      highlightedInterviewId={highlightedInterviewId}
+      onHighlightComplete={onHighlightComplete}
     />
   );
   return { interview, onDeleteInterview, onEdit };
@@ -184,5 +186,43 @@ describe('InterviewCard — delete button', () => {
     const { onDeleteInterview } = setup();
     await user.click(screen.getByLabelText(/delete .+ interview/i));
     expect(onDeleteInterview).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Highlight from TodayInterviews
+// ---------------------------------------------------------------------------
+
+describe('InterviewCard — highlight', () => {
+  const scrollMock = vi.fn();
+
+  beforeEach(() => {
+    scrollMock.mockClear();
+    Element.prototype.scrollIntoView = scrollMock;
+  });
+
+  it('applies highlight animation class when highlightedInterviewId matches', () => {
+    setup({}, {}, { highlightedInterviewId: 'i1' });
+    const card = screen.getByText('Acme Corp').closest('.animate-highlight-pulse');
+    expect(card).toBeInTheDocument();
+  });
+
+  it('does not apply highlight class when highlightedInterviewId does not match', () => {
+    setup({}, {}, { highlightedInterviewId: 'other-id' });
+    const card = screen.getByText('Acme Corp').closest('.relative');
+    expect(card.className).not.toContain('animate-highlight-pulse');
+  });
+
+  it('calls scrollIntoView when highlighted', () => {
+    setup({}, {}, { highlightedInterviewId: 'i1' });
+    expect(scrollMock).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' });
+  });
+
+  it('calls onHighlightComplete when animation ends', () => {
+    const onHighlightComplete = vi.fn();
+    setup({}, {}, { highlightedInterviewId: 'i1', onHighlightComplete });
+    const card = screen.getByText('Acme Corp').closest('.animate-highlight-pulse');
+    card.dispatchEvent(new Event('animationend'));
+    expect(onHighlightComplete).toHaveBeenCalledTimes(1);
   });
 });

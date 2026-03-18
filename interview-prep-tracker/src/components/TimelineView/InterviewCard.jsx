@@ -1,5 +1,5 @@
 import { Clock, Pencil, Trash2 } from 'lucide-react';
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { TYPE_CONFIG } from '../../constants/interviewTypes';
 import { deriveInterviewStatus } from '../../utils/companyUtils';
 import { resolveCompanyLogoUrl } from '../../utils/companyLogoUtils';
@@ -21,12 +21,14 @@ const STATUS_STYLES = {
  * callback.
  *
  * @param {{
- *   interview:          Object,
- *   onDeleteInterview:  (companyId: string, interviewId: string) => void,
- *   onEdit:             (interview: Object) => void,
+ *   interview:              Object,
+ *   onDeleteInterview:      (companyId: string, interviewId: string) => void,
+ *   onEdit:                 (interview: Object) => void,
+ *   highlightedInterviewId: string | null,
+ *   onHighlightComplete:    () => void,
  * }} props
  */
-export function InterviewCard({ interview, onDeleteInterview, onEdit }) {
+export function InterviewCard({ interview, onDeleteInterview, onEdit, highlightedInterviewId, onHighlightComplete }) {
   const displayStatus = deriveInterviewStatus(interview);
   const statusStyle   = STATUS_STYLES[displayStatus] ?? STATUS_STYLES.scheduled;
 
@@ -38,6 +40,22 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit }) {
     customLogoUrl: interview.companyCustomLogoUrl,
   });
 
+  const cardRef = useRef(null);
+  const isHighlighted = interview.id === highlightedInterviewId;
+
+  useEffect(() => {
+    if (!isHighlighted) return;
+    cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    function handleAnimationEnd() {
+      if (onHighlightComplete) onHighlightComplete();
+    }
+
+    const el = cardRef.current;
+    el?.addEventListener('animationend', handleAnimationEnd);
+    return () => el?.removeEventListener('animationend', handleAnimationEnd);
+  }, [isHighlighted, onHighlightComplete]);
+
   function handleDelete() {
     if (window.confirm(`Are you sure you want to delete the ${interview.companyName} interview?`)) {
       onDeleteInterview(interview.companyId, interview.id);
@@ -45,7 +63,10 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit }) {
   }
 
   return (
-    <div className="relative bg-white rounded-md border border-gray-200 p-2 shadow-sm hover:shadow transition">
+    <div
+      ref={cardRef}
+      className={`relative bg-white rounded-md border border-gray-200 p-2 shadow-sm hover:shadow transition${isHighlighted ? ' animate-highlight-pulse' : ''}`}
+    >
 
       {/* Action buttons — top-right */}
       <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5">

@@ -35,7 +35,8 @@ const InterviewPrepTracker = () => {
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [companyDraft,    setCompanyDraft]    = useState(EMPTY_DRAFT);
   const [editingCompany,  setEditingCompany]  = useState(null);
-  const [suggestionDraft, setSuggestionDraft] = useState(null);
+  const [suggestionDraft,       setSuggestionDraft]       = useState(null);
+  const [highlightedInterviewId, setHighlightedInterviewId] = useState(null);
 
   const {
     companies,
@@ -108,8 +109,9 @@ const InterviewPrepTracker = () => {
 
   const todaysInterviews = getTodaysUpcomingInterviews(companies);
 
-  function handleTodayInterviewClick(_interview) {
+  function handleTodayInterviewClick(interview) {
     setActiveTab('timeline');
+    setHighlightedInterviewId(interview.id);
   }
 
   const pipelineCompanies = companies.filter(
@@ -305,6 +307,8 @@ const InterviewPrepTracker = () => {
               onAddInterview={addInterview}
               onDeleteInterview={deleteInterview}
               onUpdateInterview={updateInterview}
+              highlightedInterviewId={highlightedInterviewId}
+              onHighlightComplete={() => setHighlightedInterviewId(null)}
             />
           )}
           {activeTab === 'prep' && (

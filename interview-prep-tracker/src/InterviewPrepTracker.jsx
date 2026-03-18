@@ -111,7 +111,9 @@ const InterviewPrepTracker = () => {
 
   function handleTodayInterviewClick(interview) {
     setActiveTab('timeline');
-    setHighlightedInterviewId(interview.id);
+    // Clear first so re-clicking the same chip re-triggers the highlight.
+    setHighlightedInterviewId(null);
+    requestAnimationFrame(() => setHighlightedInterviewId(interview.id));
   }
 
   const pipelineCompanies = companies.filter(

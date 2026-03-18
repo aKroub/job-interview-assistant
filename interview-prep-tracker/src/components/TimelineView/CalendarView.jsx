@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useLayoutEffect, useState } from 'react';
 import {
   getWeekDays,
   getWeekStart,
@@ -36,7 +36,8 @@ export function CalendarView({ companies, interviewTypes, onAddInterview, onDele
   const [editingInterview,  setEditingInterview]   = useState(null);
 
   // When a highlighted interview is requested, navigate to its week.
-  useEffect(() => {
+  // useLayoutEffect ensures the week is set before InterviewCard's scroll effect.
+  useLayoutEffect(() => {
     if (!highlightedInterviewId) return;
     for (const company of companies) {
       const interview = company.interviews?.find((i) => i.id === highlightedInterviewId);

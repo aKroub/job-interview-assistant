@@ -27,7 +27,8 @@ code {
     monospace;
 }
 
-/* Highlight pulse for "scroll to interview" from TodayInterviews chip */
+/* Highlight pulse for "scroll to interview" from TodayInterviews chip.
+   Color matches --color-blue-600 (#9333ea = rgb(147, 51, 234)). */
 @keyframes highlight-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(147, 51, 234, 0); }
   25%, 75% { box-shadow: 0 0 0 4px rgba(147, 51, 234, 0.3); }
@@ -36,4 +37,11 @@ code {
 
 .animate-highlight-pulse {
   animation: highlight-pulse 1.5s ease-in-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-highlight-pulse {
+    animation: none;
+    box-shadow: 0 0 0 4px rgba(147, 51, 234, 0.3);
+  }
 }

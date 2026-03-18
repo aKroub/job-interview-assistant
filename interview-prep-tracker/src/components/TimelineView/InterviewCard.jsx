@@ -47,13 +47,23 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit, highlighte
     if (!isHighlighted) return;
     cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
+    let cleared = false;
     function handleAnimationEnd() {
+      if (cleared) return;
+      cleared = true;
       if (onHighlightComplete) onHighlightComplete();
     }
 
     const el = cardRef.current;
     el?.addEventListener('animationend', handleAnimationEnd);
-    return () => el?.removeEventListener('animationend', handleAnimationEnd);
+    // Fallback: clear highlight even if animationend never fires
+    // (e.g. prefers-reduced-motion disables the animation).
+    const fallbackTimer = setTimeout(handleAnimationEnd, 2000);
+
+    return () => {
+      el?.removeEventListener('animationend', handleAnimationEnd);
+      clearTimeout(fallbackTimer);
+    };
   }, [isHighlighted, onHighlightComplete]);
 
   function handleDelete() {

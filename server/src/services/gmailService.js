@@ -10,6 +10,7 @@ import {
   extractPlainTextBody,
   extractCalendarData,
   detectEmailIntent,
+  extractVideoCallUrl,
 } from '../utils/emailParser.js';
 
 /**
@@ -156,6 +157,7 @@ export function createGmailService(authClient, options = {}) {
           extractedAllDates: allDates,
           intent,
           bodyText: bodyText || '',
+          videoCallLink: extractVideoCallUrl(bodyText || combinedText),
         });
       }
     }

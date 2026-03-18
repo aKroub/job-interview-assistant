@@ -226,3 +226,39 @@ describe('InterviewCard — highlight', () => {
     expect(onHighlightComplete).toHaveBeenCalledTimes(1);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Video call link
+// ---------------------------------------------------------------------------
+
+describe('InterviewCard — video call link', () => {
+  it('renders a "Join call" link when videoCallLink is present', () => {
+    setup({ videoCallLink: 'https://zoom.us/j/123' });
+    const link = screen.getByRole('link', { name: /join.*video call/i });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', 'https://zoom.us/j/123');
+  });
+
+  it('opens in a new tab', () => {
+    setup({ videoCallLink: 'https://meet.google.com/abc-defg-hij' });
+    const link = screen.getByRole('link', { name: /join.*video call/i });
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
+  });
+
+  it('does not render video link when videoCallLink is absent', () => {
+    setup();
+    expect(screen.queryByRole('link', { name: /join.*video call/i })).not.toBeInTheDocument();
+  });
+
+  it('does not render video link when videoCallLink is empty string', () => {
+    setup({ videoCallLink: '' });
+    expect(screen.queryByRole('link', { name: /join.*video call/i })).not.toBeInTheDocument();
+  });
+
+  it('has an accessible label including company name', () => {
+    setup({ videoCallLink: 'https://zoom.us/j/123' });
+    const link = screen.getByRole('link', { name: /join acme corp video call/i });
+    expect(link).toBeInTheDocument();
+  });
+});

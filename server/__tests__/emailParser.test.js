@@ -11,6 +11,7 @@ import {
   extractPlainTextBody,
   extractCalendarData,
   detectEmailIntent,
+  extractVideoCallUrl,
   SCHEDULING_PLATFORM_DOMAINS,
 } from '../src/utils/emailParser.js';
 
@@ -1079,5 +1080,54 @@ describe('extractCalendarData', () => {
       endTime: '11:00',
       duration: 60,
     });
+  });
+});
+
+describe('extractVideoCallUrl', () => {
+  it('extracts a Zoom meeting URL', () => {
+    const text = 'Join the meeting at https://zoom.us/j/123456789?pwd=abc123 on time.';
+    expect(extractVideoCallUrl(text)).toBe('https://zoom.us/j/123456789?pwd=abc123');
+  });
+
+  it('extracts a Google Meet URL', () => {
+    const text = 'Your interview is at https://meet.google.com/abc-defg-hij please be on time.';
+    expect(extractVideoCallUrl(text)).toBe('https://meet.google.com/abc-defg-hij');
+  });
+
+  it('extracts a Microsoft Teams URL', () => {
+    const text = 'Click here: https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc to join.';
+    expect(extractVideoCallUrl(text)).toBe('https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc');
+  });
+
+  it('extracts a WebEx URL', () => {
+    const text = 'Join at https://company.webex.com/meet/john.doe for the interview.';
+    expect(extractVideoCallUrl(text)).toBe('https://company.webex.com/meet/john.doe');
+  });
+
+  it('returns empty string when no video URL is found', () => {
+    expect(extractVideoCallUrl('No video links here, just text.')).toBe('');
+  });
+
+  it('returns empty string for null/undefined input', () => {
+    expect(extractVideoCallUrl(null)).toBe('');
+    expect(extractVideoCallUrl(undefined)).toBe('');
+    expect(extractVideoCallUrl('')).toBe('');
+  });
+
+  it('returns the first video URL when multiple are present', () => {
+    const text = 'Primary: https://zoom.us/j/111 Backup: https://meet.google.com/aaa-bbbb-ccc';
+    expect(extractVideoCallUrl(text)).toBe('https://zoom.us/j/111');
+  });
+
+  it('handles Zoom URL with subdomain', () => {
+    const text = 'Join https://acme.zoom.us/j/99999 for the call.';
+    expect(extractVideoCallUrl(text)).toBe('https://acme.zoom.us/j/99999');
+  });
+
+  it('extracts the inner Zoom URL from a tracking wrapper URL', () => {
+    // The regex requires zoom.us in the hostname, so it skips the tracking domain
+    const text = 'Click https://tracking.example.com/redirect?url=https://zoom.us/j/12345';
+    const result = extractVideoCallUrl(text);
+    expect(result).toBe('https://zoom.us/j/12345');
   });
 });

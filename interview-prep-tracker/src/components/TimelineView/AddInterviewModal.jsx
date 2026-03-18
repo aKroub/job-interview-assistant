@@ -6,12 +6,13 @@ import { DURATION_OPTIONS } from '../../constants/interviewTypes';
 import { resolveCompanyLogoUrl } from '../../utils/companyLogoUtils';
 
 const EMPTY_INTERVIEW = {
-  companyId: '',
-  type:      '',
-  date:      '',
-  time:      '',
-  duration:  60,
-  status:    'scheduled',
+  companyId:     '',
+  type:          '',
+  date:          '',
+  time:          '',
+  duration:      60,
+  status:        'scheduled',
+  videoCallLink: '',
 };
 
 /** Options for the manual status dropdown (excludes derived 'passed'). */
@@ -56,12 +57,13 @@ export function AddInterviewModal({
   const [formData, setFormData] = useState(() => {
     if (isEditMode) {
       return {
-        companyId: editingInterview.companyId,
-        type:      editingInterview.type || '',
-        date:      editingInterview.date || '',
-        time:      editingInterview.time || '',
-        duration:  editingInterview.duration || 60,
-        status:    editingInterview.status || 'scheduled',
+        companyId:     editingInterview.companyId,
+        type:          editingInterview.type || '',
+        date:          editingInterview.date || '',
+        time:          editingInterview.time || '',
+        duration:      editingInterview.duration || 60,
+        status:        editingInterview.status || 'scheduled',
+        videoCallLink: editingInterview.videoCallLink || '',
       };
     }
     return initialValues
@@ -122,11 +124,12 @@ export function AddInterviewModal({
 
     if (isEditMode) {
       onEdit(editingInterview.companyId, editingInterview.id, {
-        type:     formData.type,
-        date:     formData.date,
-        time:     formData.time,
-        duration: formData.duration,
-        status:   formData.status,
+        type:          formData.type,
+        date:          formData.date,
+        time:          formData.time,
+        duration:      formData.duration,
+        status:        formData.status,
+        videoCallLink: formData.videoCallLink,
       });
       onClose();
       return;
@@ -247,6 +250,19 @@ export function AddInterviewModal({
                 <option key={d} value={d}>{d} min</option>
               ))}
             </select>
+          </div>
+
+          {/* Video Call Link — optional */}
+          <div>
+            <FieldLabel htmlFor="modal-video-link">Video Call Link</FieldLabel>
+            <input
+              id="modal-video-link"
+              type="url"
+              value={formData.videoCallLink}
+              onChange={(e) => update('videoCallLink', e.target.value)}
+              placeholder="https://zoom.us/j/..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+            />
           </div>
 
           {/* Status — only in edit mode */}

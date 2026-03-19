@@ -37,7 +37,7 @@ function TodayInterviewItem({ interview, onClick, isCallLinkOpen, onToggleCallLi
 
   const isVideoInterview = interview.type === 'Video Interview';
   const hasVideoCallLink = isVideoInterview && isValidVideoCallUrl(interview.videoCallLink);
-  const trimmedVideoLink = sanitizeVideoCallUrl(interview.videoCallLink);
+  const trimmedVideoLink = hasVideoCallLink ? sanitizeVideoCallUrl(interview.videoCallLink) : '';
 
   const baseClasses =
     'flex items-center gap-1.5 bg-white border rounded-md px-3 py-1.5 text-sm transition';
@@ -52,7 +52,11 @@ function TodayInterviewItem({ interview, onClick, isCallLinkOpen, onToggleCallLi
   }
 
   function handleKeyDown(e) {
-    if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+    // Guard: only handle key events that originate on the chip div itself,
+    // not on nested interactive children (e.g. the video-icon button).
+    // Without this, pressing Enter while focused on the inner button would
+    // also trigger the chip's navigate action — a WCAG nested-interactive issue.
+    if (onClick && e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
       e.preventDefault();
       onClick(interview);
     }

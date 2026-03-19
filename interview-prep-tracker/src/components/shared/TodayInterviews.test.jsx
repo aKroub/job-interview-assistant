@@ -243,4 +243,16 @@ describe('TodayInterviews — video call link', () => {
     expect(screen.queryByRole('link', { name: /join acme corp video call/i })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: /join beta inc video call/i })).toBeInTheDocument();
   });
+
+  it('pressing Enter on video toggle does not trigger chip navigate (nested interactive guard)', async () => {
+    const onInterviewClick = vi.fn();
+    const interview = makeInterview({ type: 'Video Interview', videoCallLink: 'https://zoom.us/j/123' });
+    render(<TodayInterviews interviews={[interview]} onInterviewClick={onInterviewClick} />);
+
+    const videoToggle = screen.getByRole('button', { name: /show.*video call link/i });
+    videoToggle.focus();
+    fireEvent.keyDown(videoToggle, { key: 'Enter' });
+    // The video toggle's native click fires, but the chip's navigate handler must NOT fire.
+    expect(onInterviewClick).not.toHaveBeenCalled();
+  });
 });

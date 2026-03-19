@@ -207,4 +207,40 @@ describe('TodayInterviews — video call link', () => {
     await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
+
+  it('closes open join call panel when a chip is clicked to navigate', async () => {
+    const onInterviewClick = vi.fn();
+    const interviews = [
+      makeInterview({ id: 'i1', type: 'Video Interview', videoCallLink: 'https://zoom.us/j/123' }),
+      makeInterview({ id: 'i2', companyName: 'Beta Inc', type: 'Phone Interview', time: '14:00' }),
+    ];
+    render(<TodayInterviews interviews={interviews} onInterviewClick={onInterviewClick} />);
+
+    // Open join call on first chip
+    await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
+    expect(screen.getByRole('link', { name: /join.*video call/i })).toBeInTheDocument();
+
+    // Click second chip to navigate — join call should close
+    const betaChip = screen.getByRole('button', { name: /view beta inc/i });
+    await user.click(betaChip);
+    expect(screen.queryByRole('link', { name: /join.*video call/i })).not.toBeInTheDocument();
+  });
+
+  it('only one join call panel can be open at a time', async () => {
+    const interviews = [
+      makeInterview({ id: 'i1', companyName: 'Acme Corp', type: 'Video Interview', videoCallLink: 'https://zoom.us/j/111' }),
+      makeInterview({ id: 'i2', companyName: 'Beta Inc', type: 'Video Interview', videoCallLink: 'https://zoom.us/j/222', time: '14:00' }),
+    ];
+    render(<TodayInterviews interviews={interviews} />);
+
+    // Open first chip's panel
+    const toggles = screen.getAllByRole('button', { name: /show.*video call link/i });
+    await user.click(toggles[0]);
+    expect(screen.getByRole('link', { name: /join acme corp video call/i })).toBeInTheDocument();
+
+    // Open second chip's panel — first should auto-close
+    await user.click(screen.getByRole('button', { name: /show beta inc video call link/i }));
+    expect(screen.queryByRole('link', { name: /join acme corp video call/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /join beta inc video call/i })).toBeInTheDocument();
+  });
 });

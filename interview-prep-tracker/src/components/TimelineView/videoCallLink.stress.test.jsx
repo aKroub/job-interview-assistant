@@ -30,6 +30,7 @@ function renderCard(interviewOverrides = {}) {
       interview={interview}
       onDeleteInterview={vi.fn()}
       onEdit={vi.fn()}
+      onUpdateInterview={vi.fn()}
       highlightedInterviewId={null}
       onHighlightComplete={vi.fn()}
     />
@@ -155,34 +156,48 @@ describe('H3 — InterviewCard video link toggle edge cases', () => {
     expect(screen.getByRole('button', { name: /show.*video call link/i })).toBeInTheDocument();
   });
 
-  it('does NOT render toggle when videoCallLink is undefined', () => {
+  it('renders "Add" toggle when videoCallLink is undefined', () => {
     renderCard({ videoCallLink: undefined });
     expect(screen.queryByRole('button', { name: /show.*video call link/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /add.*video call link/i })).toBeInTheDocument();
   });
 
-  it('does NOT render toggle when videoCallLink is null', () => {
+  it('renders "Add" toggle when videoCallLink is null', () => {
     renderCard({ videoCallLink: null });
     expect(screen.queryByRole('button', { name: /show.*video call link/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /add.*video call link/i })).toBeInTheDocument();
   });
 
-  it('does NOT render toggle when videoCallLink is empty string', () => {
+  it('renders "Add" toggle when videoCallLink is empty string', () => {
     renderCard({ videoCallLink: '' });
     expect(screen.queryByRole('button', { name: /show.*video call link/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /add.*video call link/i })).toBeInTheDocument();
   });
 
-  it('does NOT render toggle for javascript: URI', () => {
+  it('renders "Add" toggle for javascript: URI (invalid, not rendered as link)', () => {
     renderCard({ videoCallLink: 'javascript:alert(1)' });
     expect(screen.queryByRole('button', { name: /show.*video call link/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /add.*video call link/i })).toBeInTheDocument();
   });
 
-  it('does NOT render toggle for data: URI', () => {
+  it('renders "Add" toggle for data: URI (invalid, not rendered as link)', () => {
     renderCard({ videoCallLink: 'data:text/html,<h1>XSS</h1>' });
     expect(screen.queryByRole('button', { name: /show.*video call link/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /add.*video call link/i })).toBeInTheDocument();
   });
 
-  it('does NOT render toggle for ftp: URI', () => {
+  it('renders "Add" toggle for ftp: URI (invalid, not rendered as link)', () => {
     renderCard({ videoCallLink: 'ftp://files.example.com/meeting' });
     expect(screen.queryByRole('button', { name: /show.*video call link/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /add.*video call link/i })).toBeInTheDocument();
+  });
+
+  it('does not show "Join call" link when panel is opened for invalid URI', async () => {
+    const user = userEvent.setup();
+    renderCard({ videoCallLink: 'javascript:alert(1)' });
+    await user.click(screen.getByRole('button', { name: /add.*video call link/i }));
+    expect(screen.queryByRole('link', { name: /join.*video call/i })).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/video call url/i)).toBeInTheDocument();
   });
 
   it('does NOT render toggle for Phone Interview type even with valid URL', () => {
@@ -234,7 +249,7 @@ describe('H3 — InterviewCard video link toggle edge cases', () => {
     expect(screen.getByRole('link', { name: /join.*video call/i })).toBeInTheDocument();
 
     // Click to hide
-    await user.click(screen.getByRole('button', { name: /hide video call link/i }));
+    await user.click(screen.getByRole('button', { name: /hide video call panel/i }));
     expect(screen.queryByRole('link', { name: /join.*video call/i })).not.toBeInTheDocument();
 
     // Click to show again

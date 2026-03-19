@@ -1,8 +1,9 @@
-import { Clock, ExternalLink, Pencil, Trash2 } from 'lucide-react';
+import { Check, Clock, ExternalLink, Pencil, Trash2, X } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { TYPE_CONFIG } from '../../constants/interviewTypes';
 import { deriveInterviewStatus } from '../../utils/companyUtils';
 import { resolveCompanyLogoUrl } from '../../utils/companyLogoUtils';
+import { isValidVideoCallUrl, sanitizeVideoCallUrl } from '../../utils/urlUtils';
 import { CompanyLogo } from '../shared/CompanyLogo';
 
 /** Tailwind class sets for each display status (matches InterviewRow pattern). */
@@ -20,19 +21,20 @@ const STATUS_STYLES = {
  * status badge. A pencil icon opens the full edit modal via the onEdit
  * callback.
  *
- * For Video Interview type with a valid http(s) video call link, the video
- * icon is clickable. Clicking it reveals the full URL as a link. Clicking
- * the icon again hides the URL (two-step flow to prevent accidental joins).
+ * For Video Interview type, the video icon is always clickable. Clicking it
+ * toggles an inline panel where the user can see the existing call link
+ * (as a "Join call" button) and add or edit the URL via an inline input.
  *
  * @param {{
  *   interview:              Object,
  *   onDeleteInterview:      (companyId: string, interviewId: string) => void,
  *   onEdit:                 (interview: Object) => void,
+ *   onUpdateInterview:      (companyId: string, interviewId: string, updates: Object) => void,
  *   highlightedInterviewId: string | null,
  *   onHighlightComplete:    () => void,
  * }} props
  */
-export function InterviewCard({ interview, onDeleteInterview, onEdit, highlightedInterviewId, onHighlightComplete }) {
+export function InterviewCard({ interview, onDeleteInterview, onEdit, onUpdateInterview, highlightedInterviewId, onHighlightComplete }) {
   const displayStatus = deriveInterviewStatus(interview);
   const statusStyle   = STATUS_STYLES[displayStatus] ?? STATUS_STYLES.scheduled;
 
@@ -44,12 +46,46 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit, highlighte
     customLogoUrl: interview.companyCustomLogoUrl,
   });
 
-  const trimmedVideoLink = (interview.videoCallLink || '').trim();
-  const hasVideoCallLink = interview.type === 'Video Interview'
-    && trimmedVideoLink
-    && /^https?:\/\//i.test(trimmedVideoLink);
+  const isVideoInterview = interview.type === 'Video Interview';
+  const trimmedVideoLink = sanitizeVideoCallUrl(interview.videoCallLink);
+  const hasVideoCallLink = isVideoInterview && isValidVideoCallUrl(interview.videoCallLink);
 
-  const [showVideoLink, setShowVideoLink] = useState(false);
+  const [showVideoPanel, setShowVideoPanel] = useState(false);
+  const [linkDraft, setLinkDraft] = useState('');
+  const [linkError, setLinkError] = useState('');
+  const linkInputRef = useRef(null);
+
+  function handleToggleVideoPanel() {
+    const opening = !showVideoPanel;
+    setShowVideoPanel(opening);
+    if (opening) {
+      setLinkDraft(trimmedVideoLink);
+      setLinkError('');
+    }
+  }
+
+  function handleSaveLink() {
+    const trimmed = linkDraft.trim();
+    const safeLink = sanitizeVideoCallUrl(trimmed);
+    if (trimmed && safeLink === '') {
+      setLinkError('URL must start with https://');
+      linkInputRef.current?.focus();
+      return;
+    }
+    onUpdateInterview(interview.companyId, interview.id, { videoCallLink: safeLink });
+    setShowVideoPanel(false);
+  }
+
+  function handleCancelLink() {
+    setShowVideoPanel(false);
+  }
+
+  // Auto-focus the input when the panel opens
+  useEffect(() => {
+    if (showVideoPanel && linkInputRef.current) {
+      linkInputRef.current.focus();
+    }
+  }, [showVideoPanel]);
 
   const cardRef = useRef(null);
   const highlightCompleteRef = useRef(onHighlightComplete);
@@ -69,8 +105,6 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit, highlighte
 
     const el = cardRef.current;
     el?.addEventListener('animationend', handleAnimationEnd);
-    // Fallback: clear highlight even if animationend never fires
-    // (e.g. prefers-reduced-motion disables the animation).
     const fallbackTimer = setTimeout(handleAnimationEnd, 2000);
 
     return () => {
@@ -137,23 +171,25 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit, highlighte
         <p className="text-xs text-gray-600 mb-1 truncate" title={interview.position}>{interview.position}</p>
       )}
 
-      {/* Interview type with icon — video icon toggles call link visibility */}
+      {/* Interview type with icon — video icon toggles call link panel */}
       {interview.type && (
         <div className="mb-1">
           <div className="flex items-center gap-1">
             {InterviewIcon && (
-              hasVideoCallLink ? (
+              isVideoInterview ? (
                 <button
                   type="button"
-                  onClick={() => setShowVideoLink((prev) => !prev)}
+                  onClick={handleToggleVideoPanel}
                   className={`p-1 rounded transition focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none ${
-                    showVideoLink
+                    showVideoPanel
                       ? 'text-blue-700 bg-blue-100'
-                      : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
+                      : hasVideoCallLink
+                        ? 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
+                        : 'text-purple-500 hover:text-purple-700 hover:bg-purple-50'
                   }`}
-                  aria-label={showVideoLink ? 'Hide video call link' : `Show ${interview.companyName} video call link`}
-                  aria-expanded={showVideoLink}
-                  title={showVideoLink ? 'Hide call link' : 'Show call link'}
+                  aria-label={showVideoPanel ? 'Hide video call panel' : `${hasVideoCallLink ? 'Show' : 'Add'} ${interview.companyName} video call link`}
+                  aria-expanded={showVideoPanel}
+                  title={showVideoPanel ? 'Hide call link' : hasVideoCallLink ? 'Show call link' : 'Add call link'}
                 >
                   <InterviewIcon size={12} />
                 </button>
@@ -164,21 +200,62 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit, highlighte
             <span className="text-xs text-gray-500 truncate">{interview.type}</span>
           </div>
 
-          {/* Expanded video call link */}
-          {showVideoLink && hasVideoCallLink && (
-            <div className="mt-1 flex items-center gap-1 pl-4">
-              <a
-                href={trimmedVideoLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={(e) => e.stopPropagation()}
-                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 underline focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
-                aria-label={`Join ${interview.companyName} video call`}
-                title={trimmedVideoLink}
-              >
-                Join call
-                <ExternalLink size={10} aria-hidden="true" />
-              </a>
+          {/* Expanded video call link panel */}
+          {showVideoPanel && isVideoInterview && (
+            <div className="mt-1.5 pl-1 space-y-1.5">
+              {/* Join call link — only when a valid URL exists */}
+              {hasVideoCallLink && (
+                <a
+                  href={trimmedVideoLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 underline focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
+                  aria-label={`Join ${interview.companyName} video call`}
+                  title={trimmedVideoLink}
+                >
+                  Join call
+                  <ExternalLink size={10} aria-hidden="true" />
+                </a>
+              )}
+
+              {/* Inline URL input */}
+              <div className="flex items-center gap-1 flex-wrap">
+                <input
+                  ref={linkInputRef}
+                  type="url"
+                  value={linkDraft}
+                  onChange={(e) => { setLinkDraft(e.target.value); setLinkError(''); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleSaveLink(); if (e.key === 'Escape') handleCancelLink(); }}
+                  placeholder="https://zoom.us/j/..."
+                  className={`flex-1 min-w-0 text-xs px-1.5 py-1 border rounded focus:outline-none focus:ring-1 ${
+                    linkError ? 'border-red-400 focus:ring-red-400' : 'border-gray-300 focus:ring-blue-400'
+                  }`}
+                  aria-label="Video call URL"
+                  aria-invalid={linkError ? 'true' : undefined}
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveLink}
+                  className="p-1 rounded text-green-600 hover:bg-green-50 transition"
+                  aria-label="Save video call link"
+                  title="Save"
+                >
+                  <Check size={12} />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleCancelLink}
+                  className="p-1 rounded text-gray-400 hover:bg-gray-100 transition"
+                  aria-label="Cancel editing video call link"
+                  title="Cancel"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+              {linkError && (
+                <p className="text-xs text-red-500 mt-0.5" role="alert">{linkError}</p>
+              )}
             </div>
           )}
         </div>

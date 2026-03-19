@@ -4,6 +4,7 @@ import { FormError } from '../shared/FormError';
 import { CompanyLogo } from '../shared/CompanyLogo';
 import { DURATION_OPTIONS } from '../../constants/interviewTypes';
 import { resolveCompanyLogoUrl } from '../../utils/companyLogoUtils';
+import { sanitizeVideoCallUrl } from '../../utils/urlUtils';
 
 const EMPTY_INTERVIEW = {
   companyId:     '',
@@ -122,14 +123,7 @@ export function AddInterviewModal({
     if (!isValid || isSubmitting) return;
     setIsSubmitting(true);
 
-    // Sanitise the video call link — only allow http(s) URLs to prevent
-    // javascript: or data: URI injection when rendered as <a href>.
-    // Trim whitespace so that pasted URLs with accidental leading/trailing
-    // spaces are not silently rejected.
-    const trimmedLink = formData.videoCallLink.trim();
-    const safeVideoCallLink = /^https?:\/\//i.test(trimmedLink)
-      ? trimmedLink
-      : '';
+    const safeVideoCallLink = sanitizeVideoCallUrl(formData.videoCallLink);
 
     if (isEditMode) {
       onEdit(editingInterview.companyId, editingInterview.id, {

@@ -22,19 +22,21 @@ function makeInterview(overrides = {}) {
 }
 
 function setup(interviewOverrides = {}, handlers = {}, { highlightedInterviewId, onHighlightComplete } = {}) {
-  const interview         = makeInterview(interviewOverrides);
-  const onDeleteInterview = handlers.onDeleteInterview ?? vi.fn();
-  const onEdit            = handlers.onEdit ?? vi.fn();
+  const interview           = makeInterview(interviewOverrides);
+  const onDeleteInterview   = handlers.onDeleteInterview ?? vi.fn();
+  const onEdit              = handlers.onEdit ?? vi.fn();
+  const onUpdateInterview   = handlers.onUpdateInterview ?? vi.fn();
   render(
     <InterviewCard
       interview={interview}
       onDeleteInterview={onDeleteInterview}
       onEdit={onEdit}
+      onUpdateInterview={onUpdateInterview}
       highlightedInterviewId={highlightedInterviewId}
       onHighlightComplete={onHighlightComplete}
     />
   );
-  return { interview, onDeleteInterview, onEdit };
+  return { interview, onDeleteInterview, onEdit, onUpdateInterview };
 }
 
 // ---------------------------------------------------------------------------
@@ -231,14 +233,20 @@ describe('InterviewCard — highlight', () => {
 // Video call link
 // ---------------------------------------------------------------------------
 
-describe('InterviewCard — video call link (two-step toggle)', () => {
+describe('InterviewCard — video call link (toggle panel)', () => {
   const user = userEvent.setup();
 
-  it('renders a toggle button for the video icon when type is Video Interview with a valid URL', () => {
+  it('renders a toggle button for Video Interview with a valid URL', () => {
     setup({ type: 'Video Interview', videoCallLink: 'https://zoom.us/j/123' });
     const toggle = screen.getByRole('button', { name: /show.*video call link/i });
     expect(toggle).toBeInTheDocument();
     expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('renders a toggle button for Video Interview even without a URL (to add one)', () => {
+    setup({ type: 'Video Interview' });
+    const toggle = screen.getByRole('button', { name: /add.*video call link/i });
+    expect(toggle).toBeInTheDocument();
   });
 
   it('does not show the URL link initially', () => {
@@ -246,20 +254,20 @@ describe('InterviewCard — video call link (two-step toggle)', () => {
     expect(screen.queryByRole('link', { name: /join.*video call/i })).not.toBeInTheDocument();
   });
 
-  it('reveals the full URL link when the video icon is clicked', async () => {
+  it('reveals the Join call link and an input when the video icon is clicked', async () => {
     setup({ type: 'Video Interview', videoCallLink: 'https://zoom.us/j/123' });
     await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
     const link = screen.getByRole('link', { name: /join.*video call/i });
     expect(link).toBeInTheDocument();
     expect(link).toHaveAttribute('href', 'https://zoom.us/j/123');
+    expect(screen.getByLabelText(/video call url/i)).toBeInTheDocument();
   });
 
-  it('hides the URL link when the video icon is clicked again', async () => {
+  it('hides the panel when the video icon is clicked again', async () => {
     setup({ type: 'Video Interview', videoCallLink: 'https://zoom.us/j/123' });
-    const toggle = screen.getByRole('button', { name: /show.*video call link/i });
-    await user.click(toggle);
+    await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
     expect(screen.getByRole('link', { name: /join.*video call/i })).toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: /hide video call link/i }));
+    await user.click(screen.getByRole('button', { name: /hide video call panel/i }));
     expect(screen.queryByRole('link', { name: /join.*video call/i })).not.toBeInTheDocument();
   });
 
@@ -271,24 +279,14 @@ describe('InterviewCard — video call link (two-step toggle)', () => {
     expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
   });
 
-  it('does not render toggle button when videoCallLink is absent', () => {
-    setup({ type: 'Video Interview' });
-    expect(screen.queryByRole('button', { name: /show.*video call link/i })).not.toBeInTheDocument();
-  });
-
-  it('does not render toggle button when videoCallLink is empty string', () => {
-    setup({ type: 'Video Interview', videoCallLink: '' });
-    expect(screen.queryByRole('button', { name: /show.*video call link/i })).not.toBeInTheDocument();
-  });
-
   it('does not render toggle for non-Video Interview types even with a URL', () => {
     setup({ type: 'Phone Interview', videoCallLink: 'https://zoom.us/j/123' });
-    expect(screen.queryByRole('button', { name: /show.*video call link/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /video call/i })).not.toBeInTheDocument();
   });
 
   it('does not render toggle for In-Person Interview type even with a URL', () => {
     setup({ type: 'In-Person Interview', videoCallLink: 'https://zoom.us/j/123' });
-    expect(screen.queryByRole('button', { name: /show.*video call link/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /video call/i })).not.toBeInTheDocument();
   });
 
   it('shows "Join call" label with full URL in title tooltip', async () => {
@@ -297,5 +295,53 @@ describe('InterviewCard — video call link (two-step toggle)', () => {
     const link = screen.getByRole('link', { name: /join.*video call/i });
     expect(link).toHaveTextContent('Join call');
     expect(link).toHaveAttribute('title', 'https://zoom.us/j/123');
+  });
+
+  it('saves a new URL via inline input and onUpdateInterview', async () => {
+    const { onUpdateInterview } = setup({ type: 'Video Interview' });
+    await user.click(screen.getByRole('button', { name: /add.*video call link/i }));
+    const input = screen.getByLabelText(/video call url/i);
+    await user.type(input, 'https://zoom.us/j/new');
+    await user.click(screen.getByRole('button', { name: /save video call link/i }));
+    expect(onUpdateInterview).toHaveBeenCalledWith('c1', 'i1', { videoCallLink: 'https://zoom.us/j/new' });
+  });
+
+  it('cancels editing without saving', async () => {
+    const { onUpdateInterview } = setup({ type: 'Video Interview', videoCallLink: 'https://zoom.us/j/123' });
+    await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
+    await user.click(screen.getByRole('button', { name: /cancel editing/i }));
+    expect(onUpdateInterview).not.toHaveBeenCalled();
+    expect(screen.queryByLabelText(/video call url/i)).not.toBeInTheDocument();
+  });
+
+  it('shows validation error for URL without https:// protocol', async () => {
+    const { onUpdateInterview } = setup({ type: 'Video Interview' });
+    await user.click(screen.getByRole('button', { name: /add.*video call link/i }));
+    const input = screen.getByLabelText(/video call url/i);
+    await user.type(input, 'zoom.us/j/123');
+    await user.click(screen.getByRole('button', { name: /save video call link/i }));
+    expect(screen.getByRole('alert')).toHaveTextContent('URL must start with https://');
+    expect(onUpdateInterview).not.toHaveBeenCalled();
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('clears validation error when user edits the input', async () => {
+    const { onUpdateInterview } = setup({ type: 'Video Interview' });
+    await user.click(screen.getByRole('button', { name: /add.*video call link/i }));
+    const input = screen.getByLabelText(/video call url/i);
+    await user.type(input, 'zoom.us/j/123');
+    await user.click(screen.getByRole('button', { name: /save video call link/i }));
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    await user.type(input, 'https://zoom.us/j/123');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('allows saving an empty URL to clear the link', async () => {
+    const { onUpdateInterview } = setup({ type: 'Video Interview', videoCallLink: 'https://zoom.us/j/123' });
+    await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
+    const input = screen.getByLabelText(/video call url/i);
+    await user.clear(input);
+    await user.click(screen.getByRole('button', { name: /save video call link/i }));
+    expect(onUpdateInterview).toHaveBeenCalledWith('c1', 'i1', { videoCallLink: '' });
   });
 });

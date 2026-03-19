@@ -114,6 +114,7 @@ export function CalendarView({ companies, interviewTypes, onAddInterview, onDele
               isCollapsed={collapsedDays.has(dateKey)}
               onDeleteInterview={onDeleteInterview}
               onEdit={setEditingInterview}
+              onUpdateInterview={onUpdateInterview}
               highlightedInterviewId={highlightedInterviewId}
               onHighlightComplete={onHighlightComplete}
             />

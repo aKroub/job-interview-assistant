@@ -151,7 +151,14 @@ export function AddInterviewModal({
   }
 
   function update(field, value) {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => {
+      const next = { ...prev, [field]: value };
+      // Clear video call link when switching away from Video Interview
+      if (field === 'type' && value !== 'Video Interview') {
+        next.videoCallLink = '';
+      }
+      return next;
+    });
   }
 
   return (
@@ -258,18 +265,20 @@ export function AddInterviewModal({
             </select>
           </div>
 
-          {/* Video Call Link — optional */}
-          <div>
-            <FieldLabel htmlFor="modal-video-link">Video Call Link</FieldLabel>
-            <input
-              id="modal-video-link"
-              type="url"
-              value={formData.videoCallLink}
-              onChange={(e) => update('videoCallLink', e.target.value)}
-              placeholder="https://zoom.us/j/..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
-            />
-          </div>
+          {/* Video Call Link — only for Video Interview type */}
+          {formData.type === 'Video Interview' && (
+            <div>
+              <FieldLabel htmlFor="modal-video-link">Video Call Link</FieldLabel>
+              <input
+                id="modal-video-link"
+                type="url"
+                value={formData.videoCallLink}
+                onChange={(e) => update('videoCallLink', e.target.value)}
+                placeholder="https://zoom.us/j/..."
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              />
+            </div>
+          )}
 
           {/* Status — only in edit mode */}
           {isEditMode && (

@@ -14,7 +14,7 @@ function makeInterview(overrides = {}) {
     companyId:   'c1',
     companyName: 'Acme Corp',
     position:    'Senior Engineer',
-    type:        'Phone Interview',
+    type:        'Video Interview',
     date:        '2099-06-01',
     time:        '10:00',
     duration:    60,
@@ -38,7 +38,7 @@ function renderCard(interviewOverrides = {}) {
 }
 
 const COMPANIES = [{ id: 'c1', name: 'Acme', position: 'SWE' }];
-const TYPES = ['Phone Interview', 'Technical Interview'];
+const TYPES = ['Phone Interview', 'Video Interview'];
 
 function renderModal(props = {}) {
   const onAdd = props.onAdd ?? vi.fn();
@@ -70,7 +70,7 @@ describe('H2 — Video link round-trip through add/edit/cancel flows', () => {
       onAdd,
       initialValues: {
         companyId: 'c1',
-        type: 'Phone Interview',
+        type: 'Video Interview',
         date: '2099-06-01',
         time: '10:00',
         videoCallLink: 'https://zoom.us/j/123456',
@@ -86,7 +86,7 @@ describe('H2 — Video link round-trip through add/edit/cancel flows', () => {
   it('passes videoCallLink through onEdit when saving changes', async () => {
     const user = userEvent.setup();
     const onEdit = vi.fn();
-    const interview = makeInterview({ videoCallLink: 'https://meet.google.com/abc-defg-hij' });
+    const interview = makeInterview({ type: 'Video Interview', videoCallLink: 'https://meet.google.com/abc-defg-hij' });
 
     renderModal({ interview, onEdit });
 
@@ -103,7 +103,7 @@ describe('H2 — Video link round-trip through add/edit/cancel flows', () => {
       onAdd,
       initialValues: {
         companyId: 'c1',
-        type: 'Phone Interview',
+        type: 'Video Interview',
         date: '2099-06-01',
         time: '10:00',
       },
@@ -118,7 +118,7 @@ describe('H2 — Video link round-trip through add/edit/cancel flows', () => {
   it('clears videoCallLink in edit mode when user empties the field', async () => {
     const user = userEvent.setup();
     const onEdit = vi.fn();
-    const interview = makeInterview({ videoCallLink: 'https://zoom.us/j/old' });
+    const interview = makeInterview({ type: 'Video Interview', videoCallLink: 'https://zoom.us/j/old' });
     renderModal({ interview, onEdit });
 
     const input = screen.getByLabelText(/video call link/i);
@@ -132,71 +132,114 @@ describe('H2 — Video link round-trip through add/edit/cancel flows', () => {
 });
 
 // ---------------------------------------------------------------------------
-// H3: InterviewCard handles edge cases for video URLs
+// H3: InterviewCard two-step toggle handles edge cases
 // ---------------------------------------------------------------------------
 
-describe('H3 — InterviewCard video link edge cases', () => {
-  it('renders Join call button for a valid https URL', () => {
+describe('H3 — InterviewCard video link toggle edge cases', () => {
+  it('shows toggle button for a valid https URL', () => {
     renderCard({ videoCallLink: 'https://zoom.us/j/123' });
+    expect(screen.getByRole('button', { name: /show.*video call link/i })).toBeInTheDocument();
+  });
+
+  it('reveals link with correct href after toggle click', async () => {
+    const user = userEvent.setup();
+    renderCard({ videoCallLink: 'https://zoom.us/j/123' });
+    await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
     expect(screen.getByRole('link', { name: /join.*video call/i })).toHaveAttribute(
       'href', 'https://zoom.us/j/123'
     );
   });
 
-  it('renders Join call button for http URL (non-TLS)', () => {
+  it('shows toggle button for http URL (non-TLS)', () => {
     renderCard({ videoCallLink: 'http://internal.company.com/meeting/42' });
-    expect(screen.getByRole('link', { name: /join.*video call/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /show.*video call link/i })).toBeInTheDocument();
   });
 
-  it('does NOT render link when videoCallLink is undefined', () => {
+  it('does NOT render toggle when videoCallLink is undefined', () => {
     renderCard({ videoCallLink: undefined });
-    expect(screen.queryByRole('link', { name: /join.*video call/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /show.*video call link/i })).not.toBeInTheDocument();
   });
 
-  it('does NOT render link when videoCallLink is null', () => {
+  it('does NOT render toggle when videoCallLink is null', () => {
     renderCard({ videoCallLink: null });
-    expect(screen.queryByRole('link', { name: /join.*video call/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /show.*video call link/i })).not.toBeInTheDocument();
   });
 
-  it('does NOT render link when videoCallLink is empty string', () => {
+  it('does NOT render toggle when videoCallLink is empty string', () => {
     renderCard({ videoCallLink: '' });
-    expect(screen.queryByRole('link', { name: /join.*video call/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /show.*video call link/i })).not.toBeInTheDocument();
   });
 
-  it('does NOT render link for javascript: URI', () => {
+  it('does NOT render toggle for javascript: URI', () => {
     renderCard({ videoCallLink: 'javascript:alert(1)' });
-    expect(screen.queryByRole('link', { name: /join.*video call/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /show.*video call link/i })).not.toBeInTheDocument();
   });
 
-  it('does NOT render link for data: URI', () => {
+  it('does NOT render toggle for data: URI', () => {
     renderCard({ videoCallLink: 'data:text/html,<h1>XSS</h1>' });
-    expect(screen.queryByRole('link', { name: /join.*video call/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /show.*video call link/i })).not.toBeInTheDocument();
   });
 
-  it('does NOT render link for ftp: URI', () => {
+  it('does NOT render toggle for ftp: URI', () => {
     renderCard({ videoCallLink: 'ftp://files.example.com/meeting' });
-    expect(screen.queryByRole('link', { name: /join.*video call/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /show.*video call link/i })).not.toBeInTheDocument();
   });
 
-  it('handles very long URLs without crashing', () => {
+  it('does NOT render toggle for Phone Interview type even with valid URL', () => {
+    renderCard({ type: 'Phone Interview', videoCallLink: 'https://zoom.us/j/123' });
+    expect(screen.queryByRole('button', { name: /show.*video call link/i })).not.toBeInTheDocument();
+  });
+
+  it('does NOT render toggle for In-Person Interview type even with valid URL', () => {
+    renderCard({ type: 'In-Person Interview', videoCallLink: 'https://zoom.us/j/123' });
+    expect(screen.queryByRole('button', { name: /show.*video call link/i })).not.toBeInTheDocument();
+  });
+
+  it('handles very long URLs without crashing', async () => {
+    const user = userEvent.setup();
     const longUrl = 'https://zoom.us/j/' + 'a'.repeat(5000);
     renderCard({ videoCallLink: longUrl });
+    await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
     const link = screen.getByRole('link', { name: /join.*video call/i });
     expect(link).toHaveAttribute('href', longUrl);
   });
 
-  it('handles URLs with special characters', () => {
+  it('handles URLs with special characters', async () => {
+    const user = userEvent.setup();
     const url = 'https://zoom.us/j/123?pwd=abc%20def&token=<foo>';
     renderCard({ videoCallLink: url });
+    await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
     expect(screen.getByRole('link', { name: /join.*video call/i })).toHaveAttribute('href', url);
   });
 
-  it('opens link in new tab with security attributes', () => {
+  it('opens revealed link in new tab with security attributes', async () => {
+    const user = userEvent.setup();
     renderCard({ videoCallLink: 'https://meet.google.com/abc-defg-hij' });
+    await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
     const link = screen.getByRole('link', { name: /join.*video call/i });
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
     expect(link).toHaveAttribute('rel', expect.stringContaining('noreferrer'));
+  });
+
+  it('toggles link visibility on repeated clicks', async () => {
+    const user = userEvent.setup();
+    renderCard({ videoCallLink: 'https://zoom.us/j/123' });
+
+    // Initially hidden
+    expect(screen.queryByRole('link', { name: /join.*video call/i })).not.toBeInTheDocument();
+
+    // Click to show
+    await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
+    expect(screen.getByRole('link', { name: /join.*video call/i })).toBeInTheDocument();
+
+    // Click to hide
+    await user.click(screen.getByRole('button', { name: /hide video call link/i }));
+    expect(screen.queryByRole('link', { name: /join.*video call/i })).not.toBeInTheDocument();
+
+    // Click to show again
+    await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
+    expect(screen.getByRole('link', { name: /join.*video call/i })).toBeInTheDocument();
   });
 });
 
@@ -228,7 +271,7 @@ describe('H4 — AddInterviewModal sanitises dangerous video URIs', () => {
       onAdd,
       initialValues: {
         companyId: 'c1',
-        type: 'Phone Interview',
+        type: 'Video Interview',
         date: '2099-06-01',
         time: '10:00',
         videoCallLink: uri,
@@ -245,7 +288,7 @@ describe('H4 — AddInterviewModal sanitises dangerous video URIs', () => {
   it.each(dangerousUris)('strips dangerous URI in edit mode: %s', async (uri) => {
     const user = userEvent.setup();
     const onEdit = vi.fn();
-    const interview = makeInterview({ videoCallLink: 'https://zoom.us/j/safe' });
+    const interview = makeInterview({ type: 'Video Interview', videoCallLink: 'https://zoom.us/j/safe' });
     renderModal({ interview, onEdit });
 
     const input = screen.getByLabelText(/video call link/i);
@@ -278,7 +321,7 @@ describe('H4 — AddInterviewModal sanitises dangerous video URIs', () => {
           onClose={vi.fn()}
           initialValues={{
             companyId: 'c1',
-            type: 'Phone Interview',
+            type: 'Video Interview',
             date: '2099-06-01',
             time: '10:00',
             videoCallLink: url,

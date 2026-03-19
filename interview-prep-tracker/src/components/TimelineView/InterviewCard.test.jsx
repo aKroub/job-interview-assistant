@@ -231,34 +231,69 @@ describe('InterviewCard — highlight', () => {
 // Video call link
 // ---------------------------------------------------------------------------
 
-describe('InterviewCard — video call link', () => {
-  it('renders a "Join call" link when videoCallLink is present', () => {
-    setup({ videoCallLink: 'https://zoom.us/j/123' });
+describe('InterviewCard — video call link (two-step toggle)', () => {
+  const user = userEvent.setup();
+
+  it('renders a toggle button for the video icon when type is Video Interview with a valid URL', () => {
+    setup({ type: 'Video Interview', videoCallLink: 'https://zoom.us/j/123' });
+    const toggle = screen.getByRole('button', { name: /show.*video call link/i });
+    expect(toggle).toBeInTheDocument();
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('does not show the URL link initially', () => {
+    setup({ type: 'Video Interview', videoCallLink: 'https://zoom.us/j/123' });
+    expect(screen.queryByRole('link', { name: /join.*video call/i })).not.toBeInTheDocument();
+  });
+
+  it('reveals the full URL link when the video icon is clicked', async () => {
+    setup({ type: 'Video Interview', videoCallLink: 'https://zoom.us/j/123' });
+    await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
     const link = screen.getByRole('link', { name: /join.*video call/i });
     expect(link).toBeInTheDocument();
     expect(link).toHaveAttribute('href', 'https://zoom.us/j/123');
   });
 
-  it('opens in a new tab', () => {
-    setup({ videoCallLink: 'https://meet.google.com/abc-defg-hij' });
+  it('hides the URL link when the video icon is clicked again', async () => {
+    setup({ type: 'Video Interview', videoCallLink: 'https://zoom.us/j/123' });
+    const toggle = screen.getByRole('button', { name: /show.*video call link/i });
+    await user.click(toggle);
+    expect(screen.getByRole('link', { name: /join.*video call/i })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /hide video call link/i }));
+    expect(screen.queryByRole('link', { name: /join.*video call/i })).not.toBeInTheDocument();
+  });
+
+  it('opens the revealed link in a new tab with security attributes', async () => {
+    setup({ type: 'Video Interview', videoCallLink: 'https://meet.google.com/abc-defg-hij' });
+    await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
     const link = screen.getByRole('link', { name: /join.*video call/i });
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
   });
 
-  it('does not render video link when videoCallLink is absent', () => {
-    setup();
-    expect(screen.queryByRole('link', { name: /join.*video call/i })).not.toBeInTheDocument();
+  it('does not render toggle button when videoCallLink is absent', () => {
+    setup({ type: 'Video Interview' });
+    expect(screen.queryByRole('button', { name: /show.*video call link/i })).not.toBeInTheDocument();
   });
 
-  it('does not render video link when videoCallLink is empty string', () => {
-    setup({ videoCallLink: '' });
-    expect(screen.queryByRole('link', { name: /join.*video call/i })).not.toBeInTheDocument();
+  it('does not render toggle button when videoCallLink is empty string', () => {
+    setup({ type: 'Video Interview', videoCallLink: '' });
+    expect(screen.queryByRole('button', { name: /show.*video call link/i })).not.toBeInTheDocument();
   });
 
-  it('has an accessible label including company name', () => {
-    setup({ videoCallLink: 'https://zoom.us/j/123' });
-    const link = screen.getByRole('link', { name: /join acme corp video call/i });
-    expect(link).toBeInTheDocument();
+  it('does not render toggle for non-Video Interview types even with a URL', () => {
+    setup({ type: 'Phone Interview', videoCallLink: 'https://zoom.us/j/123' });
+    expect(screen.queryByRole('button', { name: /show.*video call link/i })).not.toBeInTheDocument();
+  });
+
+  it('does not render toggle for In-Person Interview type even with a URL', () => {
+    setup({ type: 'In-Person Interview', videoCallLink: 'https://zoom.us/j/123' });
+    expect(screen.queryByRole('button', { name: /show.*video call link/i })).not.toBeInTheDocument();
+  });
+
+  it('shows the full URL text in the revealed link', async () => {
+    setup({ type: 'Video Interview', videoCallLink: 'https://zoom.us/j/123' });
+    await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
+    expect(screen.getByText('https://zoom.us/j/123')).toBeInTheDocument();
   });
 });

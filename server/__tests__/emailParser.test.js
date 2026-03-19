@@ -1094,9 +1094,14 @@ describe('extractVideoCallUrl', () => {
     expect(extractVideoCallUrl(text)).toBe('https://meet.google.com/abc-defg-hij');
   });
 
-  it('extracts a Microsoft Teams URL', () => {
+  it('extracts a Microsoft Teams meetup-join URL', () => {
     const text = 'Click here: https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc to join.';
     expect(extractVideoCallUrl(text)).toBe('https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc');
+  });
+
+  it('extracts a Microsoft Teams /meet/ URL', () => {
+    const text = 'Join at https://teams.microsoft.com/meet/36805220047055?p=hoWTC85qsijw6wk3EA for the interview.';
+    expect(extractVideoCallUrl(text)).toBe('https://teams.microsoft.com/meet/36805220047055?p=hoWTC85qsijw6wk3EA');
   });
 
   it('extracts a WebEx URL', () => {
@@ -1129,5 +1134,25 @@ describe('extractVideoCallUrl', () => {
     const text = 'Click https://tracking.example.com/redirect?url=https://zoom.us/j/12345';
     const result = extractVideoCallUrl(text);
     expect(result).toBe('https://zoom.us/j/12345');
+  });
+
+  it('extracts a Spark Hire URL', () => {
+    const text = 'Complete your interview at https://app.sparkhire.com/interview/abc123 before the deadline.';
+    expect(extractVideoCallUrl(text)).toBe('https://app.sparkhire.com/interview/abc123');
+  });
+
+  it('extracts a Spark Hire URL with www subdomain', () => {
+    const text = 'Visit https://www.sparkhire.com/video/xyz789 to start.';
+    expect(extractVideoCallUrl(text)).toBe('https://www.sparkhire.com/video/xyz789');
+  });
+
+  it('extracts a Hireflix URL', () => {
+    const text = 'Your interview: https://app.hireflix.com/interview/def456 — good luck!';
+    expect(extractVideoCallUrl(text)).toBe('https://app.hireflix.com/interview/def456');
+  });
+
+  it('extracts a myInterview URL', () => {
+    const text = 'Please complete https://app.myinterview.com/interview/ghi789 at your convenience.';
+    expect(extractVideoCallUrl(text)).toBe('https://app.myinterview.com/interview/ghi789');
   });
 });

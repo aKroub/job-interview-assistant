@@ -275,7 +275,8 @@ src/
 │   ├── companyUtils.js
 │   ├── companyLogoUtils.js  getCompanyLogoUrl + resolveCompanyLogoUrl + guessDomain
 │   ├── imageUtils.js        normalizeImage (Canvas-based 128×128 PNG conversion)
-│   └── questionUtils.js
+│   ├── questionUtils.js
+│   └── urlUtils.js          sanitizeVideoCallUrl + isValidVideoCallUrl (shared URL validation)
 │
 ├── hooks/              React state + persistence (inject storage/api via param)
 │   ├── useCompanies.js

@@ -1,7 +1,8 @@
-import React from 'react';
-import { CalendarCheck, HelpCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { CalendarCheck, ExternalLink, HelpCircle } from 'lucide-react';
 import { TYPE_CONFIG } from '../../constants/interviewTypes';
 import { resolveCompanyLogoUrl } from '../../utils/companyLogoUtils';
+import { isValidVideoCallUrl, sanitizeVideoCallUrl } from '../../utils/urlUtils';
 import { CompanyLogo } from './CompanyLogo';
 
 /**
@@ -10,9 +11,22 @@ import { CompanyLogo } from './CompanyLogo';
  * Defined at module level (never inside TodayInterviews render scope)
  * to preserve React reconciliation and allow isolated testing.
  *
- * @param {{ interview: Object, onClick?: (interview: Object) => void }} props
+ * For Video Interview type with a valid video call link, the video icon
+ * is clickable and toggles a "Join call" link below the chip. Clicking
+ * the icon does not trigger the chip's main onClick (navigate to timeline).
+ *
+ * The open/closed state is controlled by the parent via `isCallLinkOpen`
+ * and `onToggleCallLink` so that only one chip's panel can be open at a
+ * time, and navigating to a different interview auto-closes it.
+ *
+ * @param {{
+ *   interview:        Object,
+ *   onClick?:         (interview: Object) => void,
+ *   isCallLinkOpen:   boolean,
+ *   onToggleCallLink: () => void,
+ * }} props
  */
-function TodayInterviewItem({ interview, onClick }) {
+function TodayInterviewItem({ interview, onClick, isCallLinkOpen, onToggleCallLink }) {
   const typeConfig = TYPE_CONFIG[interview.type];
   const InterviewIcon = typeConfig ? typeConfig.Icon : HelpCircle;
   const logoUrl = resolveCompanyLogoUrl({
@@ -21,9 +35,14 @@ function TodayInterviewItem({ interview, onClick }) {
     customLogoUrl: interview.companyCustomLogoUrl,
   });
 
+  const isVideoInterview = interview.type === 'Video Interview';
+  const hasVideoCallLink = isVideoInterview && isValidVideoCallUrl(interview.videoCallLink);
+  const trimmedVideoLink = hasVideoCallLink ? sanitizeVideoCallUrl(interview.videoCallLink) : '';
+
   const baseClasses =
-    'flex items-center gap-1.5 bg-white border border-purple-200 rounded-md px-3 py-1.5 text-sm transition';
+    'flex items-center gap-1.5 bg-white border rounded-md px-3 py-1.5 text-sm transition';
   const iconColour = typeConfig?.colour || 'text-purple-500';
+  const borderClass = isCallLinkOpen ? 'border-blue-300' : 'border-purple-200';
   const interactiveClasses = onClick
     ? 'cursor-pointer hover:border-purple-400 hover:shadow-sm focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-1 active:scale-[0.98]'
     : '';
@@ -33,10 +52,19 @@ function TodayInterviewItem({ interview, onClick }) {
   }
 
   function handleKeyDown(e) {
-    if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+    // Guard: only handle key events that originate on the chip div itself,
+    // not on nested interactive children (e.g. the video-icon button).
+    // Without this, pressing Enter while focused on the inner button would
+    // also trigger the chip's navigate action — a WCAG nested-interactive issue.
+    if (onClick && e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
       e.preventDefault();
       onClick(interview);
     }
+  }
+
+  function handleVideoIconClick(e) {
+    e.stopPropagation();
+    onToggleCallLink();
   }
 
   const timeLabel = interview.time || 'TBD';
@@ -45,23 +73,61 @@ function TodayInterviewItem({ interview, onClick }) {
     : undefined;
 
   return (
-    <div
-      className={`${baseClasses} ${interactiveClasses}`}
-      onClick={handleClick}
-      onKeyDown={onClick ? handleKeyDown : undefined}
-      role={onClick ? 'button' : undefined}
-      tabIndex={onClick ? 0 : undefined}
-      aria-label={ariaLabel}
-    >
-      {interview.time && (
-        <span className="font-semibold text-gray-800">{interview.time}</span>
+    <div className={`flex flex-col rounded-lg transition ${isCallLinkOpen ? 'bg-blue-50 p-1 -m-1' : ''}`}>
+      <div
+        className={`${baseClasses} ${borderClass} ${interactiveClasses}`}
+        onClick={handleClick}
+        onKeyDown={onClick ? handleKeyDown : undefined}
+        role={onClick ? 'button' : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        aria-label={ariaLabel}
+      >
+        {interview.time && (
+          <span className="font-semibold text-gray-800">{interview.time}</span>
+        )}
+        {interview.time && (
+          <span className="text-gray-300" aria-hidden="true">&middot;</span>
+        )}
+        <CompanyLogo logoUrl={logoUrl} companyName={interview.companyName} size={14} />
+        <span className="text-gray-700 truncate max-w-[80px] sm:max-w-[120px] md:max-w-[200px]" title={interview.companyName}>{interview.companyName}</span>
+
+        {hasVideoCallLink ? (
+          <button
+            type="button"
+            onClick={handleVideoIconClick}
+            className={`p-0.5 rounded transition focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none ${
+              isCallLinkOpen
+                ? 'text-blue-700 bg-blue-100'
+                : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
+            }`}
+            aria-label={isCallLinkOpen ? 'Hide video call link' : `Show ${interview.companyName} video call link`}
+            aria-expanded={isCallLinkOpen}
+            title={isCallLinkOpen ? 'Hide call link' : 'Show call link'}
+          >
+            <InterviewIcon size={14} />
+          </button>
+        ) : (
+          <InterviewIcon size={14} className={`${iconColour} shrink-0`} aria-hidden="true" />
+        )}
+      </div>
+
+      {/* Join call link — shown below the chip when video icon is toggled */}
+      {isCallLinkOpen && hasVideoCallLink && (
+        <div className="px-3 py-1">
+          <a
+            href={trimmedVideoLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 underline focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
+            aria-label={`Join ${interview.companyName} video call`}
+            title={trimmedVideoLink}
+          >
+            Join call
+            <ExternalLink size={10} aria-hidden="true" />
+          </a>
+        </div>
       )}
-      {interview.time && (
-        <span className="text-gray-300" aria-hidden="true">&middot;</span>
-      )}
-      <CompanyLogo logoUrl={logoUrl} companyName={interview.companyName} size={14} />
-      <span className="text-gray-700 truncate max-w-[80px] sm:max-w-[120px] md:max-w-[200px]" title={interview.companyName}>{interview.companyName}</span>
-      <InterviewIcon size={14} className={`${iconColour} shrink-0`} aria-hidden="true" />
     </div>
   );
 }
@@ -72,13 +138,23 @@ function TodayInterviewItem({ interview, onClick }) {
  * Renders a horizontal list of interview chips (time, company, type icon).
  * Hidden entirely when the interviews array is empty.
  *
+ * Only one chip's "Join call" panel can be open at a time. Clicking a
+ * chip to navigate (onInterviewClick) auto-closes any open panel.
+ *
  * @param {{
  *   interviews: Object[],
  *   onInterviewClick?: (interview: Object) => void,
  * }} props
  */
 export function TodayInterviews({ interviews, onInterviewClick }) {
+  const [openCallLinkId, setOpenCallLinkId] = useState(null);
+
   if (interviews.length === 0) return null;
+
+  function handleInterviewClick(interview) {
+    setOpenCallLinkId(null);
+    if (onInterviewClick) onInterviewClick(interview);
+  }
 
   return (
     <div className="mb-6" role="region" aria-label="Today's upcoming interviews">
@@ -97,7 +173,9 @@ export function TodayInterviews({ interviews, onInterviewClick }) {
             <TodayInterviewItem
               key={interview.id}
               interview={interview}
-              onClick={onInterviewClick}
+              onClick={onInterviewClick ? handleInterviewClick : undefined}
+              isCallLinkOpen={openCallLinkId === interview.id}
+              onToggleCallLink={() => setOpenCallLinkId((prev) => prev === interview.id ? null : interview.id)}
             />
           ))}
         </div>

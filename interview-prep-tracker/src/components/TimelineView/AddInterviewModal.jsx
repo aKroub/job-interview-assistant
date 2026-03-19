@@ -124,8 +124,11 @@ export function AddInterviewModal({
 
     // Sanitise the video call link — only allow http(s) URLs to prevent
     // javascript: or data: URI injection when rendered as <a href>.
-    const safeVideoCallLink = /^https?:\/\//i.test(formData.videoCallLink)
-      ? formData.videoCallLink
+    // Trim whitespace so that pasted URLs with accidental leading/trailing
+    // spaces are not silently rejected.
+    const trimmedLink = formData.videoCallLink.trim();
+    const safeVideoCallLink = /^https?:\/\//i.test(trimmedLink)
+      ? trimmedLink
       : '';
 
     if (isEditMode) {

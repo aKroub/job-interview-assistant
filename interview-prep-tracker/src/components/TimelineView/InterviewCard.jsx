@@ -1,4 +1,4 @@
-import { Clock, Pencil, Trash2 } from 'lucide-react';
+import { Clock, ExternalLink, Pencil, Trash2 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { TYPE_CONFIG } from '../../constants/interviewTypes';
 import { deriveInterviewStatus } from '../../utils/companyUtils';
@@ -44,9 +44,10 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit, highlighte
     customLogoUrl: interview.companyCustomLogoUrl,
   });
 
+  const trimmedVideoLink = (interview.videoCallLink || '').trim();
   const hasVideoCallLink = interview.type === 'Video Interview'
-    && interview.videoCallLink
-    && /^https?:\/\//i.test(interview.videoCallLink);
+    && trimmedVideoLink
+    && /^https?:\/\//i.test(trimmedVideoLink);
 
   const [showVideoLink, setShowVideoLink] = useState(false);
 
@@ -145,7 +146,7 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit, highlighte
                 <button
                   type="button"
                   onClick={() => setShowVideoLink((prev) => !prev)}
-                  className={`p-0.5 rounded transition focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none ${
+                  className={`p-1 rounded transition focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none ${
                     showVideoLink
                       ? 'text-blue-700 bg-blue-100'
                       : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
@@ -167,14 +168,16 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit, highlighte
           {showVideoLink && hasVideoCallLink && (
             <div className="mt-1 flex items-center gap-1 pl-4">
               <a
-                href={interview.videoCallLink}
+                href={trimmedVideoLink}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}
-                className="text-xs text-blue-600 hover:text-blue-800 underline break-all focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
+                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 underline focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
                 aria-label={`Join ${interview.companyName} video call`}
+                title={trimmedVideoLink}
               >
-                {interview.videoCallLink}
+                Join call
+                <ExternalLink size={10} aria-hidden="true" />
               </a>
             </div>
           )}

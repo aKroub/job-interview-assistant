@@ -291,9 +291,11 @@ describe('InterviewCard — video call link (two-step toggle)', () => {
     expect(screen.queryByRole('button', { name: /show.*video call link/i })).not.toBeInTheDocument();
   });
 
-  it('shows the full URL text in the revealed link', async () => {
+  it('shows "Join call" label with full URL in title tooltip', async () => {
     setup({ type: 'Video Interview', videoCallLink: 'https://zoom.us/j/123' });
     await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
-    expect(screen.getByText('https://zoom.us/j/123')).toBeInTheDocument();
+    const link = screen.getByRole('link', { name: /join.*video call/i });
+    expect(link).toHaveTextContent('Join call');
+    expect(link).toHaveAttribute('title', 'https://zoom.us/j/123');
   });
 });

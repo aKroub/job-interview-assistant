@@ -802,13 +802,17 @@ const VIDEO_URL_PATTERNS = [
   /https?:\/\/meet\.google\.com\/[a-z]{3}-[a-z]{4}-[a-z]{3}[^\s<>"')\]]*/i,
   /https?:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^\s<>"')\]]+/i,
   /https?:\/\/[a-zA-Z0-9.-]*webex\.com\/[^\s<>"')\]]+/i,
+  /https?:\/\/[a-zA-Z0-9.-]*sparkhire\.com\/[^\s<>"')\]]+/i,
+  /https?:\/\/[a-zA-Z0-9.-]*hireflix\.com\/[^\s<>"')\]]+/i,
+  /https?:\/\/[a-zA-Z0-9.-]*myinterview\.com\/[^\s<>"')\]]+/i,
 ];
 
 /**
  * Extracts the first video-conference URL from plain text (email body,
  * snippet, or any free-form string).
  *
- * Supports Zoom, Google Meet, Microsoft Teams, and Webex links.
+ * Supports Zoom, Google Meet, Microsoft Teams, Webex, Spark Hire,
+ * Hireflix, and myInterview links.
  * Returns the matched URL or `''` if none is found.
  *
  * @param {string} text - plain text to search

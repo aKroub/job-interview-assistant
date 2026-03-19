@@ -1130,4 +1130,24 @@ describe('extractVideoCallUrl', () => {
     const result = extractVideoCallUrl(text);
     expect(result).toBe('https://zoom.us/j/12345');
   });
+
+  it('extracts a Spark Hire URL', () => {
+    const text = 'Complete your interview at https://app.sparkhire.com/interview/abc123 before the deadline.';
+    expect(extractVideoCallUrl(text)).toBe('https://app.sparkhire.com/interview/abc123');
+  });
+
+  it('extracts a Spark Hire URL with www subdomain', () => {
+    const text = 'Visit https://www.sparkhire.com/video/xyz789 to start.';
+    expect(extractVideoCallUrl(text)).toBe('https://www.sparkhire.com/video/xyz789');
+  });
+
+  it('extracts a Hireflix URL', () => {
+    const text = 'Your interview: https://app.hireflix.com/interview/def456 — good luck!';
+    expect(extractVideoCallUrl(text)).toBe('https://app.hireflix.com/interview/def456');
+  });
+
+  it('extracts a myInterview URL', () => {
+    const text = 'Please complete https://app.myinterview.com/interview/ghi789 at your convenience.';
+    expect(extractVideoCallUrl(text)).toBe('https://app.myinterview.com/interview/ghi789');
+  });
 });

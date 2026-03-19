@@ -1,7 +1,8 @@
-import React from 'react';
-import { CalendarCheck, HelpCircle } from 'lucide-react';
+import React, { useState } from 'react';
+import { CalendarCheck, ExternalLink, HelpCircle } from 'lucide-react';
 import { TYPE_CONFIG } from '../../constants/interviewTypes';
 import { resolveCompanyLogoUrl } from '../../utils/companyLogoUtils';
+import { isValidVideoCallUrl, sanitizeVideoCallUrl } from '../../utils/urlUtils';
 import { CompanyLogo } from './CompanyLogo';
 
 /**
@@ -9,6 +10,10 @@ import { CompanyLogo } from './CompanyLogo';
  *
  * Defined at module level (never inside TodayInterviews render scope)
  * to preserve React reconciliation and allow isolated testing.
+ *
+ * For Video Interview type with a valid video call link, the video icon
+ * is clickable and toggles a "Join call" link below the chip. Clicking
+ * the icon does not trigger the chip's main onClick (navigate to timeline).
  *
  * @param {{ interview: Object, onClick?: (interview: Object) => void }} props
  */
@@ -20,6 +25,12 @@ function TodayInterviewItem({ interview, onClick }) {
     domain: interview.companyDomain,
     customLogoUrl: interview.companyCustomLogoUrl,
   });
+
+  const isVideoInterview = interview.type === 'Video Interview';
+  const hasVideoCallLink = isVideoInterview && isValidVideoCallUrl(interview.videoCallLink);
+  const trimmedVideoLink = sanitizeVideoCallUrl(interview.videoCallLink);
+
+  const [showJoinCall, setShowJoinCall] = useState(false);
 
   const baseClasses =
     'flex items-center gap-1.5 bg-white border border-purple-200 rounded-md px-3 py-1.5 text-sm transition';
@@ -39,29 +50,72 @@ function TodayInterviewItem({ interview, onClick }) {
     }
   }
 
+  function handleVideoIconClick(e) {
+    e.stopPropagation();
+    setShowJoinCall((prev) => !prev);
+  }
+
   const timeLabel = interview.time || 'TBD';
   const ariaLabel = onClick
     ? `View ${interview.companyName} ${interview.type} at ${timeLabel}`
     : undefined;
 
   return (
-    <div
-      className={`${baseClasses} ${interactiveClasses}`}
-      onClick={handleClick}
-      onKeyDown={onClick ? handleKeyDown : undefined}
-      role={onClick ? 'button' : undefined}
-      tabIndex={onClick ? 0 : undefined}
-      aria-label={ariaLabel}
-    >
-      {interview.time && (
-        <span className="font-semibold text-gray-800">{interview.time}</span>
+    <div className="flex flex-col">
+      <div
+        className={`${baseClasses} ${interactiveClasses}`}
+        onClick={handleClick}
+        onKeyDown={onClick ? handleKeyDown : undefined}
+        role={onClick ? 'button' : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        aria-label={ariaLabel}
+      >
+        {interview.time && (
+          <span className="font-semibold text-gray-800">{interview.time}</span>
+        )}
+        {interview.time && (
+          <span className="text-gray-300" aria-hidden="true">&middot;</span>
+        )}
+        <CompanyLogo logoUrl={logoUrl} companyName={interview.companyName} size={14} />
+        <span className="text-gray-700 truncate max-w-[80px] sm:max-w-[120px] md:max-w-[200px]" title={interview.companyName}>{interview.companyName}</span>
+
+        {hasVideoCallLink ? (
+          <button
+            type="button"
+            onClick={handleVideoIconClick}
+            className={`p-0.5 rounded transition focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none ${
+              showJoinCall
+                ? 'text-blue-700 bg-blue-100'
+                : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
+            }`}
+            aria-label={showJoinCall ? 'Hide video call link' : `Show ${interview.companyName} video call link`}
+            aria-expanded={showJoinCall}
+            title={showJoinCall ? 'Hide call link' : 'Show call link'}
+          >
+            <InterviewIcon size={14} />
+          </button>
+        ) : (
+          <InterviewIcon size={14} className={`${iconColour} shrink-0`} aria-hidden="true" />
+        )}
+      </div>
+
+      {/* Join call link — shown below the chip when video icon is toggled */}
+      {showJoinCall && hasVideoCallLink && (
+        <div className="ml-3 mt-1">
+          <a
+            href={trimmedVideoLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 underline focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
+            aria-label={`Join ${interview.companyName} video call`}
+            title={trimmedVideoLink}
+          >
+            Join call
+            <ExternalLink size={10} aria-hidden="true" />
+          </a>
+        </div>
       )}
-      {interview.time && (
-        <span className="text-gray-300" aria-hidden="true">&middot;</span>
-      )}
-      <CompanyLogo logoUrl={logoUrl} companyName={interview.companyName} size={14} />
-      <span className="text-gray-700 truncate max-w-[80px] sm:max-w-[120px] md:max-w-[200px]" title={interview.companyName}>{interview.companyName}</span>
-      <InterviewIcon size={14} className={`${iconColour} shrink-0`} aria-hidden="true" />
     </div>
   );
 }

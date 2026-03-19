@@ -144,6 +144,67 @@ describe('TodayInterviews', () => {
 
     render(<TodayInterviews interviews={[interview]} />);
 
-    expect(screen.queryByRole('button')).toBeNull();
+    // No chip-level buttons (video icon toggle is not a chip button)
+    expect(screen.queryByRole('button', { name: /view/i })).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Video call link toggle on today chips
+// ---------------------------------------------------------------------------
+
+describe('TodayInterviews — video call link', () => {
+  const user = userEvent.setup();
+
+  it('renders a clickable video icon for Video Interview with a valid URL', () => {
+    const interview = makeInterview({ type: 'Video Interview', videoCallLink: 'https://zoom.us/j/123' });
+    render(<TodayInterviews interviews={[interview]} />);
+    expect(screen.getByRole('button', { name: /show.*video call link/i })).toBeInTheDocument();
+  });
+
+  it('does not render clickable video icon for Phone Interview even with a URL', () => {
+    const interview = makeInterview({ type: 'Phone Interview', videoCallLink: 'https://zoom.us/j/123' });
+    render(<TodayInterviews interviews={[interview]} />);
+    expect(screen.queryByRole('button', { name: /video call/i })).not.toBeInTheDocument();
+  });
+
+  it('does not render clickable video icon for Video Interview without a URL', () => {
+    const interview = makeInterview({ type: 'Video Interview' });
+    render(<TodayInterviews interviews={[interview]} />);
+    expect(screen.queryByRole('button', { name: /video call/i })).not.toBeInTheDocument();
+  });
+
+  it('shows "Join call" link when video icon is clicked', async () => {
+    const interview = makeInterview({ type: 'Video Interview', videoCallLink: 'https://zoom.us/j/123' });
+    render(<TodayInterviews interviews={[interview]} />);
+    await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
+    const link = screen.getByRole('link', { name: /join.*video call/i });
+    expect(link).toHaveAttribute('href', 'https://zoom.us/j/123');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', expect.stringContaining('noopener'));
+  });
+
+  it('hides "Join call" link when video icon is clicked again', async () => {
+    const interview = makeInterview({ type: 'Video Interview', videoCallLink: 'https://zoom.us/j/123' });
+    render(<TodayInterviews interviews={[interview]} />);
+    await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
+    expect(screen.getByRole('link', { name: /join.*video call/i })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /hide video call link/i }));
+    expect(screen.queryByRole('link', { name: /join.*video call/i })).not.toBeInTheDocument();
+  });
+
+  it('does not navigate to timeline when video icon is clicked', async () => {
+    const onInterviewClick = vi.fn();
+    const interview = makeInterview({ type: 'Video Interview', videoCallLink: 'https://zoom.us/j/123' });
+    render(<TodayInterviews interviews={[interview]} onInterviewClick={onInterviewClick} />);
+    await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
+    expect(onInterviewClick).not.toHaveBeenCalled();
+  });
+
+  it('does not show an edit input (read-only join call)', async () => {
+    const interview = makeInterview({ type: 'Video Interview', videoCallLink: 'https://zoom.us/j/123' });
+    render(<TodayInterviews interviews={[interview]} />);
+    await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
+    expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
   });
 });

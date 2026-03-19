@@ -177,9 +177,10 @@ describe('H2 — Whitespace-padded URLs are handled correctly', () => {
         .toHaveAttribute('href', 'https://zoom.us/j/123');
     });
 
-    it('does NOT show toggle for whitespace-only string', () => {
+    it('renders "Add" toggle for whitespace-only string (no "Show" toggle)', () => {
       renderCard({ videoCallLink: '   \t  \n  ' });
       expect(screen.queryByRole('button', { name: /show.*video call link/i })).not.toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /add.*video call link/i })).toBeInTheDocument();
     });
   });
 

@@ -313,4 +313,35 @@ describe('InterviewCard — video call link (toggle panel)', () => {
     expect(onUpdateInterview).not.toHaveBeenCalled();
     expect(screen.queryByLabelText(/video call url/i)).not.toBeInTheDocument();
   });
+
+  it('shows validation error for URL without https:// protocol', async () => {
+    const { onUpdateInterview } = setup({ type: 'Video Interview' });
+    await user.click(screen.getByRole('button', { name: /add.*video call link/i }));
+    const input = screen.getByLabelText(/video call url/i);
+    await user.type(input, 'zoom.us/j/123');
+    await user.click(screen.getByRole('button', { name: /save video call link/i }));
+    expect(screen.getByRole('alert')).toHaveTextContent('URL must start with https://');
+    expect(onUpdateInterview).not.toHaveBeenCalled();
+    expect(input).toHaveAttribute('aria-invalid', 'true');
+  });
+
+  it('clears validation error when user edits the input', async () => {
+    const { onUpdateInterview } = setup({ type: 'Video Interview' });
+    await user.click(screen.getByRole('button', { name: /add.*video call link/i }));
+    const input = screen.getByLabelText(/video call url/i);
+    await user.type(input, 'zoom.us/j/123');
+    await user.click(screen.getByRole('button', { name: /save video call link/i }));
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    await user.type(input, 'https://zoom.us/j/123');
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('allows saving an empty URL to clear the link', async () => {
+    const { onUpdateInterview } = setup({ type: 'Video Interview', videoCallLink: 'https://zoom.us/j/123' });
+    await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
+    const input = screen.getByLabelText(/video call url/i);
+    await user.clear(input);
+    await user.click(screen.getByRole('button', { name: /save video call link/i }));
+    expect(onUpdateInterview).toHaveBeenCalledWith('c1', 'i1', { videoCallLink: '' });
+  });
 });

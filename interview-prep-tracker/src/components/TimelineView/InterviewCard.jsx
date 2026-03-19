@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { TYPE_CONFIG } from '../../constants/interviewTypes';
 import { deriveInterviewStatus } from '../../utils/companyUtils';
 import { resolveCompanyLogoUrl } from '../../utils/companyLogoUtils';
+import { isValidVideoCallUrl, sanitizeVideoCallUrl } from '../../utils/urlUtils';
 import { CompanyLogo } from '../shared/CompanyLogo';
 
 /** Tailwind class sets for each display status (matches InterviewRow pattern). */
@@ -46,13 +47,12 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit, onUpdateIn
   });
 
   const isVideoInterview = interview.type === 'Video Interview';
-  const trimmedVideoLink = (interview.videoCallLink || '').trim();
-  const hasVideoCallLink = isVideoInterview
-    && trimmedVideoLink
-    && /^https?:\/\//i.test(trimmedVideoLink);
+  const trimmedVideoLink = sanitizeVideoCallUrl(interview.videoCallLink);
+  const hasVideoCallLink = isVideoInterview && isValidVideoCallUrl(interview.videoCallLink);
 
   const [showVideoPanel, setShowVideoPanel] = useState(false);
   const [linkDraft, setLinkDraft] = useState('');
+  const [linkError, setLinkError] = useState('');
   const linkInputRef = useRef(null);
 
   function handleToggleVideoPanel() {
@@ -60,12 +60,18 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit, onUpdateIn
     setShowVideoPanel(opening);
     if (opening) {
       setLinkDraft(trimmedVideoLink);
+      setLinkError('');
     }
   }
 
   function handleSaveLink() {
     const trimmed = linkDraft.trim();
-    const safeLink = /^https?:\/\//i.test(trimmed) ? trimmed : '';
+    const safeLink = sanitizeVideoCallUrl(trimmed);
+    if (trimmed && safeLink === '') {
+      setLinkError('URL must start with https://');
+      linkInputRef.current?.focus();
+      return;
+    }
     onUpdateInterview(interview.companyId, interview.id, { videoCallLink: safeLink });
     setShowVideoPanel(false);
   }
@@ -214,16 +220,19 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit, onUpdateIn
               )}
 
               {/* Inline URL input */}
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1 flex-wrap">
                 <input
                   ref={linkInputRef}
                   type="url"
                   value={linkDraft}
-                  onChange={(e) => setLinkDraft(e.target.value)}
+                  onChange={(e) => { setLinkDraft(e.target.value); setLinkError(''); }}
                   onKeyDown={(e) => { if (e.key === 'Enter') handleSaveLink(); if (e.key === 'Escape') handleCancelLink(); }}
                   placeholder="https://zoom.us/j/..."
-                  className="flex-1 min-w-0 text-xs px-1.5 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  className={`flex-1 min-w-0 text-xs px-1.5 py-1 border rounded focus:outline-none focus:ring-1 ${
+                    linkError ? 'border-red-400 focus:ring-red-400' : 'border-gray-300 focus:ring-blue-400'
+                  }`}
                   aria-label="Video call URL"
+                  aria-invalid={linkError ? 'true' : undefined}
                 />
                 <button
                   type="button"
@@ -244,6 +253,9 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit, onUpdateIn
                   <X size={12} />
                 </button>
               </div>
+              {linkError && (
+                <p className="text-xs text-red-500 mt-0.5" role="alert">{linkError}</p>
+              )}
             </div>
           )}
         </div>

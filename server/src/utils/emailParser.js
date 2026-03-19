@@ -800,7 +800,7 @@ export function detectEmailIntent(subject, body) {
 const VIDEO_URL_PATTERNS = [
   /https?:\/\/[a-zA-Z0-9.-]*zoom\.us\/j\/[^\s<>"')\]]+/i,
   /https?:\/\/meet\.google\.com\/[a-z]{3}-[a-z]{4}-[a-z]{3}[^\s<>"')\]]*/i,
-  /https?:\/\/teams\.microsoft\.com\/l\/meetup-join\/[^\s<>"')\]]+/i,
+  /https?:\/\/teams\.microsoft\.com\/(?:l\/meetup-join|meet)\/[^\s<>"')\]]+/i,
   /https?:\/\/[a-zA-Z0-9.-]*webex\.com\/[^\s<>"')\]]+/i,
   /https?:\/\/[a-zA-Z0-9.-]*sparkhire\.com\/[^\s<>"')\]]+/i,
   /https?:\/\/[a-zA-Z0-9.-]*hireflix\.com\/[^\s<>"')\]]+/i,

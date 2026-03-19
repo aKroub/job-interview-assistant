@@ -1094,9 +1094,14 @@ describe('extractVideoCallUrl', () => {
     expect(extractVideoCallUrl(text)).toBe('https://meet.google.com/abc-defg-hij');
   });
 
-  it('extracts a Microsoft Teams URL', () => {
+  it('extracts a Microsoft Teams meetup-join URL', () => {
     const text = 'Click here: https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc to join.';
     expect(extractVideoCallUrl(text)).toBe('https://teams.microsoft.com/l/meetup-join/19%3ameeting_abc');
+  });
+
+  it('extracts a Microsoft Teams /meet/ URL', () => {
+    const text = 'Join at https://teams.microsoft.com/meet/36805220047055?p=hoWTC85qsijw6wk3EA for the interview.';
+    expect(extractVideoCallUrl(text)).toBe('https://teams.microsoft.com/meet/36805220047055?p=hoWTC85qsijw6wk3EA');
   });
 
   it('extracts a WebEx URL', () => {

@@ -17,11 +17,12 @@ import { InterviewCard } from './InterviewCard';
  *   isCollapsed:            boolean,
  *   onDeleteInterview:      (companyId: string, interviewId: string) => void,
  *   onEdit:                 (interview: Object) => void,
+ *   onUpdateInterview:      (companyId: string, interviewId: string, updates: Object) => void,
  *   highlightedInterviewId: string | null,
  *   onHighlightComplete:    () => void,
  * }} props
  */
-export function DayColumn({ date, interviews, isToday, isCollapsed = false, onDeleteInterview, onEdit, highlightedInterviewId, onHighlightComplete }) {
+export function DayColumn({ date, interviews, isToday, isCollapsed = false, onDeleteInterview, onEdit, onUpdateInterview, highlightedInterviewId, onHighlightComplete }) {
   const headerLabel = formatDayHeader(date);
 
   const columnClasses = isToday
@@ -66,6 +67,7 @@ export function DayColumn({ date, interviews, isToday, isCollapsed = false, onDe
                   interview={interview}
                   onDeleteInterview={onDeleteInterview}
                   onEdit={onEdit}
+                  onUpdateInterview={onUpdateInterview}
                   highlightedInterviewId={highlightedInterviewId}
                   onHighlightComplete={onHighlightComplete}
                 />

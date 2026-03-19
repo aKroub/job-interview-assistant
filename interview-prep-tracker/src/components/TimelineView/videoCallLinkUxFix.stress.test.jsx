@@ -30,6 +30,7 @@ function renderCard(interviewOverrides = {}) {
       interview={interview}
       onDeleteInterview={vi.fn()}
       onEdit={vi.fn()}
+      onUpdateInterview={vi.fn()}
       highlightedInterviewId={null}
       onHighlightComplete={vi.fn()}
     />
@@ -76,18 +77,18 @@ describe('H1 — Rapid toggle clicks on InterviewCard video icon', () => {
     // Click 5 times rapidly (odd = should end with link visible)
     await user.click(toggleBtn);
     // After first click, button label changes to "Hide..."
-    const btnAfter1 = screen.getByRole('button', { name: /hide video call link/i });
+    const btnAfter1 = screen.getByRole('button', { name: /hide video call panel/i });
     await user.click(btnAfter1);
     const btnAfter2 = screen.getByRole('button', { name: /show.*video call link/i });
     await user.click(btnAfter2);
-    const btnAfter3 = screen.getByRole('button', { name: /hide video call link/i });
+    const btnAfter3 = screen.getByRole('button', { name: /hide video call panel/i });
     await user.click(btnAfter3);
     const btnAfter4 = screen.getByRole('button', { name: /show.*video call link/i });
     await user.click(btnAfter4);
 
     // After 5 clicks (odd): link should be visible
     expect(screen.getByRole('link', { name: /join.*video call/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /hide video call link/i }))
+    expect(screen.getByRole('button', { name: /hide video call panel/i }))
       .toHaveAttribute('aria-expanded', 'true');
   });
 
@@ -99,11 +100,11 @@ describe('H1 — Rapid toggle clicks on InterviewCard video icon', () => {
 
     // Click 6 times (even = should end with link hidden)
     await user.click(toggleBtn);
-    await user.click(screen.getByRole('button', { name: /hide video call link/i }));
+    await user.click(screen.getByRole('button', { name: /hide video call panel/i }));
     await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
-    await user.click(screen.getByRole('button', { name: /hide video call link/i }));
+    await user.click(screen.getByRole('button', { name: /hide video call panel/i }));
     await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
-    await user.click(screen.getByRole('button', { name: /hide video call link/i }));
+    await user.click(screen.getByRole('button', { name: /hide video call panel/i }));
 
     // After 6 clicks (even): link should be hidden
     expect(screen.queryByRole('link', { name: /join.*video call/i })).not.toBeInTheDocument();
@@ -119,7 +120,7 @@ describe('H1 — Rapid toggle clicks on InterviewCard video icon', () => {
       const isCurrentlyShown = screen.queryByRole('link', { name: /join.*video call/i }) !== null;
 
       if (isCurrentlyShown) {
-        const btn = screen.getByRole('button', { name: /hide video call link/i });
+        const btn = screen.getByRole('button', { name: /hide video call panel/i });
         expect(btn).toHaveAttribute('aria-expanded', 'true');
         await user.click(btn);
         expect(screen.queryByRole('link', { name: /join.*video call/i })).not.toBeInTheDocument();
@@ -384,6 +385,7 @@ describe('H4 — InterviewCard prop changes with stale toggle state', () => {
     const props = {
       onDeleteInterview: vi.fn(),
       onEdit: vi.fn(),
+      onUpdateInterview: vi.fn(),
       highlightedInterviewId: null,
       onHighlightComplete: vi.fn(),
     };
@@ -399,11 +401,11 @@ describe('H4 — InterviewCard prop changes with stale toggle state', () => {
     const updatedInterview = makeInterview({ videoCallLink: '' });
     rerender(<InterviewCard interview={updatedInterview} {...props} />);
 
-    // Link section should be gone — the `showVideoLink && hasVideoCallLink` guard handles this
+    // Join call link should be gone since videoCallLink is empty
     expect(screen.queryByRole('link', { name: /join.*video call/i })).not.toBeInTheDocument();
-    // Toggle button should also be gone since hasVideoCallLink is now false
-    expect(screen.queryByRole('button', { name: /hide video call link/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /show.*video call link/i })).not.toBeInTheDocument();
+    // Panel stays open (toggle state persists) — user can add a new URL via input
+    expect(screen.getByRole('button', { name: /hide video call panel/i })).toBeInTheDocument();
+    expect(screen.getByLabelText(/video call url/i)).toBeInTheDocument();
   });
 
   it('hides link section when type changes from Video to Phone via re-render', async () => {
@@ -411,6 +413,7 @@ describe('H4 — InterviewCard prop changes with stale toggle state', () => {
     const props = {
       onDeleteInterview: vi.fn(),
       onEdit: vi.fn(),
+      onUpdateInterview: vi.fn(),
       highlightedInterviewId: null,
       onHighlightComplete: vi.fn(),
     };
@@ -429,7 +432,7 @@ describe('H4 — InterviewCard prop changes with stale toggle state', () => {
     // No toggle or link should be visible
     expect(screen.queryByRole('link', { name: /join.*video call/i })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /show.*video call link/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /hide video call link/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /hide video call panel/i })).not.toBeInTheDocument();
   });
 
   it('toggle returns to collapsed state when videoCallLink changes to a new URL', async () => {
@@ -437,6 +440,7 @@ describe('H4 — InterviewCard prop changes with stale toggle state', () => {
     const props = {
       onDeleteInterview: vi.fn(),
       onEdit: vi.fn(),
+      onUpdateInterview: vi.fn(),
       highlightedInterviewId: null,
       onHighlightComplete: vi.fn(),
     };

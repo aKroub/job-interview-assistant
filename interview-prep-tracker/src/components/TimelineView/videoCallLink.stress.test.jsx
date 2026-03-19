@@ -30,6 +30,7 @@ function renderCard(interviewOverrides = {}) {
       interview={interview}
       onDeleteInterview={vi.fn()}
       onEdit={vi.fn()}
+      onUpdateInterview={vi.fn()}
       highlightedInterviewId={null}
       onHighlightComplete={vi.fn()}
     />
@@ -234,7 +235,7 @@ describe('H3 — InterviewCard video link toggle edge cases', () => {
     expect(screen.getByRole('link', { name: /join.*video call/i })).toBeInTheDocument();
 
     // Click to hide
-    await user.click(screen.getByRole('button', { name: /hide video call link/i }));
+    await user.click(screen.getByRole('button', { name: /hide video call panel/i }));
     expect(screen.queryByRole('link', { name: /join.*video call/i })).not.toBeInTheDocument();
 
     // Click to show again

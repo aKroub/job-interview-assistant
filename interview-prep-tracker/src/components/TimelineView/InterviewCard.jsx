@@ -1,5 +1,5 @@
-import { Clock, ExternalLink, Pencil, Trash2, Video } from 'lucide-react';
-import React, { useEffect, useRef } from 'react';
+import { Clock, ExternalLink, Pencil, Trash2 } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
 import { TYPE_CONFIG } from '../../constants/interviewTypes';
 import { deriveInterviewStatus } from '../../utils/companyUtils';
 import { resolveCompanyLogoUrl } from '../../utils/companyLogoUtils';
@@ -20,6 +20,10 @@ const STATUS_STYLES = {
  * status badge. A pencil icon opens the full edit modal via the onEdit
  * callback.
  *
+ * For Video Interview type with a valid http(s) video call link, the video
+ * icon is clickable. Clicking it reveals the full URL as a link. Clicking
+ * the icon again hides the URL (two-step flow to prevent accidental joins).
+ *
  * @param {{
  *   interview:              Object,
  *   onDeleteInterview:      (companyId: string, interviewId: string) => void,
@@ -39,6 +43,13 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit, highlighte
     domain: interview.companyDomain,
     customLogoUrl: interview.companyCustomLogoUrl,
   });
+
+  const trimmedVideoLink = (interview.videoCallLink || '').trim();
+  const hasVideoCallLink = interview.type === 'Video Interview'
+    && trimmedVideoLink
+    && /^https?:\/\//i.test(trimmedVideoLink);
+
+  const [showVideoLink, setShowVideoLink] = useState(false);
 
   const cardRef = useRef(null);
   const highlightCompleteRef = useRef(onHighlightComplete);
@@ -111,29 +122,11 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit, highlighte
         </div>
       )}
 
-      {/* Video call link — only render for http(s) URLs to prevent javascript: XSS */}
-      {interview.videoCallLink && /^https?:\/\//i.test(interview.videoCallLink) && (
-        <a
-          href={interview.videoCallLink}
-          target="_blank"
-          rel="noopener noreferrer"
-          onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 py-1 px-2 rounded bg-blue-50 hover:bg-blue-100 focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-1 focus-visible:outline-none transition mb-1"
-          aria-label={`Join ${interview.companyName} video call`}
-        >
-          <Video size={14} aria-hidden="true" />
-          <span>Join call</span>
-          <ExternalLink size={10} aria-hidden="true" className="opacity-60" />
-        </a>
-      )}
-
-      {/* Company name */}
+      {/* Company name + logo */}
       <div className="flex items-center gap-1 mb-1 pr-12">
-        {logoUrl ? (
+        {logoUrl && (
           <CompanyLogo logoUrl={logoUrl} companyName={interview.companyName} size={12} />
-        ) : InterviewIcon ? (
-          <InterviewIcon size={12} className="text-purple-500 shrink-0" />
-        ) : null}
+        )}
         <span className="text-xs font-medium text-gray-800 truncate">
           {interview.companyName}
         </span>
@@ -144,9 +137,51 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit, highlighte
         <p className="text-xs text-gray-600 mb-1 truncate" title={interview.position}>{interview.position}</p>
       )}
 
-      {/* Interview type */}
+      {/* Interview type with icon — video icon toggles call link visibility */}
       {interview.type && (
-        <p className="text-xs text-gray-500 mb-1 truncate">{interview.type}</p>
+        <div className="mb-1">
+          <div className="flex items-center gap-1">
+            {InterviewIcon && (
+              hasVideoCallLink ? (
+                <button
+                  type="button"
+                  onClick={() => setShowVideoLink((prev) => !prev)}
+                  className={`p-1 rounded transition focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none ${
+                    showVideoLink
+                      ? 'text-blue-700 bg-blue-100'
+                      : 'text-blue-600 hover:text-blue-800 hover:bg-blue-50'
+                  }`}
+                  aria-label={showVideoLink ? 'Hide video call link' : `Show ${interview.companyName} video call link`}
+                  aria-expanded={showVideoLink}
+                  title={showVideoLink ? 'Hide call link' : 'Show call link'}
+                >
+                  <InterviewIcon size={12} />
+                </button>
+              ) : (
+                <InterviewIcon size={12} className={`${typeConfig.colour || 'text-purple-500'} shrink-0`} aria-hidden="true" />
+              )
+            )}
+            <span className="text-xs text-gray-500 truncate">{interview.type}</span>
+          </div>
+
+          {/* Expanded video call link */}
+          {showVideoLink && hasVideoCallLink && (
+            <div className="mt-1 flex items-center gap-1 pl-4">
+              <a
+                href={trimmedVideoLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                onClick={(e) => e.stopPropagation()}
+                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 underline focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:outline-none"
+                aria-label={`Join ${interview.companyName} video call`}
+                title={trimmedVideoLink}
+              >
+                Join call
+                <ExternalLink size={10} aria-hidden="true" />
+              </a>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Status badge */}

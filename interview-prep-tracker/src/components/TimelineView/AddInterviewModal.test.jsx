@@ -512,20 +512,35 @@ describe('AddInterviewModal — edit mode close', () => {
 // ---------------------------------------------------------------------------
 
 describe('AddInterviewModal — video call link', () => {
-  it('renders the video call link field in add mode', () => {
+  it('does not render the video call link field when type is not Video Interview', () => {
     setup();
+    expect(screen.queryByLabelText(/video call link/i)).not.toBeInTheDocument();
+  });
+
+  it('renders the video call link field when type is Video Interview (add mode)', async () => {
+    const user = userEvent.setup();
+    setup();
+    await user.selectOptions(screen.getByLabelText(/type/i), 'Video Interview');
     expect(screen.getByLabelText(/video call link/i)).toBeInTheDocument();
   });
 
-  it('renders the video call link field in edit mode', () => {
-    setupEditMode();
+  it('renders the video call link field in edit mode when type is Video Interview', () => {
+    setupEditMode({ interview: makeEditInterview({ type: 'Video Interview' }) });
     expect(screen.getByLabelText(/video call link/i)).toBeInTheDocument();
+  });
+
+  it('does not render the video call link field in edit mode when type is not Video Interview', () => {
+    setupEditMode();
+    expect(screen.queryByLabelText(/video call link/i)).not.toBeInTheDocument();
   });
 
   it('includes videoCallLink in submitted data (add mode)', async () => {
     const user = userEvent.setup();
     const { onAdd } = setup();
-    await fillAllRequired(user);
+    await user.selectOptions(screen.getByLabelText(/company/i), 'c1');
+    await user.selectOptions(screen.getByLabelText(/type/i), 'Video Interview');
+    await user.type(screen.getByLabelText(/date/i), '2025-09-01');
+    await user.type(screen.getByLabelText(/time/i), '10:00');
     await user.type(screen.getByLabelText(/video call link/i), 'https://zoom.us/j/999');
     await user.click(screen.getByRole('button', { name: /schedule/i }));
     expect(onAdd).toHaveBeenCalledTimes(1);
@@ -536,7 +551,7 @@ describe('AddInterviewModal — video call link', () => {
   it('includes videoCallLink in submitted data (edit mode)', async () => {
     const user = userEvent.setup();
     const { onEdit } = setupEditMode({
-      interview: makeEditInterview({ videoCallLink: 'https://meet.google.com/aaa-bbbb-ccc' }),
+      interview: makeEditInterview({ type: 'Video Interview', videoCallLink: 'https://meet.google.com/aaa-bbbb-ccc' }),
     });
     expect(screen.getByLabelText(/video call link/i)).toHaveValue('https://meet.google.com/aaa-bbbb-ccc');
     await user.click(screen.getByRole('button', { name: /save changes/i }));
@@ -545,15 +560,35 @@ describe('AddInterviewModal — video call link', () => {
     expect(updates.videoCallLink).toBe('https://meet.google.com/aaa-bbbb-ccc');
   });
 
-  it('pre-populates videoCallLink from initialValues', () => {
-    setup({ initialValues: { companyId: 'c1', type: 'Phone Interview', date: '2025-09-01', time: '10:00', videoCallLink: 'https://zoom.us/j/555' } });
+  it('pre-populates videoCallLink from initialValues when type is Video Interview', () => {
+    setup({ initialValues: { companyId: 'c1', type: 'Video Interview', date: '2025-09-01', time: '10:00', videoCallLink: 'https://zoom.us/j/555' } });
     expect(screen.getByLabelText(/video call link/i)).toHaveValue('https://zoom.us/j/555');
+  });
+
+  it('clears videoCallLink when switching type away from Video Interview', async () => {
+    const user = userEvent.setup();
+    const { onAdd } = setup();
+    await user.selectOptions(screen.getByLabelText(/company/i), 'c1');
+    await user.selectOptions(screen.getByLabelText(/type/i), 'Video Interview');
+    await user.type(screen.getByLabelText(/video call link/i), 'https://zoom.us/j/999');
+    // Switch to Phone Interview — field should disappear and value should be cleared
+    await user.selectOptions(screen.getByLabelText(/type/i), 'Phone Interview');
+    expect(screen.queryByLabelText(/video call link/i)).not.toBeInTheDocument();
+    // Fill required fields and submit — videoCallLink should be empty
+    await user.type(screen.getByLabelText(/date/i), '2025-09-01');
+    await user.type(screen.getByLabelText(/time/i), '10:00');
+    await user.click(screen.getByRole('button', { name: /schedule/i }));
+    const [, interviewData] = onAdd.mock.calls[0];
+    expect(interviewData.videoCallLink).toBe('');
   });
 
   it('submits empty string when video call link is not filled', async () => {
     const user = userEvent.setup();
     const { onAdd } = setup();
-    await fillAllRequired(user);
+    await user.selectOptions(screen.getByLabelText(/company/i), 'c1');
+    await user.selectOptions(screen.getByLabelText(/type/i), 'Video Interview');
+    await user.type(screen.getByLabelText(/date/i), '2025-09-01');
+    await user.type(screen.getByLabelText(/time/i), '10:00');
     await user.click(screen.getByRole('button', { name: /schedule/i }));
     expect(onAdd).toHaveBeenCalledTimes(1);
     const [, interviewData] = onAdd.mock.calls[0];

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { FieldLabel } from '../shared/FieldLabel';
 import { FormError } from '../shared/FormError';
 import { CompanyLogo } from '../shared/CompanyLogo';
-import { DURATION_OPTIONS } from '../../constants/interviewTypes';
+import { DURATION_OPTIONS, formatDuration } from '../../constants/interviewTypes';
 import { resolveCompanyLogoUrl } from '../../utils/companyLogoUtils';
 import { sanitizeVideoCallUrl } from '../../utils/urlUtils';
 
@@ -257,7 +257,7 @@ export function AddInterviewModal({
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             >
               {DURATION_OPTIONS.map((d) => (
-                <option key={d} value={d}>{d} min</option>
+                <option key={d} value={d}>{formatDuration(d)}</option>
               ))}
             </select>
           </div>

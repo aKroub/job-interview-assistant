@@ -114,7 +114,7 @@ describe('InterviewCard — role', () => {
 describe('InterviewCard — duration', () => {
   it('renders duration when present', () => {
     setup({ duration: 60 });
-    expect(screen.getByText('(60 min)')).toBeInTheDocument();
+    expect(screen.getByText('(1 hr)')).toBeInTheDocument();
   });
 
   it('renders different duration values', () => {

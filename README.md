@@ -157,7 +157,7 @@ interview-prep-tracker/src/
 ├── constants/                     # Static data — no logic, no React
 │   ├── app.js                     # APP_TITLE env var with fallback
 │   ├── companies.js               # COMPANY_POOL array + lookup map + aliases
-│   ├── interviewTypes.js          # INTERVIEW_TYPES, TYPE_CONFIG, DURATION_OPTIONS
+│   ├── interviewTypes.js          # INTERVIEW_TYPES, TYPE_CONFIG, DURATION_OPTIONS, formatDuration()
 │   ├── pipelines.js               # PIPELINES array + PIPELINE_LABELS map + DEFAULT_PIPELINE
 │   ├── positions.js               # POSITIONS array
 │   ├── questions.js               # SYSTEM_DESIGN_QUESTIONS (Google / Microsoft / Facebook)
@@ -260,11 +260,11 @@ server/src/
 
 The test suite covers every layer across both frontend and backend:
 
-### Frontend (53 test suites)
+### Frontend (54 test suites)
 
 | Layer | Test files | What they test |
 |---|---|---|
-| Constants | `constants.test.js` | Stage keys, positions, interview types, question bank integrity |
+| Constants | `constants.test.js`, `formatDuration.stress.test.js` | Stage keys, positions, interview types, duration formatting, question bank integrity |
 | Services | `storageService.test.js`, `apiService.test.js` | Storage interface, REST calls, SSE stream |
 | Utils | `companyUtils.test.js`, `questionUtils.test.js`, `calendarUtils.test.js`, `companyLogoUtils.test.js`, `urlUtils.test.js`, `companyLogoUtils.stress.test.js`, `companyUtils.stress.test.js`, `cancelUpdateStress.test.js` | Pure function unit tests and stress tests (no React) |
 | Hooks | `useCompanies.test.js`, `useSeenQuestions.test.js`, `useInterviewSuggestions.test.js`, `useInterviewSuggestions.stress.test.js`, `useInterviewTracker.test.js`, `useCloudSync.test.js` | Hook tests with injected in-memory storage / mock API, stress tests |
@@ -272,13 +272,13 @@ The test suite covers every layer across both frontend and backend:
 | Integration | `App.test.jsx` | Smoke test — app renders and default view loads |
 | Migration | `viteMigration.stress.test.jsx` | Vite/Vitest/Tailwind v4 migration regression tests (env vars, globals isolation, class renames, ESM resolution, Testing Library compatibility) |
 
-### Backend (36 test suites)
+### Backend (37 test suites)
 
 | Layer | Test files | What they test |
 |---|---|---|
 | Config | `config.test.js` | Env var loading + validation |
 | Services | `tokenStore.test.js`, `googleAuth.test.js`, `gmailService.test.js`, `calendarService.test.js`, `interviewDetector.test.js`, `interviewDetector.stress.test.js`, `llmExtractor.test.js`, `driveService.test.js` | Business logic with injectable mocks |
-| Utils | `emailParser.test.js`, `matchingUtils.test.js`, `llmEnrichment.test.js`, `llmEnrichment.stress.test.js`, `phraseExpansionStress.test.js`, `gcalScoringStress.test.js`, `gcalCancellationRepro.test.js`, `cancelUpdateStress.test.js`, `cancellationEmailRepro.test.js` | Scoring, parsing, LLM enrichment, stress and regression tests |
+| Utils | `emailParser.test.js`, `matchingUtils.test.js`, `matchingUtils.stress.test.js`, `llmEnrichment.test.js`, `llmEnrichment.stress.test.js`, `phraseExpansionStress.test.js`, `gcalScoringStress.test.js`, `gcalCancellationRepro.test.js`, `cancelUpdateStress.test.js`, `cancellationEmailRepro.test.js` | Scoring, parsing, duration boundary testing, LLM enrichment, stress and regression tests |
 | Resilience | `llmResilience.stress.test.js`, `llmDuplication.repro.test.js`, `extractionCacheStress.test.js`, `logLevelGating.stress.test.js`, `dismissedLogGating.stress.test.js`, `interviewsRoute.test.js`, `resetSuggestions.stress.test.js`, `llmExtractionImprovements.stress.test.js`, `videoCallLink.stress.test.js`, `depsUpgrade.stress.test.js` | Semaphore deadlock, extraction cache, circuit breaker, log-level gating, dismissed-log gating, scan cooldown, reset races, stats consistency, concurrent error batches, duration computation edge cases, video call URL extraction, Express 5 / Jest 30 / googleapis 171 compatibility |
 | Integration | `indexWiring.stress.test.js` | App factory wiring stress tests |
 | Routes | `auth.test.js`, `interviews.test.js`, `logo.test.js`, `logo.stress.test.js`, `sync.test.js` | HTTP route tests via supertest |

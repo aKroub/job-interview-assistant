@@ -30,7 +30,7 @@ const INTERVIEW_KEYWORDS = [
  * Events outside this range are less likely to be interviews.
  */
 const MIN_INTERVIEW_DURATION_MINS = 15;
-const MAX_INTERVIEW_DURATION_MINS = 180;
+const MAX_INTERVIEW_DURATION_MINS = 480;
 
 /**
  * Checks if a calendar event title or description contains interview-related keywords.

@@ -1,6 +1,6 @@
 import { Check, Clock, ExternalLink, Pencil, Trash2, X } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
-import { TYPE_CONFIG } from '../../constants/interviewTypes';
+import { TYPE_CONFIG, formatDuration } from '../../constants/interviewTypes';
 import { deriveInterviewStatus } from '../../utils/companyUtils';
 import { resolveCompanyLogoUrl } from '../../utils/companyLogoUtils';
 import { isValidVideoCallUrl, sanitizeVideoCallUrl } from '../../utils/urlUtils';
@@ -150,7 +150,7 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit, onUpdateIn
           <span>{interview.time}</span>
           {interview.duration && (
             <span className="text-xs font-normal text-gray-400 whitespace-nowrap">
-              ({interview.duration} min)
+              &middot; {formatDuration(interview.duration)}
             </span>
           )}
         </div>

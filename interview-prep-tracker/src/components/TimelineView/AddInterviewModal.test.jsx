@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AddInterviewModal } from './AddInterviewModal';
-import { INTERVIEW_TYPES, DURATION_OPTIONS } from '../../constants/interviewTypes';
+import { INTERVIEW_TYPES, DURATION_OPTIONS, formatDuration } from '../../constants/interviewTypes';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -95,7 +95,7 @@ describe('AddInterviewModal — rendering', () => {
   it('renders all duration options', () => {
     setup();
     DURATION_OPTIONS.forEach((d) => {
-      expect(screen.getByRole('option', { name: `${d} min` })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: formatDuration(d) })).toBeInTheDocument();
     });
   });
 

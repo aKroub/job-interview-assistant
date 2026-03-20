@@ -262,7 +262,7 @@ src/
 │   ├── stages.js       STAGES array + STAGE_LABELS map
 │   ├── pipelines.js    PIPELINES array + PIPELINE_LABELS map + DEFAULT_PIPELINE
 │   ├── positions.js    POSITIONS array
-│   ├── interviewTypes.js  INTERVIEW_TYPES array + TYPE_CONFIG map + DURATION_OPTIONS
+│   ├── interviewTypes.js  INTERVIEW_TYPES array + TYPE_CONFIG map + DURATION_OPTIONS + formatDuration()
 │   ├── companies.js    COMPANY_POOL array + COMPANY_POOL_BY_NAME map + COMPANY_ALIASES
 │   └── app.js          APP_TITLE env var with fallback
 │

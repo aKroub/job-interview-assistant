@@ -197,7 +197,7 @@ describe('Stress: card layout with all fields populated', () => {
 
     // All fields should be present
     expect(screen.getByText('14:30')).toBeInTheDocument();
-    expect(screen.getByText('(90 min)')).toBeInTheDocument();
+    expect(screen.getByText(/·\s*90 min/)).toBeInTheDocument();
     expect(screen.getByText('MegaCorp')).toBeInTheDocument();
     expect(screen.getByText('Staff Engineer')).toBeInTheDocument();
     expect(screen.getByText('System Design')).toBeInTheDocument();

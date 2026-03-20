@@ -81,6 +81,13 @@ describe('isTypicalInterviewDuration', () => {
     )).toBe(true);
   });
 
+  it('returns true for an 8-hour event (exactly at max boundary)', () => {
+    expect(isTypicalInterviewDuration(
+      '2025-01-15T09:00:00Z',
+      '2025-01-15T17:00:00Z'
+    )).toBe(true);
+  });
+
   it('returns false for a 9-hour event (too long)', () => {
     expect(isTypicalInterviewDuration(
       '2025-01-15T09:00:00Z',

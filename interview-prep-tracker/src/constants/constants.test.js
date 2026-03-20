@@ -1,4 +1,4 @@
-import { INTERVIEW_TYPES } from './interviewTypes';
+import { INTERVIEW_TYPES, DURATION_OPTIONS, formatDuration } from './interviewTypes';
 import { POSITIONS } from './positions';
 import { SYSTEM_DESIGN_QUESTIONS } from './questions';
 import { ACTIVE_STAGES, CLOSED_STAGE, STAGES, STAGE_LABELS } from './stages';
@@ -120,6 +120,71 @@ describe('INTERVIEW_TYPES', () => {
 
   it('has no duplicate values', () => {
     expect(new Set(INTERVIEW_TYPES).size).toBe(INTERVIEW_TYPES.length);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DURATION_OPTIONS
+// ---------------------------------------------------------------------------
+
+describe('DURATION_OPTIONS', () => {
+  it('is a non-empty array of positive numbers', () => {
+    expect(Array.isArray(DURATION_OPTIONS)).toBe(true);
+    expect(DURATION_OPTIONS.length).toBeGreaterThan(0);
+    DURATION_OPTIONS.forEach((d) => {
+      expect(typeof d).toBe('number');
+      expect(d).toBeGreaterThan(0);
+    });
+  });
+
+  it('includes the full-day option (480)', () => {
+    expect(DURATION_OPTIONS).toContain(480);
+  });
+
+  it('is sorted in ascending order', () => {
+    for (let i = 1; i < DURATION_OPTIONS.length; i++) {
+      expect(DURATION_OPTIONS[i]).toBeGreaterThan(DURATION_OPTIONS[i - 1]);
+    }
+  });
+
+  it('has no duplicate values', () => {
+    expect(new Set(DURATION_OPTIONS).size).toBe(DURATION_OPTIONS.length);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// formatDuration
+// ---------------------------------------------------------------------------
+
+describe('formatDuration', () => {
+  it('formats sub-hour durations as minutes', () => {
+    expect(formatDuration(15)).toBe('15 min');
+    expect(formatDuration(30)).toBe('30 min');
+    expect(formatDuration(45)).toBe('45 min');
+  });
+
+  it('formats exactly 60 minutes as "1 hr"', () => {
+    expect(formatDuration(60)).toBe('1 hr');
+  });
+
+  it('formats multiples of 60 as hours with plural', () => {
+    expect(formatDuration(120)).toBe('2 hrs');
+  });
+
+  it('formats non-whole-hour values above 60 as minutes', () => {
+    expect(formatDuration(90)).toBe('90 min');
+  });
+
+  it('formats 480 as "Full day (8 hrs)"', () => {
+    expect(formatDuration(480)).toBe('Full day (8 hrs)');
+  });
+
+  it('returns a string for every DURATION_OPTIONS value', () => {
+    DURATION_OPTIONS.forEach((d) => {
+      const label = formatDuration(d);
+      expect(typeof label).toBe('string');
+      expect(label.length).toBeGreaterThan(0);
+    });
   });
 });
 

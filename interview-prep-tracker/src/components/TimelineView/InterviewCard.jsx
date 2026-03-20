@@ -150,7 +150,7 @@ export function InterviewCard({ interview, onDeleteInterview, onEdit, onUpdateIn
           <span>{interview.time}</span>
           {interview.duration && (
             <span className="text-xs font-normal text-gray-400 whitespace-nowrap">
-              ({formatDuration(interview.duration)})
+              &middot; {formatDuration(interview.duration)}
             </span>
           )}
         </div>

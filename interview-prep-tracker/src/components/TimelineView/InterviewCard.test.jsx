@@ -114,17 +114,22 @@ describe('InterviewCard — role', () => {
 describe('InterviewCard — duration', () => {
   it('renders duration when present', () => {
     setup({ duration: 60 });
-    expect(screen.getByText('(1 hr)')).toBeInTheDocument();
+    expect(screen.getByText(/·\s*1 hr/)).toBeInTheDocument();
   });
 
   it('renders different duration values', () => {
     setup({ duration: 90 });
-    expect(screen.getByText('(90 min)')).toBeInTheDocument();
+    expect(screen.getByText(/·\s*90 min/)).toBeInTheDocument();
+  });
+
+  it('renders full-day duration label for 480 minutes', () => {
+    setup({ duration: 480 });
+    expect(screen.getByText(/·\s*Full day \(8 hrs\)/)).toBeInTheDocument();
   });
 
   it('does not render duration when absent', () => {
     setup();
-    expect(screen.queryByText(/min\)/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/·\s*\d+\s*min/)).not.toBeInTheDocument();
   });
 });
 

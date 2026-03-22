@@ -116,21 +116,21 @@ describe('formatDuration — stress tests', () => {
   });
 
   it('handles undefined without throwing', () => {
-    const result = formatDuration(undefined);
+    const result = formatDuration(undefined as unknown as number);
     expect(typeof result).toBe('string');
     // undefined === 480 is false, undefined >= 60 is false → "undefined min"
     expect(result).toBe('undefined min');
   });
 
   it('handles null without throwing', () => {
-    const result = formatDuration(null);
+    const result = formatDuration(null as unknown as number);
     expect(typeof result).toBe('string');
     // null === 480 false, null >= 60 false → template literal "${null} min" → "null min"
     expect(result).toBe('null min');
   });
 
   it('handles a string number without throwing', () => {
-    const result = formatDuration('60');
+    const result = formatDuration('60' as unknown as number);
     expect(typeof result).toBe('string');
     // '60' === 480 is false, '60' >= 60 is true (string coercion), '60' % 60 === 0
     // hours = '60' / 60 = 1 → "1 hr"

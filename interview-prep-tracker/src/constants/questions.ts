@@ -1,8 +1,10 @@
+import type { SystemDesignQuestion } from '../types';
+
 /**
  * Curated system design practice questions grouped by company.
  * Each question has a stable id, title, YouTube resource URL, and difficulty level.
  */
-export const SYSTEM_DESIGN_QUESTIONS = {
+export const SYSTEM_DESIGN_QUESTIONS: Record<string, SystemDesignQuestion[]> = {
   Google: [
     { id: 'g1', title: 'Design YouTube',          url: 'https://www.youtube.com/watch?v=jPKTo1iGQiE', difficulty: 'Hard'   },
     { id: 'g2', title: 'Design Google Drive',     url: 'https://www.youtube.com/watch?v=U0xTu6E2CT8', difficulty: 'Hard'   },

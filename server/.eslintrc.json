@@ -27,7 +27,10 @@
         "src/services/tokenStore.*",
         "src/services/googleAuth.*",
         "src/services/gmailService.*",
+        "src/services/calendarService.*",
+        "src/services/interviewDetector.*",
         "src/services/llmExtractor.*",
+        "src/services/driveService.*",
         "src/routes/logo.*"
       ]
     }]

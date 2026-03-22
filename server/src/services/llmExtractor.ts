@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk';
+import type { Semaphore, LlmStats, LlmExtractionResult, LlmExtractor } from '../types';
 
 /**
  * Regex that matches variants of the word "interview":
@@ -42,27 +43,25 @@ const CALENDAR_SYSTEM_PROMPT = [
 /**
  * Creates a promise-based semaphore for limiting concurrent operations.
  *
- * @param {number} maxConcurrent - maximum number of operations allowed to run simultaneously
- * @returns {{ acquire: () => Promise<void>, release: () => void }}
  */
-export function createSemaphore(maxConcurrent) {
+export function createSemaphore(maxConcurrent: number): Semaphore {
   let running = 0;
-  const queue = [];
+  const queue: Array<() => void> = [];
 
-  async function acquire() {
+  async function acquire(): Promise<void> {
     if (running < maxConcurrent) {
       running++;
       return;
     }
-    await new Promise((resolve) => queue.push(resolve));
+    await new Promise<void>((resolve) => queue.push(resolve));
   }
 
-  function release() {
+  function release(): void {
     if (running <= 0) return;
     running--;
     if (queue.length > 0) {
       running++;
-      const next = queue.shift();
+      const next = queue.shift()!;
       next();
     }
   }
@@ -74,22 +73,16 @@ export function createSemaphore(maxConcurrent) {
  * Checks if any of the provided text fields contain an interview-related keyword.
  * This is the privacy gate — nothing leaves the server unless this returns true.
  *
- * @param {...string} fields - text values to check (subject, body, summary, description, etc.)
- * @returns {boolean}
  */
-export function containsInterviewKeyword(...fields) {
+export function containsInterviewKeyword(...fields: (string | undefined)[]): boolean {
   return fields.some((f) => typeof f === 'string' && INTERVIEW_KEYWORD_RE.test(f));
 }
 
 /**
  * Builds the prompt for extracting structured data from an email.
  *
- * @param {string} subject - email subject line
- * @param {string} body - plain-text email body
- * @param {string} senderEmail - sender's email address
- * @returns {string}
  */
-export function buildEmailPrompt(subject, body, senderEmail) {
+export function buildEmailPrompt(subject: string, body: string, senderEmail: string): string {
   return [
     `Sender: ${(senderEmail || '').slice(0, 200)}`,
     `Subject: ${(subject || '').slice(0, 500)}`,
@@ -104,13 +97,8 @@ export function buildEmailPrompt(subject, body, senderEmail) {
  * Date/time/duration come from the Calendar API directly, so we only need
  * company name and interview type.
  *
- * @param {string} summary - event title
- * @param {string} description - event description
- * @param {string} location - event location
- * @param {string} organizerEmail - organizer's email address
- * @returns {string}
  */
-export function buildCalendarPrompt(summary, description, location, organizerEmail) {
+export function buildCalendarPrompt(summary: string, description: string, location: string, organizerEmail: string): string {
   return [
     `Organizer: ${(organizerEmail || '').slice(0, 200)}`,
     `Title: ${(summary || '').slice(0, 500)}`,
@@ -124,10 +112,8 @@ export function buildCalendarPrompt(summary, description, location, organizerEma
 /**
  * Parses a JSON response from the LLM, handling markdown-fenced code blocks.
  *
- * @param {string} text - raw text response from the LLM
- * @returns {Object|null} parsed JSON, or null if parsing fails
  */
-export function parseJsonResponse(text) {
+export function parseJsonResponse(text: string): Record<string, unknown> | null {
   if (!text || typeof text !== 'string') return null;
 
   let cleaned = text.trim();
@@ -135,7 +121,7 @@ export function parseJsonResponse(text) {
   // Strip markdown code fence if present (```json ... ``` or ``` ... ```)
   const fenceMatch = cleaned.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?\s*```$/);
   if (fenceMatch) {
-    cleaned = fenceMatch[1].trim();
+    cleaned = fenceMatch[1]!.trim();
   }
 
   try {
@@ -167,7 +153,17 @@ export function parseJsonResponse(text) {
  *   getStats: () => { total: number, succeeded: number, failed: number },
  * }}
  */
-export function createLlmExtractor(options = {}) {
+interface LlmExtractorOptions {
+  apiKey?: string;
+  dryMode?: boolean;
+  model?: string;
+  maxConcurrency?: number;
+  maxRetries?: number;
+  logLevel?: string;
+  anthropicClient?: Anthropic;
+}
+
+export function createLlmExtractor(options: LlmExtractorOptions = {}): LlmExtractor {
   const {
     apiKey = '',
     dryMode = true,
@@ -179,11 +175,11 @@ export function createLlmExtractor(options = {}) {
   } = options;
 
   const semaphore = createSemaphore(maxConcurrency);
-  const stats = { total: 0, succeeded: 0, failed: 0 };
+  const stats: LlmStats = { total: 0, succeeded: 0, failed: 0 };
 
   // Lazy-create the client only when needed (wet mode)
-  let client = anthropicClient || null;
-  function getClient() {
+  let client: Anthropic | null = anthropicClient || null;
+  function getClient(): Anthropic {
     if (!client) {
       client = new Anthropic({ apiKey, maxRetries });
     }
@@ -195,12 +191,8 @@ export function createLlmExtractor(options = {}) {
    * Guarded by the semaphore to limit concurrent API calls. The SDK
    * handles retry with exponential backoff for transient errors (429/529/5xx).
    *
-   * @param {string} systemPrompt - system-level instructions (trusted)
-   * @param {string} userContent - untrusted content from email/event
-   * @param {string} itemId - identifier for the item being processed (e.g. 'email:abc123')
-   * @returns {Promise<Object|null>} parsed extraction, or null on failure
    */
-  async function callLlm(systemPrompt, userContent, itemId) {
+  async function callLlm(systemPrompt: string, userContent: string, itemId: string): Promise<Record<string, unknown> | null> {
     await semaphore.acquire();
     stats.total++;
     const callId = stats.total;
@@ -241,10 +233,10 @@ export function createLlmExtractor(options = {}) {
         console.warn(`[llmExtractor] RESPONSE #${callId} (${itemId}): JSON parse failed, raw=${textBlock.text.slice(0, 200)}`);
       }
       return result;
-    } catch (err) {
+    } catch (err: unknown) {
       stats.failed++;
-      const status = err.status ?? 'N/A';
-      console.error(`[llmExtractor] REQUEST #${callId} (${itemId}) FAILED (status=${status}): ${err.message}`);
+      const status = (err as { status?: number }).status ?? 'N/A';
+      console.error(`[llmExtractor] REQUEST #${callId} (${itemId}) FAILED (status=${status}): ${(err as Error).message}`);
       return null;
     } finally {
       semaphore.release();
@@ -254,16 +246,11 @@ export function createLlmExtractor(options = {}) {
   /**
    * Extracts structured interview data from an email.
    *
-   * @param {string} subject - email subject
-   * @param {string} body - plain-text email body
-   * @param {string} senderEmail - sender's email
-   * @param {string} [itemId=''] - identifier for logging (e.g. 'email:abc123')
-   * @returns {Promise<{ dryModePrompt: string|null, extraction: Object|null }|null>}
    *   Returns null if the privacy gate rejects the email (no "interview" keyword).
    *   In dry mode: { dryModePrompt: <prompt>, extraction: null }
    *   In wet mode: { dryModePrompt: null, extraction: { company_name, date, ... } }
    */
-  async function extractFromEmail(subject, body, senderEmail, itemId = '') {
+  async function extractFromEmail(subject: string, body: string, senderEmail: string, itemId = ''): Promise<LlmExtractionResult | null> {
     if (!containsInterviewKeyword(subject, body, senderEmail)) {
       return null;
     }
@@ -281,17 +268,11 @@ export function createLlmExtractor(options = {}) {
   /**
    * Extracts structured interview data from a calendar event.
    *
-   * @param {string} summary - event title / summary
-   * @param {string} description - event description
-   * @param {string} location - event location
-   * @param {string} organizerEmail - organizer's email
-   * @param {string} [itemId=''] - identifier for logging (e.g. 'event:xyz789')
-   * @returns {Promise<{ dryModePrompt: string|null, extraction: Object|null }|null>}
    *   Returns null if the privacy gate rejects the event (no "interview" keyword).
    *   In dry mode: { dryModePrompt: <prompt>, extraction: null }
    *   In wet mode: { dryModePrompt: null, extraction: { company_name, interview_type } }
    */
-  async function extractFromCalendarEvent(summary, description, location, organizerEmail, itemId = '') {
+  async function extractFromCalendarEvent(summary: string, description: string, location: string, organizerEmail: string, itemId = ''): Promise<LlmExtractionResult | null> {
     if (!containsInterviewKeyword(summary, description, location, organizerEmail)) {
       return null;
     }
@@ -309,9 +290,8 @@ export function createLlmExtractor(options = {}) {
   /**
    * Returns a snapshot of API call statistics.
    *
-   * @returns {{ total: number, succeeded: number, failed: number }}
    */
-  function getStats() {
+  function getStats(): LlmStats {
     return { ...stats };
   }
 

@@ -4,6 +4,17 @@ import {
   mergeCalendarExtraction,
   normalizeInterviewType,
 } from '../utils/llmEnrichment.js';
+import type {
+  EmailResult,
+  CalendarEvent,
+  Suggestion,
+  SuggestionAction,
+  DismissedSets,
+  GmailService,
+  CalendarService as CalendarServiceType,
+  LlmExtractor,
+  InterviewDetector,
+} from '../types';
 
 /**
  * Minimum email score required to surface an email-only suggestion.
@@ -59,7 +70,18 @@ const CALENDAR_ONLY_CONFIDENCE_FACTOR = 0.6;
  * @param {string} [deps.logLevel='info'] - log verbosity ('debug' shows per-cycle diagnostic logs)
  * @returns {{ detect: () => Promise<Object[]> }}
  */
-export function createInterviewDetector({ gmailService, calendarService, tokenStore, idFn = Date.now, llmExtractor = null, breakerThreshold = 2, maxCacheSize = 500, logLevel = 'info' }) {
+interface DetectorDeps {
+  gmailService: GmailService;
+  calendarService: CalendarServiceType;
+  tokenStore: { getDismissed: () => DismissedSets };
+  idFn?: () => number;
+  llmExtractor?: LlmExtractor | null;
+  breakerThreshold?: number;
+  maxCacheSize?: number;
+  logLevel?: string;
+}
+
+export function createInterviewDetector({ gmailService, calendarService, tokenStore, idFn = Date.now, llmExtractor = null, breakerThreshold = 2, maxCacheSize = 500, logLevel = 'info' }: DetectorDeps): InterviewDetector {
 
   /**
    * Circuit breaker state for LLM enrichment.
@@ -84,7 +106,8 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
    *
    * @type {Map<string, Object>}
    */
-  const extractionCache = new Map();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const extractionCache = new Map<string, any>();
 
   /**
    * In-memory sets of email/event IDs that went through the full scoring
@@ -92,14 +115,13 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
    * subsequent LLM enrichment cycles to avoid wasting API calls.
    * Reset on server restart.
    */
-  const lowScoreEmailIds = new Set();
-  const lowScoreEventIds = new Set();
+  const lowScoreEmailIds = new Set<string>();
+  const lowScoreEventIds = new Set<string>();
 
   /**
    * Prunes a Set to `maxCacheSize` by removing the oldest entries (insertion order).
-   * @param {Set<string>} set
    */
-  function pruneSet(set) {
+  function pruneSet(set: Set<string>): void {
     if (set.size <= maxCacheSize) return;
     const excess = set.size - maxCacheSize;
     let removed = 0;
@@ -131,15 +153,16 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
    * Adds an entry to the extraction cache, evicting the oldest entries
    * (by insertion order) when the cache exceeds maxCacheSize.
    */
-  function cacheSet(key, value) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function cacheSet(key: string, value: any): void {
     extractionCache.set(key, value);
     while (extractionCache.size > maxCacheSize) {
-      const oldest = extractionCache.keys().next().value;
+      const oldest = extractionCache.keys().next().value!;
       extractionCache.delete(oldest);
     }
   }
 
-  async function enrichWithLlm(emails, events, dismissed) {
+  async function enrichWithLlm(emails: EmailResult[], events: CalendarEvent[], dismissed: DismissedSets): Promise<{ emails: EmailResult[]; events: CalendarEvent[] }> {
     if (!llmExtractor) return { emails, events };
 
     // Circuit breaker: skip LLM enrichment when the API is persistently down.
@@ -165,8 +188,8 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
     // Split items into cached (already extracted) vs uncached (need API call).
     // Cached items are merged immediately; uncached items go through the API.
     // Dismissed and low-score emails are kept as-is (no LLM call needed).
-    const uncachedEmailIndices = [];
-    const uncachedEventIndices = [];
+    const uncachedEmailIndices: number[] = [];
+    const uncachedEventIndices: number[] = [];
     let lowScoreEmailSkips = 0;
     let lowScoreEventSkips = 0;
 
@@ -200,11 +223,11 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
 
     // Call LLM only for uncached items
     const emailPromises = uncachedEmailIndices.map((i) => {
-      const email = emails[i];
+      const email = emails[i]!;
       return llmExtractor.extractFromEmail(email.subject, email.bodyText || email.snippet, email.senderEmail, `email:${email.messageId}`);
     });
     const eventPromises = uncachedEventIndices.map((i) => {
-      const event = events[i];
+      const event = events[i]!;
       return llmExtractor.extractFromCalendarEvent(event.summary, event.description, event.location, event.organizerEmail, `event:${event.eventId}`);
     });
 
@@ -220,31 +243,33 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
     let batchSuccesses = 0;
 
     uncachedEmailIndices.forEach((emailIdx, settledIdx) => {
-      if (emailSettled[settledIdx].status !== 'fulfilled') return;
-      const result = emailSettled[settledIdx].value;
+      const settled = emailSettled[settledIdx]!;
+      if (settled.status !== 'fulfilled') return;
+      const result = settled.value;
       const extraction = result?.extraction ?? null;
       if (result !== null) {
         batchApiCalls++;
         if (extraction !== null) {
           batchSuccesses++;
-          cacheSet(`email:${emails[emailIdx].messageId}`, extraction);
+          cacheSet(`email:${emails[emailIdx]!.messageId}`, extraction);
         }
       }
-      enrichedEmails[emailIdx] = mergeEmailExtraction(emails[emailIdx], extraction);
+      enrichedEmails[emailIdx] = mergeEmailExtraction(emails[emailIdx]!, extraction);
     });
 
     uncachedEventIndices.forEach((eventIdx, settledIdx) => {
-      if (eventSettled[settledIdx].status !== 'fulfilled') return;
-      const result = eventSettled[settledIdx].value;
+      const settled = eventSettled[settledIdx]!;
+      if (settled.status !== 'fulfilled') return;
+      const result = settled.value;
       const extraction = result?.extraction ?? null;
       if (result !== null) {
         batchApiCalls++;
         if (extraction !== null) {
           batchSuccesses++;
-          cacheSet(`event:${events[eventIdx].eventId}`, extraction);
+          cacheSet(`event:${events[eventIdx]!.eventId}`, extraction);
         }
       }
-      enrichedEvents[eventIdx] = mergeCalendarExtraction(events[eventIdx], extraction);
+      enrichedEvents[eventIdx] = mergeCalendarExtraction(events[eventIdx]!, extraction);
     });
 
     // Update circuit breaker state
@@ -263,27 +288,8 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
    * first; remaining high-scoring emails produce lower-confidence email-only
    * suggestions.
    *
-   * @returns {Promise<Array<{
-   *   id: string,
-   *   source: 'gmail+calendar' | 'gmail' | 'calendar',
-   *   action: 'add' | 'cancel' | 'update',
-   *   confidence: number,
-   *   companyName: string,
-   *   companyDomain: string,
-   *   type: string,
-   *   date: string,
-   *   time: string,
-   *   duration: number | null,
-   *   previousDate: string,
-   *   subject: string,
-   *   emailSnippet: string,
-   *   calendarEventId: string,
-   *   emailMessageId: string,
-   *   detectedAt: string,
-   *   videoCallLink: string,
-   * }>>}
    */
-  async function detect() {
+  async function detect(): Promise<Suggestion[]> {
     // Run both scans concurrently
     const [rawEmails, rawEvents] = await Promise.all([
       gmailService.scanForInterviews(),
@@ -302,7 +308,7 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
     // cross-reference matching and matchWasDismissed tracking).
     const { emails: emailResults, events: calendarResults } =
       await enrichWithLlm(rawEmails, rawEvents, dismissed);
-    const suggestions = [];
+    const suggestions: Suggestion[] = [];
     const usedEventIds = new Set();
     const usedMessageIds = new Set();
     // Events that matched at least one email (regardless of whether the
@@ -431,10 +437,10 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
       const allDates = email.extractedAllDates || [];
       const hasMultipleDates = allDates.length >= 2;
       const emailDate = (emailAction === 'update' && hasMultipleDates)
-        ? allDates[0]
+        ? allDates[0]!
         : (email.extractedDate || '');
       const emailPreviousDate = (emailAction === 'update' || emailAction === 'cancel')
-        ? (hasMultipleDates ? allDates[allDates.length - 1] : (email.extractedDate || ''))
+        ? (hasMultipleDates ? allDates[allDates.length - 1]! : (email.extractedDate || ''))
         : '';
 
       suggestions.push({
@@ -584,10 +590,9 @@ export function createInterviewDetector({ gmailService, calendarService, tokenSt
  * Returns the first normalised LLM interview type found across the provided
  * items, or null if none have a usable llmInterviewType.
  *
- * @param {...Object} items - email and/or calendar result objects
- * @returns {string|null} canonical type or null
  */
-function llmTypeOrNull(...items) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function llmTypeOrNull(...items: any[]): string | null {
   for (const item of items) {
     const mapped = normalizeInterviewType(item?.llmInterviewType);
     if (mapped) return mapped;
@@ -612,10 +617,8 @@ const IN_PERSON_PATTERN =
  * Returns true when the calendar event's location field contains a physical
  * address rather than a video-conference link.
  *
- * @param {string} location - calendar event location field
- * @returns {boolean}
  */
-function isPhysicalLocation(location) {
+function isPhysicalLocation(location: string): boolean {
   if (!location) return false;
   const lower = location.toLowerCase();
   if (lower.startsWith('http')) return false;
@@ -635,11 +638,8 @@ function isPhysicalLocation(location) {
  * video-conference links (e.g. Zoom room systems) to calendar events
  * that are actually held on-site.
  *
- * @param {Object} email - gmail scan result
- * @param {Object} event - calendar scan result
- * @returns {string} one of 'Phone Interview', 'Video Interview', 'In-Person Interview'
  */
-function guessInterviewType(email, event) {
+function guessInterviewType(email: EmailResult, event: CalendarEvent): string {
   const llmType = llmTypeOrNull(email, event);
   if (llmType) return llmType;
 
@@ -667,10 +667,8 @@ function guessInterviewType(email, event) {
  * detection relies on text keywords only. Same priority as the full version:
  * phone → in-person → video → default video.
  *
- * @param {Object} email - gmail scan result
- * @returns {string} one of 'Phone Interview', 'Video Interview', 'In-Person Interview'
  */
-function guessInterviewTypeFromEmail(email) {
+function guessInterviewTypeFromEmail(email: EmailResult): string {
   const llmType = llmTypeOrNull(email);
   if (llmType) return llmType;
 
@@ -696,10 +694,8 @@ function guessInterviewTypeFromEmail(email) {
  * Uses event summary, description, location, and video link data.
  * Same priority as the full version: phone → in-person → video → default video.
  *
- * @param {Object} event - calendar scan result
- * @returns {string} one of 'Phone Interview', 'Video Interview', 'In-Person Interview'
  */
-function guessInterviewTypeFromCalendar(event) {
+function guessInterviewTypeFromCalendar(event: CalendarEvent): string {
   const llmType = llmTypeOrNull(event);
   if (llmType) return llmType;
 
@@ -723,11 +719,8 @@ function guessInterviewTypeFromCalendar(event) {
  * Computes the duration in minutes between two ISO datetime strings.
  * Returns null when either value is missing or invalid.
  *
- * @param {string} startIso
- * @param {string} endIso
- * @returns {number | null} duration in whole minutes, or null
  */
-function computeDurationMinutes(startIso, endIso) {
+function computeDurationMinutes(startIso: string, endIso: string): number | null {
   if (!startIso || !endIso) return null;
   const startMs = new Date(startIso).getTime();
   const endMs   = new Date(endIso).getTime();
@@ -750,11 +743,8 @@ const ACTION_PRIORITY = { cancel: 0, update: 1, add: 2 };
  * YYYY-MM-DD and HH:mm formats sort correctly with lexicographic comparison,
  * so no Date parsing is needed.
  *
- * @param {{ date: string, time: string, action: string, confidence: number }} a
- * @param {{ date: string, time: string, action: string, confidence: number }} b
- * @returns {number} negative if a comes first, positive if b comes first
  */
-function compareSuggestionsByDate(a, b) {
+function compareSuggestionsByDate(a: Suggestion, b: Suggestion): number {
   const aHasDate = Boolean(a.date);
   const bHasDate = Boolean(b.date);
 
@@ -792,12 +782,8 @@ function compareSuggestionsByDate(a, b) {
  * email-only suggestion was dismissed, then a calendar event appears and would
  * produce a new cross-referenced suggestion).
  *
- * @param {{ ids: Set<string>, emailIds: Set<string>, calendarIds: Set<string> }} dismissed
- * @param {string} emailId - email message ID (empty string if none)
- * @param {string} calendarId - calendar event ID (empty string if none)
- * @returns {boolean}
  */
-function isDismissedComponent(dismissed, emailId, calendarId) {
+function isDismissedComponent(dismissed: DismissedSets, emailId: string, calendarId: string): boolean {
   if (emailId && dismissed.emailIds.has(emailId)) return true;
   if (calendarId && dismissed.calendarIds.has(calendarId)) return true;
   return false;
@@ -811,11 +797,8 @@ function isDismissedComponent(dismissed, emailId, calendarId) {
  * If the email says "update" → 'update'.
  * Otherwise → 'add'.
  *
- * @param {string} [emailIntent='add'] - from detectEmailIntent()
- * @param {string} [calendarStatus='confirmed'] - from calendarService
- * @returns {'add' | 'cancel' | 'update'}
  */
-function deriveAction(emailIntent, calendarStatus) {
+function deriveAction(emailIntent: string | undefined, calendarStatus: string | undefined): SuggestionAction {
   if (emailIntent === 'cancel' || calendarStatus === 'cancelled') {
     return 'cancel';
   }
@@ -838,11 +821,8 @@ function deriveAction(emailIntent, calendarStatus) {
  * When dates match (e.g. cancellation without reschedule), previousDate equals
  * the suggestion date, which is fine — matching still works.
  *
- * @param {Object} email - gmail scan result
- * @param {Object} event - calendar scan result
- * @returns {string} YYYY-MM-DD or empty string
  */
-function derivePreviousDate(email, event) {
+function derivePreviousDate(email: EmailResult, event: CalendarEvent): string {
   // For update emails with multiple dates: the last date (extractedDate) is the
   // old value; the first date (allDates[0]) is the new value.
   const allDates = email.extractedAllDates || [];
@@ -863,10 +843,8 @@ function derivePreviousDate(email, event) {
 /**
  * Capitalises the first letter of a string.
  *
- * @param {string} str
- * @returns {string}
  */
-function capitalise(str) {
+function capitalise(str: string): string {
   if (!str) return '';
   return str.charAt(0).toUpperCase() + str.slice(1);
 }

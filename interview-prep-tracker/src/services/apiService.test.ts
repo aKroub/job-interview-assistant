@@ -15,7 +15,7 @@ import {
  * @param {number} [status=200] - HTTP status code
  * @returns {Function} mock fetch function
  */
-function mockFetch(body, status = 200) {
+function mockFetch(body: unknown, status = 200) {
   return vi.fn().mockResolvedValue({
     ok: status >= 200 && status < 300,
     status,
@@ -40,20 +40,26 @@ function mockFetchError() {
  * @returns {{ Ctor: Function, instance: Object, listeners: Object }}
  */
 function mockEventSource() {
-  const listeners = {};
-  const instance = {
-    addEventListener: vi.fn((event, handler) => {
+  const listeners: Record<string, (e: unknown) => void> = {};
+  const instance: Record<string, unknown> & {
+    addEventListener: ReturnType<typeof vi.fn>;
+    close: ReturnType<typeof vi.fn>;
+    onopen: ((this: EventSource, ev: Event) => unknown) | null;
+    readyState: number;
+  } = {
+    addEventListener: vi.fn((event: string, handler: (e: unknown) => void) => {
       listeners[event] = handler;
     }),
     close: vi.fn(),
     onopen: null,
+    readyState: 0,
   };
 
   function Ctor() {
     return instance;
   }
 
-  return { Ctor, instance, listeners };
+  return { Ctor: Ctor as unknown as typeof EventSource, instance, listeners };
 }
 
 describe('apiService — REST functions', () => {
@@ -203,7 +209,7 @@ describe('apiService — SSE stream', () => {
     const stream = createSuggestionStream(Ctor);
 
     // Simulate: connection opens before handler is registered (the race condition)
-    instance.onopen();
+    instance.onopen!.call(instance as unknown as EventSource, new Event('open'));
 
     // Now register the handler — it should fire immediately
     stream.onConnected(handler);
@@ -221,7 +227,7 @@ describe('apiService — SSE stream', () => {
     stream.onConnected(handler);
     expect(handler).not.toHaveBeenCalled();
 
-    instance.onopen();
+    instance.onopen!.call(instance as unknown as EventSource, new Event('open'));
 
     expect(handler).toHaveBeenCalledWith({ status: 'connected' });
   });
@@ -247,7 +253,7 @@ describe('apiService — SSE stream', () => {
     const stream = createSuggestionStream(Ctor);
     stream.onSuggestions(handler);
 
-    listeners.suggestions({ data: JSON.stringify(suggestions) });
+    listeners['suggestions']!({ data: JSON.stringify(suggestions) });
 
     expect(handler).toHaveBeenCalledWith(suggestions);
   });
@@ -259,7 +265,7 @@ describe('apiService — SSE stream', () => {
     const stream = createSuggestionStream(Ctor);
     stream.onSuggestions(handler);
 
-    listeners.suggestions({ data: 'invalid json' });
+    listeners['suggestions']!({ data: 'invalid json' });
 
     expect(handler).not.toHaveBeenCalled();
   });
@@ -271,7 +277,7 @@ describe('apiService — SSE stream', () => {
     const stream = createSuggestionStream(Ctor);
     stream.onScanComplete(handler);
 
-    listeners['scan-complete']({ data: JSON.stringify({ scanned: 5 }) });
+    listeners['scan-complete']!({ data: JSON.stringify({ scanned: 5 }) });
 
     expect(handler).toHaveBeenCalledWith({ scanned: 5 });
   });
@@ -283,7 +289,7 @@ describe('apiService — SSE stream', () => {
     const stream = createSuggestionStream(Ctor);
     stream.onScanComplete(handler);
 
-    listeners['scan-complete']({ data: 'bad json' });
+    listeners['scan-complete']!({ data: 'bad json' });
 
     expect(handler).not.toHaveBeenCalled();
   });
@@ -296,7 +302,7 @@ describe('apiService — SSE stream', () => {
     stream.onError(handler);
 
     // Server-sent error (has data field)
-    listeners.error({ data: JSON.stringify({ message: 'API failure' }) });
+    listeners['error']!({ data: JSON.stringify({ message: 'API failure' }) });
 
     expect(handler).toHaveBeenCalledWith({ message: 'API failure' });
   });
@@ -309,7 +315,7 @@ describe('apiService — SSE stream', () => {
     stream.onError(handler);
 
     // Native EventSource error (no data field)
-    listeners.error({});
+    listeners['error']!({});
 
     expect(handler).toHaveBeenCalledWith({ message: 'SSE connection error' });
   });
@@ -322,7 +328,7 @@ describe('apiService — SSE stream', () => {
     stream.onError(handler);
 
     // Server error with malformed JSON
-    listeners.error({ data: 'not json' });
+    listeners['error']!({ data: 'not json' });
 
     expect(handler).toHaveBeenCalledWith({ message: 'Received malformed error from server' });
   });

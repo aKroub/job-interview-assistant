@@ -112,3 +112,25 @@ export interface SystemDesignQuestion {
   url: string;
   difficulty: DifficultyLevel;
 }
+
+// ---------------------------------------------------------------------------
+// Services
+// ---------------------------------------------------------------------------
+
+export interface StorageService {
+  getItem(key: string): string | null;
+  setItem(key: string, value: string): void;
+}
+
+export interface DriveBackup {
+  fileId: string;
+  savedAt: string;
+}
+
+export interface SuggestionStream {
+  onConnected(handler: (data: { status: string }) => void): SuggestionStream;
+  onSuggestions(handler: (suggestions: unknown[]) => void): SuggestionStream;
+  onScanComplete(handler: (data: { scanned: number }) => void): SuggestionStream;
+  onError(handler: (error: { message: string }) => void): SuggestionStream;
+  close(): void;
+}

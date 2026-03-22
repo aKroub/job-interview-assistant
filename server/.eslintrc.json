@@ -24,6 +24,9 @@
         "src/utils/emailParser.*",
         "src/utils/matchingUtils.*",
         "src/utils/llmEnrichment.*",
+        "src/services/tokenStore.*",
+        "src/services/googleAuth.*",
+        "src/services/gmailService.*",
         "src/services/llmExtractor.*",
         "src/routes/logo.*"
       ]

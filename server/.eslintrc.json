@@ -1,23 +1,33 @@
 {
   "env": { "node": true, "es2022": true },
+  "parser": "@typescript-eslint/parser",
   "parserOptions": { "ecmaVersion": 2022, "sourceType": "module" },
-  "plugins": ["import"],
+  "plugins": ["import", "@typescript-eslint"],
+  "extends": ["plugin:@typescript-eslint/recommended"],
+  "settings": {
+    "import/resolver": {
+      "typescript": {
+        "extensions": [".js", ".ts"]
+      }
+    }
+  },
   "rules": {
-    "no-unused-vars": ["warn", { "args": "none", "ignoreRestSiblings": true }],
+    "no-unused-vars": "off",
+    "@typescript-eslint/no-unused-vars": ["warn", { "args": "none", "ignoreRestSiblings": true }],
     "import/no-unused-modules": ["warn", {
       "unusedExports": true,
-      "src": ["src/**/*.js"],
+      "src": ["src/**/*.{js,ts}"],
       "ignoreExports": [
-        "src/index.js",
-        "src/utils/matchingUtils.js",
-        "src/services/llmExtractor.js",
-        "src/routes/logo.js"
+        "src/index.*",
+        "src/utils/matchingUtils.*",
+        "src/services/llmExtractor.*",
+        "src/routes/logo.*"
       ]
     }]
   },
   "overrides": [
     {
-      "files": ["__tests__/**/*.js"],
+      "files": ["__tests__/**/*.{js,ts}"],
       "rules": {
         "import/no-unused-modules": "off"
       }

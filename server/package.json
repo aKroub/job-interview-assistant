@@ -6,8 +6,9 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "nodemon src/index.js",
-    "test": "node --experimental-vm-modules node_modules/.bin/jest --verbose --forceExit",
-    "lint": "eslint src/ --max-warnings 0"
+    "test": "node --import tsx --experimental-vm-modules node_modules/.bin/jest --verbose --forceExit",
+    "lint": "eslint src/ --ext .js,.ts --max-warnings 0",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
@@ -19,11 +20,19 @@
   },
   "devDependencies": {
     "@jest/globals": "^30.0.0",
+    "@types/cors": "^2.8.19",
+    "@types/node": "^25.5.0",
+    "@types/supertest": "^7.2.0",
+    "@typescript-eslint/eslint-plugin": "^8.57.1",
+    "@typescript-eslint/parser": "^8.57.1",
     "eslint": "^8.57.1",
+    "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import": "^2.32.0",
     "jest": "^30.0.0",
     "nodemon": "^3.1.9",
-    "supertest": "^7.0.0"
+    "supertest": "^7.0.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
   },
   "jest": {
     "transform": {},

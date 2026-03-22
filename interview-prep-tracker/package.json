@@ -14,44 +14,76 @@
     "preview": "vite preview",
     "test": "vitest run --reporter=verbose",
     "test:watch": "vitest",
-    "lint": "eslint src/ --ext .js,.jsx --ignore-pattern '*.test.*' --max-warnings 0"
+    "lint": "eslint src/ --ext .js,.jsx,.ts,.tsx --ignore-pattern '*.test.*' --max-warnings 0",
+    "typecheck": "tsc --noEmit"
   },
   "eslintConfig": {
-    "plugins": ["import"],
+    "parser": "@typescript-eslint/parser",
+    "plugins": [
+      "import",
+      "@typescript-eslint"
+    ],
     "extends": [
       "eslint:recommended",
+      "plugin:@typescript-eslint/recommended",
       "plugin:react/recommended",
       "plugin:react-hooks/recommended"
     ],
     "parserOptions": {
       "ecmaVersion": "latest",
       "sourceType": "module",
-      "ecmaFeatures": { "jsx": true }
+      "ecmaFeatures": {
+        "jsx": true
+      }
     },
-    "env": { "browser": true, "es2024": true, "node": true },
+    "env": {
+      "browser": true,
+      "es2024": true,
+      "node": true
+    },
     "settings": {
-      "react": { "version": "detect" },
+      "react": {
+        "version": "detect"
+      },
       "import/resolver": {
-        "node": {
-          "extensions": [".js", ".jsx"]
+        "typescript": {
+          "extensions": [
+            ".js",
+            ".jsx",
+            ".ts",
+            ".tsx"
+          ]
         }
       }
     },
     "rules": {
       "react/react-in-jsx-scope": "off",
       "react/prop-types": "off",
-      "no-unused-vars": ["warn", { "args": "none", "ignoreRestSiblings": true }],
-      "import/no-unused-modules": ["warn", {
-        "unusedExports": true,
-        "src": ["./src"],
-        "ignoreExports": [
-          "./src/main.jsx",
-          "./src/App.jsx",
-          "./src/setupTests.js",
-          "./src/**/*.test.{js,jsx}",
-          "./src/constants/interviewTypes.js"
-        ]
-      }]
+      "no-unused-vars": "off",
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          "args": "none",
+          "ignoreRestSiblings": true
+        }
+      ],
+      "import/no-unused-modules": [
+        "warn",
+        {
+          "unusedExports": true,
+          "src": [
+            "./src"
+          ],
+          "ignoreExports": [
+            "./src/main.*",
+            "./src/App.*",
+            "./src/setupTests.*",
+            "./src/**/*.test.{js,jsx,ts,tsx}",
+            "./src/**/*.stress.test.{js,jsx,ts,tsx}",
+            "./src/constants/interviewTypes.*"
+          ]
+        }
+      ]
     }
   },
   "devDependencies": {
@@ -60,13 +92,19 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.0.0",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@typescript-eslint/eslint-plugin": "^8.57.1",
+    "@typescript-eslint/parser": "^8.57.1",
     "@vitejs/plugin-react": "^4.0.0",
     "eslint": "^8.57.0",
+    "eslint-import-resolver-typescript": "^4.4.4",
     "eslint-plugin-import": "^2.31.0",
     "eslint-plugin-react": "^7.37.0",
     "eslint-plugin-react-hooks": "^5.0.0",
     "jsdom": "^25.0.0",
     "tailwindcss": "^4.0.0",
+    "typescript": "^5.9.3",
     "vite": "^6.0.0",
     "vitest": "^3.0.0"
   }

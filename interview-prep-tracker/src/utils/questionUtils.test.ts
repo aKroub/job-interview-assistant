@@ -1,3 +1,4 @@
+import type { SystemDesignQuestion } from '../types';
 import {
   getAvailableQuestions,
   getTotalSeen,
@@ -9,7 +10,7 @@ import {
 // Fixtures
 // ---------------------------------------------------------------------------
 
-const MOCK_QUESTIONS = {
+const MOCK_QUESTIONS: Record<string, SystemDesignQuestion[]> = {
   Google: [
     { id: 'g1', title: 'Design YouTube',      difficulty: 'Hard',   url: 'https://example.com/g1' },
     { id: 'g2', title: 'Design Google Drive', difficulty: 'Hard',   url: 'https://example.com/g2' },
@@ -28,7 +29,7 @@ const MOCK_QUESTIONS = {
 
 describe('getAvailableQuestions', () => {
   it('returns unseen questions up to the default limit of 3', () => {
-    const seen = new Set();
+    const seen = new Set<string>();
     const result = getAvailableQuestions(MOCK_QUESTIONS, seen, 'Google');
     expect(result).toHaveLength(3);
   });
@@ -41,7 +42,7 @@ describe('getAvailableQuestions', () => {
   });
 
   it('respects a custom limit', () => {
-    const seen = new Set();
+    const seen = new Set<string>();
     const result = getAvailableQuestions(MOCK_QUESTIONS, seen, 'Google', 2);
     expect(result).toHaveLength(2);
   });
@@ -122,26 +123,26 @@ describe('addSeenQuestion', () => {
 describe('resetCompanyQuestions', () => {
   it('removes all question ids for the company from the seen set', () => {
     const seen = new Set(['g1', 'g2', 'f1']);
-    const result = resetCompanyQuestions(seen, MOCK_QUESTIONS.Google);
+    const result = resetCompanyQuestions(seen, MOCK_QUESTIONS.Google!);
     expect(result.has('g1')).toBe(false);
     expect(result.has('g2')).toBe(false);
   });
 
   it('preserves seen question ids for other companies', () => {
     const seen = new Set(['g1', 'f1']);
-    const result = resetCompanyQuestions(seen, MOCK_QUESTIONS.Google);
+    const result = resetCompanyQuestions(seen, MOCK_QUESTIONS.Google!);
     expect(result.has('f1')).toBe(true);
   });
 
   it('does not mutate the original Set', () => {
     const seen = new Set(['g1', 'g2']);
-    resetCompanyQuestions(seen, MOCK_QUESTIONS.Google);
+    resetCompanyQuestions(seen, MOCK_QUESTIONS.Google!);
     expect(seen.has('g1')).toBe(true);
   });
 
   it('returns an empty set when input was only that company\'s questions', () => {
     const seen = new Set(['g1', 'g2', 'g3', 'g4']);
-    const result = resetCompanyQuestions(seen, MOCK_QUESTIONS.Google);
+    const result = resetCompanyQuestions(seen, MOCK_QUESTIONS.Google!);
     expect(result.size).toBe(0);
   });
 });

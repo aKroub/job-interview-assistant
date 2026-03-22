@@ -35,8 +35,8 @@ describe('getCompanyLogoUrl', () => {
 
   it('returns null for empty or falsy input', () => {
     expect(getCompanyLogoUrl('')).toBeNull();
-    expect(getCompanyLogoUrl(null)).toBeNull();
-    expect(getCompanyLogoUrl(undefined)).toBeNull();
+    expect(getCompanyLogoUrl(null as unknown as string)).toBeNull();
+    expect(getCompanyLogoUrl(undefined as unknown as string)).toBeNull();
   });
 });
 
@@ -75,7 +75,7 @@ describe('resolveCompanyLogoUrl', () => {
 
   it('returns null for null/undefined input', () => {
     expect(resolveCompanyLogoUrl(null)).toBeNull();
-    expect(resolveCompanyLogoUrl(undefined)).toBeNull();
+    expect(resolveCompanyLogoUrl(undefined as unknown as null)).toBeNull();
   });
 });
 
@@ -102,7 +102,7 @@ describe('guessDomain', () => {
 
   it('returns empty string for empty or falsy input', () => {
     expect(guessDomain('')).toBe('');
-    expect(guessDomain(null)).toBe('');
-    expect(guessDomain(undefined)).toBe('');
+    expect(guessDomain(null as unknown as string)).toBe('');
+    expect(guessDomain(undefined as unknown as string)).toBe('');
   });
 });

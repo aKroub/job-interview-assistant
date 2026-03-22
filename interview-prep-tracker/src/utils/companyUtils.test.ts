@@ -1,3 +1,4 @@
+import type { Company, CompanyDraft, Interview, InterviewStatus } from '../types';
 import {
   applyAddInterview,
   applyDelete,
@@ -22,21 +23,22 @@ import {
 // ---------------------------------------------------------------------------
 
 /** Returns a minimal company object with sensible defaults. */
-function makeCompany(overrides = {}) {
+function makeCompany(overrides: Record<string, unknown> = {}): Company {
   return {
     id:         '1',
     name:       'Acme Corp',
     position:   'Engineer',
     stage:      'applied',
+    pipeline:   ['tel-aviv'],
     interviews: [],
     notes:      '',
     createdAt:  '2024-01-01T00:00:00.000Z',
     ...overrides,
-  };
+  } as Company;
 }
 
 /** Returns a minimal interview object with sensible defaults. */
-function makeInterview(overrides = {}) {
+function makeInterview(overrides: Record<string, unknown> = {}): Interview {
   return {
     id:     'i1',
     type:   'Phone Screen',
@@ -44,7 +46,7 @@ function makeInterview(overrides = {}) {
     time:   '10:00',
     status: 'scheduled',
     ...overrides,
-  };
+  } as unknown as Interview;
 }
 
 // ---------------------------------------------------------------------------
@@ -107,7 +109,7 @@ describe('isMultiPipeline', () => {
 
 describe('createCompany', () => {
   it('builds a company object with the supplied draft fields', () => {
-    const draft = { name: 'Google', position: 'SWE', stage: 'applied', pipeline: ['tel-aviv'] };
+    const draft = { name: 'Google', position: 'SWE', stage: 'applied', pipeline: ['tel-aviv'] } as CompanyDraft;
     const company = createCompany(draft, () => 42);
 
     expect(company.name).toBe('Google');
@@ -117,28 +119,28 @@ describe('createCompany', () => {
   });
 
   it('assigns a string id from the idFn return value', () => {
-    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested', pipeline: ['us'] }, () => 999);
+    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested', pipeline: ['us']} as CompanyDraft, () => 999);
     expect(company.id).toBe('999');
   });
 
   it('initialises interviews as an empty array', () => {
-    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested', pipeline: ['tel-aviv'] }, () => 1);
+    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested', pipeline: ['tel-aviv']} as CompanyDraft, () => 1);
     expect(company.interviews).toEqual([]);
   });
 
   it('initialises notes as an empty string', () => {
-    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested', pipeline: ['tel-aviv'] }, () => 1);
+    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested', pipeline: ['tel-aviv']} as CompanyDraft, () => 1);
     expect(company.notes).toBe('');
   });
 
   it('sets createdAt to an ISO string', () => {
-    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested', pipeline: ['tel-aviv'] }, () => 1);
+    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested', pipeline: ['tel-aviv']} as CompanyDraft, () => 1);
     expect(() => new Date(company.createdAt)).not.toThrow();
     expect(company.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
   it('stores the pipeline array from the draft', () => {
-    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested', pipeline: ['tel-aviv', 'us'] }, () => 1);
+    const company = createCompany({ name: 'X', position: 'Y', stage: 'interested', pipeline: ['tel-aviv', 'us']} as CompanyDraft, () => 1);
     expect(company.pipeline).toEqual(['tel-aviv', 'us']);
   });
 });
@@ -149,15 +151,15 @@ describe('createCompany', () => {
 
 describe('migrateCompanies', () => {
   it('wraps undefined pipeline in an array with the default', () => {
-    const companies = [makeCompany({ id: '1' })];
+    const companies = [makeCompany({ id: '1', pipeline: undefined })];
     const result = migrateCompanies(companies, 'tel-aviv');
-    expect(result[0].pipeline).toEqual(['tel-aviv']);
+    expect(result[0]!.pipeline).toEqual(['tel-aviv']);
   });
 
   it('wraps a scalar string pipeline in an array', () => {
     const companies = [makeCompany({ id: '1', pipeline: 'us' })];
     const result = migrateCompanies(companies, 'tel-aviv');
-    expect(result[0].pipeline).toEqual(['us']);
+    expect(result[0]!.pipeline).toEqual(['us']);
   });
 
   it('returns the original array reference when all pipelines are already arrays', () => {
@@ -167,7 +169,7 @@ describe('migrateCompanies', () => {
   });
 
   it('does not mutate the original company objects', () => {
-    const original = makeCompany({ id: '1' });
+    const original = makeCompany({ id: '1', pipeline: undefined });
     const companies = [original];
     migrateCompanies(companies, 'tel-aviv');
     expect(original.pipeline).toBeUndefined();
@@ -184,23 +186,23 @@ describe('migrateCompanies', () => {
     const companies = [
       makeCompany({ id: '1', pipeline: ['us'] }),
       makeCompany({ id: '2', pipeline: 'tel-aviv' }),
-      makeCompany({ id: '3' }),
+      makeCompany({ id: '3', pipeline: undefined }),
     ];
     const result = migrateCompanies(companies, 'tel-aviv');
-    expect(result[0].pipeline).toEqual(['us']);
-    expect(result[1].pipeline).toEqual(['tel-aviv']);
-    expect(result[2].pipeline).toEqual(['tel-aviv']);
+    expect(result[0]!.pipeline).toEqual(['us']);
+    expect(result[1]!.pipeline).toEqual(['tel-aviv']);
+    expect(result[2]!.pipeline).toEqual(['tel-aviv']);
   });
 
   it('leaves multi-pipeline arrays unchanged', () => {
     const companies = [makeCompany({ id: '1', pipeline: ['tel-aviv', 'us'] })];
     const result = migrateCompanies(companies, 'tel-aviv');
     expect(result).toBe(companies);
-    expect(result[0].pipeline).toEqual(['tel-aviv', 'us']);
+    expect(result[0]!.pipeline).toEqual(['tel-aviv', 'us']);
   });
 
   it('returns the original array reference for an empty array', () => {
-    const companies = [];
+    const companies: Company[] = [];
     const result = migrateCompanies(companies, 'tel-aviv');
     expect(result).toBe(companies);
   });
@@ -214,7 +216,7 @@ describe('applyEditCompany', () => {
   it('updates the specified fields on the matching company', () => {
     const companies = [makeCompany({ id: '1', position: 'Engineer' })];
     const result = applyEditCompany(companies, '1', { position: 'Head of Engineering' });
-    expect(result[0].position).toBe('Head of Engineering');
+    expect(result[0]!.position).toBe('Head of Engineering');
   });
 
   it('does not mutate the original array or company', () => {
@@ -232,21 +234,21 @@ describe('applyEditCompany', () => {
       makeCompany({ id: '2', position: 'Designer' }),
     ];
     const result = applyEditCompany(companies, '1', { position: 'Manager' });
-    expect(result[1].position).toBe('Designer');
+    expect(result[1]!.position).toBe('Designer');
   });
 
   it('preserves fields not included in updates', () => {
     const companies = [makeCompany({ id: '1', name: 'Acme Corp', position: 'Engineer', stage: 'applied' })];
     const result = applyEditCompany(companies, '1', { position: 'Manager' });
-    expect(result[0].name).toBe('Acme Corp');
-    expect(result[0].stage).toBe('applied');
+    expect(result[0]!.name).toBe('Acme Corp');
+    expect(result[0]!.stage).toBe('applied');
   });
 
   it('can update multiple fields at once', () => {
     const companies = [makeCompany({ id: '1', position: 'Engineer', pipeline: ['tel-aviv'] })];
     const result = applyEditCompany(companies, '1', { position: 'Manager', pipeline: ['us'] });
-    expect(result[0].position).toBe('Manager');
-    expect(result[0].pipeline).toEqual(['us']);
+    expect(result[0]!.position).toBe('Manager');
+    expect(result[0]!.pipeline).toEqual(['us']);
   });
 });
 
@@ -258,7 +260,7 @@ describe('applyStageUpdate', () => {
   it('updates the stage of the matching company', () => {
     const companies = [makeCompany({ id: '1', stage: 'applied' })];
     const result = applyStageUpdate(companies, '1', 'technical');
-    expect(result[0].stage).toBe('technical');
+    expect(result[0]!.stage).toBe('technical');
   });
 
   it('does not mutate the original array', () => {
@@ -274,13 +276,13 @@ describe('applyStageUpdate', () => {
       makeCompany({ id: '2', stage: 'phone' }),
     ];
     const result = applyStageUpdate(companies, '1', 'hr');
-    expect(result[1].stage).toBe('phone');
+    expect(result[1]!.stage).toBe('phone');
   });
 
   it('returns array unchanged when id is not found', () => {
     const companies = [makeCompany({ id: '1', stage: 'applied' })];
     const result = applyStageUpdate(companies, 'nonexistent', 'offer');
-    expect(result[0].stage).toBe('applied');
+    expect(result[0]!.stage).toBe('applied');
   });
 });
 
@@ -293,7 +295,7 @@ describe('applyDelete', () => {
     const companies = [makeCompany({ id: '1' }), makeCompany({ id: '2' })];
     const result = applyDelete(companies, '1');
     expect(result).toHaveLength(1);
-    expect(result[0].id).toBe('2');
+    expect(result[0]!.id).toBe('2');
   });
 
   it('does not mutate the original array', () => {
@@ -316,25 +318,25 @@ describe('applyDelete', () => {
 describe('applyAddInterview', () => {
   it('appends an interview to the target company', () => {
     const companies = [makeCompany({ id: '1' })];
-    const interview = { type: 'Technical', date: '2024-07-01', time: '09:00', status: 'scheduled' };
+    const interview = { type: 'Technical', date: '2024-07-01', time: '09:00', status: 'scheduled' } as unknown as Omit<Interview, 'id'>;
     const result = applyAddInterview(companies, '1', interview, () => 77);
 
-    expect(result[0].interviews).toHaveLength(1);
-    expect(result[0].interviews[0].type).toBe('Technical');
-    expect(result[0].interviews[0].id).toBe('77');
+    expect(result[0]!.interviews).toHaveLength(1);
+    expect(result[0]!.interviews[0]!.type).toBe('Technical');
+    expect(result[0]!.interviews[0]!.id).toBe('77');
   });
 
   it('does not mutate the original company', () => {
     const companies = [makeCompany({ id: '1' })];
     const result = applyAddInterview(companies, '1', makeInterview(), () => 1);
     expect(result[0]).not.toBe(companies[0]);
-    expect(companies[0].interviews).toHaveLength(0);
+    expect(companies[0]!.interviews).toHaveLength(0);
   });
 
   it('leaves other companies unchanged', () => {
     const companies = [makeCompany({ id: '1' }), makeCompany({ id: '2' })];
     const result = applyAddInterview(companies, '1', makeInterview(), () => 1);
-    expect(result[1].interviews).toHaveLength(0);
+    expect(result[1]!.interviews).toHaveLength(0);
   });
 });
 
@@ -348,14 +350,14 @@ describe('applyInterviewStatusUpdate', () => {
       makeCompany({ id: '1', interviews: [makeInterview({ id: 'i1', status: 'scheduled' })] }),
     ];
     const result = applyInterviewStatusUpdate(companies, '1', 'i1', 'completed');
-    expect(result[0].interviews[0].status).toBe('completed');
+    expect(result[0]!.interviews[0]!.status).toBe('completed');
   });
 
   it('does not mutate the original data', () => {
     const interview = makeInterview({ id: 'i1', status: 'scheduled' });
     const companies = [makeCompany({ id: '1', interviews: [interview] })];
     applyInterviewStatusUpdate(companies, '1', 'i1', 'cancelled');
-    expect(companies[0].interviews[0].status).toBe('scheduled');
+    expect(companies[0]!.interviews[0]!.status).toBe('scheduled');
   });
 
   it('leaves other interviews on the same company unchanged', () => {
@@ -369,7 +371,7 @@ describe('applyInterviewStatusUpdate', () => {
       }),
     ];
     const result = applyInterviewStatusUpdate(companies, '1', 'i1', 'completed');
-    expect(result[0].interviews[1].status).toBe('scheduled');
+    expect(result[0]!.interviews[1]!.status).toBe('scheduled');
   });
 });
 
@@ -391,9 +393,9 @@ describe('flattenAndSortInterviews', () => {
       makeCompany({ id: 'c1', name: 'Google', position: 'SWE', interviews: [makeInterview({ id: 'i1', date: '2024-06-01' })] }),
     ];
     const result = flattenAndSortInterviews(companies);
-    expect(result[0].companyName).toBe('Google');
-    expect(result[0].position).toBe('SWE');
-    expect(result[0].companyId).toBe('c1');
+    expect(result[0]!.companyName).toBe('Google');
+    expect(result[0]!.position).toBe('SWE');
+    expect(result[0]!.companyId).toBe('c1');
   });
 
   it('sorts interviews chronologically by date', () => {
@@ -407,8 +409,8 @@ describe('flattenAndSortInterviews', () => {
       }),
     ];
     const result = flattenAndSortInterviews(companies);
-    expect(result[0].id).toBe('i1');
-    expect(result[1].id).toBe('i2');
+    expect(result[0]!.id).toBe('i1');
+    expect(result[1]!.id).toBe('i2');
   });
 
   it('flattens interviews across multiple companies', () => {
@@ -424,8 +426,8 @@ describe('flattenAndSortInterviews', () => {
       makeCompany({ id: 'c1', domain: 'start.io', customLogoUrl: 'data:image/png;base64,abc', interviews: [makeInterview({ id: 'i1', date: '2024-06-01' })] }),
     ];
     const result = flattenAndSortInterviews(companies);
-    expect(result[0].companyDomain).toBe('start.io');
-    expect(result[0].companyCustomLogoUrl).toBe('data:image/png;base64,abc');
+    expect(result[0]!.companyDomain).toBe('start.io');
+    expect(result[0]!.companyCustomLogoUrl).toBe('data:image/png;base64,abc');
   });
 
   it('sets companyDomain and companyCustomLogoUrl to null when absent', () => {
@@ -433,8 +435,8 @@ describe('flattenAndSortInterviews', () => {
       makeCompany({ id: 'c1', interviews: [makeInterview({ id: 'i1', date: '2024-06-01' })] }),
     ];
     const result = flattenAndSortInterviews(companies);
-    expect(result[0].companyDomain).toBeNull();
-    expect(result[0].companyCustomLogoUrl).toBeNull();
+    expect(result[0]!.companyDomain).toBeNull();
+    expect(result[0]!.companyCustomLogoUrl).toBeNull();
   });
 });
 
@@ -443,28 +445,28 @@ describe('deriveInterviewStatus', () => {
   const FUTURE = new Date('2000-01-01T00:00:00.000Z'); // "now" is in the past  → interview is in the future
 
   it('returns "scheduled" when the interview datetime is in the future', () => {
-    const interview = { date: '2025-01-01', time: '10:00', status: 'scheduled' };
+    const interview = { date: '2025-01-01', time: '10:00', status: 'scheduled' as InterviewStatus };
     expect(deriveInterviewStatus(interview, FUTURE)).toBe('scheduled');
   });
 
   it('returns "passed" when the interview datetime is in the past and status is scheduled', () => {
-    const interview = { date: '2025-01-01', time: '10:00', status: 'scheduled' };
+    const interview = { date: '2025-01-01', time: '10:00', status: 'scheduled' as InterviewStatus };
     expect(deriveInterviewStatus(interview, PAST)).toBe('passed');
   });
 
   it('uses end-of-day (23:59) when no time is provided', () => {
-    const interview = { date: '2025-01-01', time: '', status: 'scheduled' };
+    const interview = { date: '2025-01-01', time: '', status: 'scheduled' as InterviewStatus };
     expect(deriveInterviewStatus(interview, PAST)).toBe('passed');
   });
 
   it('returns "cancelled" regardless of datetime when status is cancelled', () => {
-    const interview = { date: '2025-01-01', time: '10:00', status: 'cancelled' };
+    const interview = { date: '2025-01-01', time: '10:00', status: 'cancelled' as InterviewStatus };
     expect(deriveInterviewStatus(interview, FUTURE)).toBe('cancelled');
     expect(deriveInterviewStatus(interview, PAST)).toBe('cancelled');
   });
 
   it('returns "completed" regardless of datetime when status is completed', () => {
-    const interview = { date: '2025-01-01', time: '10:00', status: 'completed' };
+    const interview = { date: '2025-01-01', time: '10:00', status: 'completed' as InterviewStatus };
     expect(deriveInterviewStatus(interview, FUTURE)).toBe('completed');
     expect(deriveInterviewStatus(interview, PAST)).toBe('completed');
   });
@@ -533,18 +535,18 @@ describe('matchSuggestionToInterview', () => {
     const companies = [
       makeCompany({ id: 'c1', name: 'Google', interviews: [makeInterview()] }),
     ];
-    expect(matchSuggestionToInterview(companies, { companyName: '', date: '2024-06-01' })).toBeNull();
+    expect(matchSuggestionToInterview(companies, { companyName: '', date: '2024-06-01', time: '' })).toBeNull();
   });
 
   it('returns null when suggestion has no date', () => {
     const companies = [
       makeCompany({ id: 'c1', name: 'Google', interviews: [makeInterview()] }),
     ];
-    expect(matchSuggestionToInterview(companies, { companyName: 'Google', date: '' })).toBeNull();
+    expect(matchSuggestionToInterview(companies, { companyName: 'Google', date: '', time: '' })).toBeNull();
   });
 
   it('returns null for empty companies array', () => {
-    expect(matchSuggestionToInterview([], { companyName: 'Google', date: '2025-01-20' })).toBeNull();
+    expect(matchSuggestionToInterview([], { companyName: 'Google', date: '2025-01-20', time: '' })).toBeNull();
   });
 
   it('skips cancelled interviews', () => {
@@ -704,8 +706,8 @@ describe('applyInterviewUpdate', () => {
     ];
     const result = applyInterviewUpdate(companies, 'c1', 'i1', { date: '2025-01-25', time: '14:00' });
 
-    expect(result[0].interviews[0].date).toBe('2025-01-25');
-    expect(result[0].interviews[0].time).toBe('14:00');
+    expect(result[0]!.interviews[0]!.date).toBe('2025-01-25');
+    expect(result[0]!.interviews[0]!.time).toBe('14:00');
   });
 
   it('does not mutate the original data', () => {
@@ -714,7 +716,7 @@ describe('applyInterviewUpdate', () => {
 
     applyInterviewUpdate(companies, 'c1', 'i1', { date: '2025-02-01' });
 
-    expect(companies[0].interviews[0].date).toBe('2025-01-20');
+    expect(companies[0]!.interviews[0]!.date).toBe('2025-01-20');
   });
 
   it('leaves other interviews unchanged', () => {
@@ -729,7 +731,7 @@ describe('applyInterviewUpdate', () => {
     ];
     const result = applyInterviewUpdate(companies, 'c1', 'i1', { date: '2025-02-01' });
 
-    expect(result[0].interviews[1].date).toBe('2025-01-25');
+    expect(result[0]!.interviews[1]!.date).toBe('2025-01-25');
   });
 
   it('leaves other companies unchanged', () => {
@@ -739,7 +741,7 @@ describe('applyInterviewUpdate', () => {
     ];
     const result = applyInterviewUpdate(companies, 'c1', 'i1', { date: '2025-02-01' });
 
-    expect(result[1].interviews[0].date).toBe('2025-03-01');
+    expect(result[1]!.interviews[0]!.date).toBe('2025-03-01');
   });
 
   it('preserves fields not included in updates', () => {
@@ -751,9 +753,9 @@ describe('applyInterviewUpdate', () => {
     ];
     const result = applyInterviewUpdate(companies, 'c1', 'i1', { date: '2025-02-01' });
 
-    expect(result[0].interviews[0].type).toBe('Phone Screen');
-    expect(result[0].interviews[0].time).toBe('10:00');
-    expect(result[0].interviews[0].status).toBe('scheduled');
+    expect(result[0]!.interviews[0]!.type).toBe('Phone Screen');
+    expect(result[0]!.interviews[0]!.time).toBe('10:00');
+    expect(result[0]!.interviews[0]!.status).toBe('scheduled');
   });
 });
 
@@ -893,7 +895,7 @@ describe('matchByNameOnly', () => {
     const companies = Object.freeze([
       Object.freeze(makeCompany({ id: 'c1', name: 'Acme', interviews: Object.freeze(interviews) })),
     ]);
-    const result = matchByNameOnly(companies, { companyName: 'Acme', date: '2026-01-01' });
+    const result = matchByNameOnly(companies as unknown as Company[], { companyName: 'Acme', date: '2026-01-01' });
     expect(result).toEqual({ companyId: 'c1', interviewId: 'i1' });
   });
 });
@@ -933,7 +935,7 @@ describe('getTodaysUpcomingInterviews', () => {
     ];
     const result = getTodaysUpcomingInterviews(companies, NOW);
     expect(result).toHaveLength(1);
-    expect(result[0].id).toBe('i1');
+    expect(result[0]!.id).toBe('i1');
   });
 
   it('excludes completed interviews', () => {
@@ -980,8 +982,8 @@ describe('getTodaysUpcomingInterviews', () => {
     ];
     const result = getTodaysUpcomingInterviews(companies, NOW);
     expect(result).toHaveLength(2);
-    expect(result[0].id).toBe('i2');
-    expect(result[1].id).toBe('i1');
+    expect(result[0]!.id).toBe('i2');
+    expect(result[1]!.id).toBe('i1');
   });
 
   it('sorts interviews without time after timed interviews', () => {
@@ -997,8 +999,8 @@ describe('getTodaysUpcomingInterviews', () => {
     ];
     const result = getTodaysUpcomingInterviews(companies, NOW);
     expect(result).toHaveLength(2);
-    expect(result[0].id).toBe('i2');
-    expect(result[1].id).toBe('i1');
+    expect(result[0]!.id).toBe('i2');
+    expect(result[1]!.id).toBe('i1');
   });
 
   it('includes companyName and companyId on each result', () => {
@@ -1011,9 +1013,9 @@ describe('getTodaysUpcomingInterviews', () => {
       }),
     ];
     const result = getTodaysUpcomingInterviews(companies, NOW);
-    expect(result[0].companyName).toBe('Google');
-    expect(result[0].companyId).toBe('c1');
-    expect(result[0].position).toBe('SWE');
+    expect(result[0]!.companyName).toBe('Google');
+    expect(result[0]!.companyId).toBe('c1');
+    expect(result[0]!.position).toBe('SWE');
   });
 
   it('does not mutate the input companies array', () => {
@@ -1039,6 +1041,6 @@ describe('getTodaysUpcomingInterviews', () => {
     ];
     const result = getTodaysUpcomingInterviews(companies, tomorrow);
     expect(result).toHaveLength(1);
-    expect(result[0].id).toBe('i2');
+    expect(result[0]!.id).toBe('i2');
   });
 });

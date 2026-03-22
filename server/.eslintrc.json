@@ -21,7 +21,9 @@
         "src/index.*",
         "src/types.*",
         "src/config.*",
+        "src/utils/emailParser.*",
         "src/utils/matchingUtils.*",
+        "src/utils/llmEnrichment.*",
         "src/services/llmExtractor.*",
         "src/routes/logo.*"
       ]

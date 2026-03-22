@@ -63,6 +63,7 @@ A full-stack interview preparation and job application tracking tool. A React fr
 | React | 19 | Hooks-based, functional components only |
 | Tailwind CSS | v4 | Utility-first styling, CSS-first config via `@tailwindcss/vite` plugin |
 | Vite | 6 | Build tool and dev server (replaced Create React App) |
+| TypeScript | 5 | Strict mode (gradual migration in progress) |
 | Vitest | 3 | Test runner (replaced Jest on the frontend) |
 | lucide-react | latest | Icon library (Phone, Video, MapPin, etc.) |
 | Node.js | 24 | Required (see `.nvmrc` at repo root) |
@@ -75,6 +76,7 @@ A full-stack interview preparation and job application tracking tool. A React fr
 | googleapis | 171 | Gmail + Calendar + Drive API client |
 | @anthropic-ai/sdk | ^0.78.0 | Claude LLM extraction of interview data |
 | dotenv | 16 | Env var loading |
+| TypeScript | 5 | Strict mode (gradual migration in progress) |
 | Jest | 30 | `--experimental-vm-modules` for ESM |
 | supertest | 7 | HTTP route testing |
 | nodemon | 3 | Dev auto-restart (`npm run dev`) |

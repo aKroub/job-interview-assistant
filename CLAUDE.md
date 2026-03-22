@@ -29,6 +29,7 @@ A React app for tracking job applications (Kanban pipeline), scheduling intervie
 | Tailwind CSS | v4 | CSS-first config via `@tailwindcss/vite` plugin — no PostCSS or tailwind.config.js |
 | Vite | 6 | Build tool and dev server — replaced Create React App |
 | Vitest | 3 | Test runner — replaced Jest on the frontend; shares Vite config |
+| TypeScript | 5 | Strict mode, `allowJs: true` during migration |
 | lucide-react | latest | Icon library |
 | Testing Library | @testing-library/react + dom + user-event v14 | user-event v14 uses async `userEvent.setup()` pattern |
 
@@ -43,6 +44,8 @@ A React app for tracking job applications (Kanban pipeline), scheduling intervie
 | dotenv | 16 | Env var loading |
 | Jest | 30 | `--experimental-vm-modules` for ESM |
 | supertest | 7 | HTTP route testing |
+| TypeScript | 5 | Strict mode, `allowJs: true` during migration |
+| tsx | 4 | esbuild-based TS loader for Jest ESM tests |
 | nodemon | 3 | Dev auto-restart (`npm run dev`) |
 
 ---
@@ -70,11 +73,13 @@ A React app for tracking job applications (Kanban pipeline), scheduling intervie
 cd interview-prep-tracker
 npm run lint                           # no unused exports or variables (0 warnings)
 npm run build                          # must be clean (0 errors, 0 warnings)
+npm run typecheck                      # tsc --noEmit (0 type errors)
 npm test                               # Vitest — all tests must pass
 
 # Backend — always run from server/
 cd server
 npm run lint                           # no unused exports or variables (0 warnings)
+npm run typecheck                      # tsc --noEmit (0 type errors)
 npm test                               # all tests must pass
 ```
 
@@ -127,8 +132,10 @@ Before opening any PR, confirm every item:
 
 - [ ] `npm run lint` (frontend) → 0 warnings
 - [ ] `npm run build` (frontend) → 0 errors, 0 warnings
+- [ ] `npm run typecheck` (frontend) → 0 type errors
 - [ ] `npm test` (frontend, Vitest) → all pass
 - [ ] `npm run lint` (backend, if backend files changed) → 0 warnings
+- [ ] `npm run typecheck` (backend, if backend files changed) → 0 type errors
 - [ ] `npm test` (backend, if backend files changed) → all pass
 - [ ] No inner component functions defined inside a component's render scope
 - [ ] All state mutations flow through hooks — nothing imports storage directly in components
@@ -564,7 +571,7 @@ Every util function that transforms state should have a test asserting the origi
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Tailwind classes not applying | Missing `@import "tailwindcss"` in `index.css` or `@tailwindcss/vite` plugin not in `vite.config.js` | Verify both; Tailwind v4 uses CSS-first config, no `tailwind.config.js` |
+| Tailwind classes not applying | Missing `@import "tailwindcss"` in `index.css` or `@tailwindcss/vite` plugin not in `vite.config.ts` | Verify both; Tailwind v4 uses CSS-first config, no `tailwind.config.js` |
 | `localStorage is not defined` in tests | Hook or component calls `localStorage` directly | Use injected `storage` param + `createMemoryStorage()` in tests |
 | `&&=` syntax error in tests | Node version < 18 | Run `nvm use 24` before any npm command |
 | `Module not found` after branch switch | `npm install` not re-run | `nvm use 24 && npm install` |
@@ -594,12 +601,14 @@ Every util function that transforms state should have a test asserting the origi
 nvm use 24 && npm start                              # Vite dev server (port 3000)
 nvm use 24 && npm run lint                           # unused exports + variables (must be 0 warnings)
 nvm use 24 && npm run build                          # Vite production build (must be 0 warnings)
+nvm use 24 && npm run typecheck                      # TypeScript type checking (must be 0 errors)
 nvm use 24 && npm test                               # Vitest — all tests (must pass before PR)
 
 # --- Backend (run from server/) ---
 nvm use 24 && npm run dev                            # dev server with auto-restart (port 3001)
 nvm use 24 && npm start                              # production start
 nvm use 24 && npm run lint                           # unused exports + variables (must be 0 warnings)
+nvm use 24 && npm run typecheck                      # TypeScript type checking (must be 0 errors)
 nvm use 24 && npm test                               # all server tests (must pass before PR)
 
 # --- Git ---

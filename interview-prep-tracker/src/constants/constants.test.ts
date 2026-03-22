@@ -143,7 +143,7 @@ describe('DURATION_OPTIONS', () => {
 
   it('is sorted in ascending order', () => {
     for (let i = 1; i < DURATION_OPTIONS.length; i++) {
-      expect(DURATION_OPTIONS[i]).toBeGreaterThan(DURATION_OPTIONS[i - 1]);
+      expect(DURATION_OPTIONS[i]!).toBeGreaterThan(DURATION_OPTIONS[i - 1]!);
     }
   });
 
@@ -199,7 +199,7 @@ describe('SYSTEM_DESIGN_QUESTIONS', () => {
   });
 
   it('has at least one question per company', () => {
-    Object.entries(SYSTEM_DESIGN_QUESTIONS).forEach(([company, questions]) => {
+    Object.entries(SYSTEM_DESIGN_QUESTIONS).forEach(([_company, questions]) => {
       expect(Array.isArray(questions)).toBe(true);
       expect(questions.length).toBeGreaterThan(0);
     });

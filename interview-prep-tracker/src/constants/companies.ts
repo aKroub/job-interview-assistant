@@ -1,3 +1,5 @@
+import type { CompanyPoolEntry } from '../types';
+
 /**
  * Pre-populated company pool with slugs and domains for logo resolution.
  *
@@ -8,7 +10,7 @@
  * The pool is the source of truth for the company selection dropdown
  * and logo display across the app.
  */
-export const COMPANY_POOL = [
+export const COMPANY_POOL: CompanyPoolEntry[] = [
   { slug: 'adobe',          name: 'Adobe',          domain: 'adobe.com' },
   { slug: 'airbnb',         name: 'Airbnb',         domain: 'airbnb.com' },
   { slug: 'amazon',         name: 'Amazon',         domain: 'amazon.com' },
@@ -61,7 +63,7 @@ export const COMPANY_POOL = [
  * Lookup map: lowercased company name -> pool entry.
  * Enables O(1) logo resolution from a company name string.
  */
-export const COMPANY_POOL_BY_NAME = Object.fromEntries(
+export const COMPANY_POOL_BY_NAME: Record<string, CompanyPoolEntry> = Object.fromEntries(
   COMPANY_POOL.map((c) => [c.name.toLowerCase(), c]),
 );
 
@@ -72,6 +74,6 @@ export const COMPANY_POOL_BY_NAME = Object.fromEntries(
  * Example: SYSTEM_DESIGN_QUESTIONS uses "Facebook" as a key,
  * but the pool entry is "Meta".
  */
-export const COMPANY_ALIASES = {
+export const COMPANY_ALIASES: Record<string, string> = {
   facebook: 'meta',
 };

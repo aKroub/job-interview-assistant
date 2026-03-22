@@ -11,9 +11,8 @@ import {
 /**
  * Creates a mock fetch that returns the given body with the given status.
  *
- * @param {Object} body - JSON body to return
- * @param {number} [status=200] - HTTP status code
- * @returns {Function} mock fetch function
+ * @param body - JSON body to return
+ * @param status - HTTP status code
  */
 function mockFetch(body: unknown, status = 200) {
   return vi.fn().mockResolvedValue({
@@ -25,8 +24,6 @@ function mockFetch(body: unknown, status = 200) {
 
 /**
  * Creates a mock fetch that rejects with a network error.
- *
- * @returns {Function} mock fetch function
  */
 function mockFetchError() {
   return vi.fn().mockRejectedValue(new Error('Network error'));
@@ -36,8 +33,6 @@ function mockFetchError() {
  * Creates a mock EventSource constructor.
  * The returned instance stores registered listeners so tests can fire events.
  * Also captures the `onopen` property assignment for connected-event testing.
- *
- * @returns {{ Ctor: Function, instance: Object, listeners: Object }}
  */
 function mockEventSource() {
   const listeners: Record<string, (e: unknown) => void> = {};

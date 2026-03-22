@@ -44,7 +44,7 @@ describe('H1: COMPANY_POOL data integrity', () => {
   });
 
   it('every alias target exists in COMPANY_POOL_BY_NAME', () => {
-    for (const [alias, target] of Object.entries(COMPANY_ALIASES)) {
+    for (const [_alias, target] of Object.entries(COMPANY_ALIASES)) {
       expect(COMPANY_POOL_BY_NAME).toHaveProperty(
         target,
         expect.objectContaining({ name: expect.any(String) }),
@@ -56,12 +56,12 @@ describe('H1: COMPANY_POOL data integrity', () => {
     for (const aliasKey of Object.keys(COMPANY_ALIASES)) {
       // If an alias key matches a pool name, the alias is dead code because
       // getCompanyLogoUrl checks the direct map first.
-      const conflictsWithPool = COMPANY_POOL_BY_NAME[aliasKey] !== undefined;
-      if (conflictsWithPool) {
+      const poolEntry = COMPANY_POOL_BY_NAME[aliasKey];
+      if (poolEntry !== undefined) {
         // This is not necessarily a bug — the alias is just unreachable.
         // Flag it so the team knows.
         console.warn(
-          `Alias "${aliasKey}" is shadowed by pool entry "${COMPANY_POOL_BY_NAME[aliasKey].name}"`,
+          `Alias "${aliasKey}" is shadowed by pool entry "${poolEntry.name}"`,
         );
       }
     }
@@ -202,11 +202,10 @@ describe('H5: hasLogo === false handling', () => {
     // getCompanyLogoUrl would return null.
 
     // Simulate by checking the code path: direct lookup
-    const mockEntry = { slug: 'test', name: 'Test', hasLogo: false };
     // Can't inject into COMPANY_POOL_BY_NAME, so test the code path
     // through the alias route by verifying behavior consistency.
     for (const c of COMPANY_POOL) {
-      if (c.hasLogo === false) {
+      if ((c as unknown as { hasLogo?: boolean }).hasLogo === false) {
         expect(getCompanyLogoUrl(c.name)).toBeNull();
       }
     }

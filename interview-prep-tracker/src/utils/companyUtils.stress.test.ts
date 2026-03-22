@@ -7,6 +7,7 @@
  * preservation across migration.
  */
 
+import type { Company, CompanyDraft, Interview, InterviewStatus, PipelineId } from '../types';
 import {
   applyDelete,
   applyStageUpdate,
@@ -22,7 +23,7 @@ import {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeCompany(overrides = {}) {
+function makeCompany(overrides: Record<string, unknown> = {}): Company {
   return {
     id:         '1',
     name:       'Acme Corp',
@@ -33,7 +34,7 @@ function makeCompany(overrides = {}) {
     notes:      'some notes',
     createdAt:  '2024-01-01T00:00:00.000Z',
     ...overrides,
-  };
+  } as Company;
 }
 
 // ---------------------------------------------------------------------------
@@ -95,14 +96,14 @@ describe('H2: empty string pipeline migration', () => {
     const companies = [makeCompany({ id: '1', pipeline: '' })];
     const result = migrateCompanies(companies, 'tel-aviv');
     // Empty string should be treated as "missing" and get the default
-    expect(result[0].pipeline).toEqual(['tel-aviv']);
+    expect(result[0]!.pipeline).toEqual(['tel-aviv']);
   });
 
   it('isInPipeline returns false for a company with empty string pipeline and any pipelineId', () => {
     const company = makeCompany({ pipeline: '' });
     expect(isInPipeline(company, 'tel-aviv')).toBe(false);
     expect(isInPipeline(company, 'us')).toBe(false);
-    expect(isInPipeline(company, '')).toBe(true);
+    expect(isInPipeline(company, '' as unknown as PipelineId)).toBe(true);
   });
 
   it('isMultiPipeline returns false for empty string pipeline', () => {
@@ -114,8 +115,8 @@ describe('H2: empty string pipeline migration', () => {
     const companies = [makeCompany({ id: '1', pipeline: '' })];
     const migrated = migrateCompanies(companies, 'tel-aviv');
     // After migration, filtering should work correctly
-    expect(isInPipeline(migrated[0], 'tel-aviv')).toBe(true);
-    expect(isInPipeline(migrated[0], 'us')).toBe(false);
+    expect(isInPipeline(migrated[0]!, 'tel-aviv')).toBe(true);
+    expect(isInPipeline(migrated[0]!, 'us')).toBe(false);
   });
 });
 
@@ -125,7 +126,7 @@ describe('H2: empty string pipeline migration', () => {
 
 describe('H3: createCompany pipeline reference isolation', () => {
   it('mutating the draft pipeline array after createCompany also mutates the company', () => {
-    const draft = { name: 'X', position: 'Y', stage: 'applied', pipeline: ['tel-aviv'] };
+    const draft = { name: 'X', position: 'Y', stage: 'applied', pipeline: ['tel-aviv'] } as CompanyDraft;
     const company = createCompany(draft, () => 1);
 
     // This proves the reference is shared (not a defensive copy)
@@ -139,8 +140,8 @@ describe('H3: createCompany pipeline reference isolation', () => {
     // 1. User submits → addCompany(companyDraft)
     // 2. Immediately: setCompanyDraft(EMPTY_DRAFT)
     // The old companyDraft reference is abandoned, so no mutation can occur.
-    const EMPTY_DRAFT = { name: '', position: '', stage: 'applied', pipeline: ['tel-aviv'] };
-    const userDraft = { ...EMPTY_DRAFT, pipeline: ['tel-aviv', 'us'] };
+    const EMPTY_DRAFT = { name: '', position: '', stage: 'applied', pipeline: ['tel-aviv'] } as CompanyDraft;
+    const userDraft = { ...EMPTY_DRAFT, pipeline: ['tel-aviv', 'us'] } as CompanyDraft;
 
     const company = createCompany(userDraft, () => 1);
     // Simulating the reset — draft is replaced entirely
@@ -181,14 +182,14 @@ describe('H4: multi-pipeline delete and count consistency', () => {
 
     // Filter for tel-aviv pipeline — should see the updated stage
     const telAvivCompanies = afterUpdate.filter((c) => isInPipeline(c, 'tel-aviv'));
-    expect(telAvivCompanies[0].stage).toBe('offer');
+    expect(telAvivCompanies[0]!.stage).toBe('offer');
 
     // Filter for us pipeline — same company, same updated stage
     const usCompanies = afterUpdate.filter((c) => isInPipeline(c, 'us'));
-    expect(usCompanies[0].stage).toBe('offer');
+    expect(usCompanies[0]!.stage).toBe('offer');
 
     // It's the same object reference (one company entity)
-    expect(telAvivCompanies[0]).toBe(usCompanies[0]);
+    expect(telAvivCompanies[0]!).toBe(usCompanies[0]!);
   });
 
   it('multi-pipeline company count: counted once per pipeline, not once total', () => {
@@ -225,18 +226,18 @@ describe('H5: migration field preservation', () => {
       notes:      'Important notes about this company',
       createdAt:  '2024-03-15T08:30:00.000Z',
     };
-    const companies = [original];
+    const companies = [original] as unknown as Company[];
     const result = migrateCompanies(companies, 'tel-aviv');
 
-    expect(result[0].id).toBe('1');
-    expect(result[0].name).toBe('Full Corp');
-    expect(result[0].position).toBe('Staff Engineer');
-    expect(result[0].stage).toBe('technical');
-    expect(result[0].interviews).toHaveLength(1);
-    expect(result[0].interviews[0].id).toBe('i1');
-    expect(result[0].notes).toBe('Important notes about this company');
-    expect(result[0].createdAt).toBe('2024-03-15T08:30:00.000Z');
-    expect(result[0].pipeline).toEqual(['tel-aviv']);
+    expect(result[0]!.id).toBe('1');
+    expect(result[0]!.name).toBe('Full Corp');
+    expect(result[0]!.position).toBe('Staff Engineer');
+    expect(result[0]!.stage).toBe('technical');
+    expect(result[0]!.interviews).toHaveLength(1);
+    expect(result[0]!.interviews[0]!.id).toBe('i1');
+    expect(result[0]!.notes).toBe('Important notes about this company');
+    expect(result[0]!.createdAt).toBe('2024-03-15T08:30:00.000Z');
+    expect(result[0]!.pipeline).toEqual(['tel-aviv']);
   });
 
   it('migrating from scalar pipeline preserves all other fields', () => {
@@ -250,26 +251,26 @@ describe('H5: migration field preservation', () => {
       notes:      'Got the offer!',
       createdAt:  '2024-04-20T12:00:00.000Z',
     };
-    const companies = [original];
+    const companies = [original] as unknown as Company[];
     const result = migrateCompanies(companies, 'tel-aviv');
 
-    expect(result[0].id).toBe('2');
-    expect(result[0].name).toBe('Scalar Corp');
-    expect(result[0].position).toBe('SWE');
-    expect(result[0].stage).toBe('offer');
-    expect(result[0].interviews[0].status).toBe('completed');
-    expect(result[0].notes).toBe('Got the offer!');
-    expect(result[0].createdAt).toBe('2024-04-20T12:00:00.000Z');
-    expect(result[0].pipeline).toEqual(['us']);
+    expect(result[0]!.id).toBe('2');
+    expect(result[0]!.name).toBe('Scalar Corp');
+    expect(result[0]!.position).toBe('SWE');
+    expect(result[0]!.stage).toBe('offer');
+    expect(result[0]!.interviews[0]!.status).toBe('completed');
+    expect(result[0]!.notes).toBe('Got the offer!');
+    expect(result[0]!.createdAt).toBe('2024-04-20T12:00:00.000Z');
+    expect(result[0]!.pipeline).toEqual(['us']);
   });
 
   it('migration does not add unexpected extra keys', () => {
-    const original = makeCompany({ id: '1' });
+    const original = makeCompany({ id: '1' }) as unknown as Record<string, unknown>;
     delete original.pipeline; // simulate legacy
-    const companies = [original];
+    const companies = [original] as unknown as Company[];
     const result = migrateCompanies(companies, 'tel-aviv');
 
-    const resultKeys = Object.keys(result[0]).sort();
+    const resultKeys = Object.keys(result[0]!).sort();
     const expectedKeys = ['createdAt', 'id', 'interviews', 'name', 'notes', 'pipeline', 'position', 'stage'];
     expect(resultKeys).toEqual(expectedKeys);
   });
@@ -280,8 +281,8 @@ describe('H5: migration field preservation', () => {
     migrateCompanies(companies, 'tel-aviv');
 
     // The original array and objects must be untouched
-    expect(companies[0]).toBe(originalRef);
-    expect(companies[0].pipeline).toBe('us');
+    expect(companies[0]!).toBe(originalRef);
+    expect(companies[0]!.pipeline).toBe('us');
   });
 });
 
@@ -290,7 +291,7 @@ describe('H5: migration field preservation', () => {
 // ===========================================================================
 
 /** Returns a minimal interview object with sensible defaults. */
-function makeInterview(overrides = {}) {
+function makeInterview(overrides: Record<string, unknown> = {}): Interview {
   return {
     id:     'i1',
     type:   'Phone Interview',
@@ -298,7 +299,7 @@ function makeInterview(overrides = {}) {
     time:   '14:00',
     status: 'scheduled',
     ...overrides,
-  };
+  } as unknown as Interview;
 }
 
 // ---------------------------------------------------------------------------
@@ -333,7 +334,7 @@ describe('H6: empty and no-interview companies', () => {
     ];
     const result = getTodaysUpcomingInterviews(companies, NOW);
     expect(result).toHaveLength(1);
-    expect(result[0].companyName).toBe('Has Interview');
+    expect(result[0]!.companyName).toBe('Has Interview');
   });
 
   it('handles company with interviews but none scheduled for today', () => {
@@ -450,7 +451,7 @@ describe('H7: midnight boundary — today changes', () => {
     const result = getTodaysUpcomingInterviews(companies, jan5);
     // Only i1 matches because the function zero-pads to '2026-01-05'
     expect(result).toHaveLength(1);
-    expect(result[0].id).toBe('i1');
+    expect(result[0]!.id).toBe('i1');
   });
 
   it('December 31 date formatting is correct (month 12, day 31)', () => {
@@ -465,7 +466,7 @@ describe('H7: midnight boundary — today changes', () => {
     ];
     const result = getTodaysUpcomingInterviews(companies, dec31);
     expect(result).toHaveLength(1);
-    expect(result[0].id).toBe('i1');
+    expect(result[0]!.id).toBe('i1');
   });
 });
 
@@ -489,7 +490,7 @@ describe('H8: interview time exactly at current moment', () => {
     ];
     const result = getTodaysUpcomingInterviews(companies, exactlyNow);
     expect(result).toHaveLength(1);
-    expect(result[0].id).toBe('i1');
+    expect(result[0]!.id).toBe('i1');
   });
 
   it('interview one minute before now IS marked as passed', () => {
@@ -521,7 +522,7 @@ describe('H8: interview time exactly at current moment', () => {
   });
 
   it('deriveInterviewStatus boundary: equal time returns scheduled', () => {
-    const interview = { date: '2026-03-11', time: '14:00', status: 'scheduled' };
+    const interview = { date: '2026-03-11', time: '14:00', status: 'scheduled' as InterviewStatus };
     const now = new Date(2026, 2, 11, 14, 0, 0, 0);
     expect(deriveInterviewStatus(interview, now)).toBe('scheduled');
   });
@@ -639,7 +640,7 @@ describe('H9: duplicate times and large dataset performance', () => {
     );
     const result = getTodaysUpcomingInterviews(companies, NOW);
     const resultTimes = result.map((r) => r.time);
-    const sortedTimes = [...resultTimes].sort();
+    const sortedTimes = [...resultTimes]!.sort();
     expect(resultTimes).toEqual(sortedTimes);
   });
 
@@ -669,10 +670,10 @@ describe('H9: duplicate times and large dataset performance', () => {
     const result = getTodaysUpcomingInterviews(companies, NOW);
     expect(result).toHaveLength(4);
     // Timed first (sorted), then untimed
-    expect(result[0].time).toBe('09:00');
-    expect(result[1].time).toBe('10:00');
-    expect(result[2].time).toBe('');
-    expect(result[3].time).toBe('');
+    expect(result[0]!.time).toBe('09:00');
+    expect(result[1]!.time).toBe('10:00');
+    expect(result[2]!.time).toBe('');
+    expect(result[3]!.time).toBe('');
   });
 
   it('does not mutate the input when processing 50+ interviews', () => {
@@ -718,11 +719,11 @@ describe('H1 (edit): editing a company preserves interview data', () => {
 
     const result = applyEditCompany(companies, '1', { position: 'Staff Engineer' });
 
-    expect(result[0].interviews).toHaveLength(2);
-    expect(result[0].interviews[0].id).toBe('i1');
-    expect(result[0].interviews[1].id).toBe('i2');
-    expect(result[0].interviews[0].status).toBe('scheduled');
-    expect(result[0].interviews[1].status).toBe('completed');
+    expect(result[0]!.interviews).toHaveLength(2);
+    expect(result[0]!.interviews[0]!.id).toBe('i1');
+    expect(result[0]!.interviews[1]!.id).toBe('i2');
+    expect(result[0]!.interviews[0]!.status).toBe('scheduled');
+    expect(result[0]!.interviews[1]!.status).toBe('completed');
   });
 
   it('editing position does not affect flattenAndSortInterviews interview fields', () => {
@@ -735,12 +736,12 @@ describe('H1 (edit): editing a company preserves interview data', () => {
     const flat = flattenAndSortInterviews(edited);
 
     expect(flat).toHaveLength(1);
-    expect(flat[0].type).toBe('Phone');
-    expect(flat[0].date).toBe('2026-03-20');
-    expect(flat[0].time).toBe('10:00');
-    expect(flat[0].duration).toBe(45);
-    expect(flat[0].position).toBe('Head of Engineering');
-    expect(flat[0].companyName).toBe('Acme');
+    expect(flat[0]!.type).toBe('Phone');
+    expect(flat[0]!.date).toBe('2026-03-20');
+    expect(flat[0]!.time).toBe('10:00');
+    expect(flat[0]!.duration).toBe(45);
+    expect(flat[0]!.position).toBe('Head of Engineering');
+    expect(flat[0]!.companyName).toBe('Acme');
   });
 
   it('editing pipeline does not lose or duplicate interviews', () => {
@@ -753,8 +754,8 @@ describe('H1 (edit): editing a company preserves interview data', () => {
 
     const edited = applyEditCompany(companies, '1', { pipeline: ['tel-aviv', 'us'] });
 
-    expect(edited[0].interviews).toHaveLength(3);
-    expect(edited[0].interviews.map(i => i.id)).toEqual(['i1', 'i2', 'i3']);
+    expect(edited[0]!.interviews).toHaveLength(3);
+    expect(edited[0]!.interviews.map(i => i.id)).toEqual(['i1', 'i2', 'i3']);
   });
 
   it('adding an interview after editing does not corrupt the edit', () => {
@@ -763,11 +764,11 @@ describe('H1 (edit): editing a company preserves interview data', () => {
     const edited = applyEditCompany(companies, '1', { position: 'Head of Engineering' });
     const withInterview = applyAddInterview(edited, '1', {
       type: 'Phone', date: '2026-04-10', time: '10:00', status: 'scheduled',
-    }, () => 999);
+    } as unknown as Omit<Interview, 'id'>, () => 999);
 
-    expect(withInterview[0].position).toBe('Head of Engineering');
-    expect(withInterview[0].interviews).toHaveLength(1);
-    expect(withInterview[0].interviews[0].id).toBe('999');
+    expect(withInterview[0]!.position).toBe('Head of Engineering');
+    expect(withInterview[0]!.interviews).toHaveLength(1);
+    expect(withInterview[0]!.interviews[0]!.id).toBe('999');
   });
 
   it('editing a company does not affect other companies or their interviews', () => {
@@ -785,9 +786,9 @@ describe('H1 (edit): editing a company preserves interview data', () => {
     const edited = applyEditCompany(companies, '1', { position: 'Manager' });
 
     // Company 2 should be completely untouched (same reference)
-    expect(edited[1]).toBe(companies[1]);
-    expect(edited[1].interviews[0].id).toBe('i2');
-    expect(edited[1].interviews[0].status).toBe('completed');
+    expect(edited[1]!).toBe(companies[1]!);
+    expect(edited[1]!.interviews[0]!.id).toBe('i2');
+    expect(edited[1]!.interviews[0]!.status).toBe('completed');
   });
 });
 
@@ -807,9 +808,9 @@ describe('H2 (edit): editing multi-pipeline company', () => {
 
     expect(inTelAviv).toHaveLength(1);
     expect(inUs).toHaveLength(1);
-    expect(inTelAviv[0].position).toBe('Head of Engineering');
-    expect(inUs[0].position).toBe('Head of Engineering');
-    expect(inTelAviv[0]).toBe(inUs[0]); // same reference
+    expect(inTelAviv[0]!.position).toBe('Head of Engineering');
+    expect(inUs[0]!.position).toBe('Head of Engineering');
+    expect(inTelAviv[0]!).toBe(inUs[0]!); // same reference
   });
 
   it('removing a pipeline via edit still keeps the company in remaining pipelines', () => {
@@ -817,9 +818,9 @@ describe('H2 (edit): editing multi-pipeline company', () => {
 
     const edited = applyEditCompany(companies, '1', { pipeline: ['us'] });
 
-    expect(isInPipeline(edited[0], 'tel-aviv')).toBe(false);
-    expect(isInPipeline(edited[0], 'us')).toBe(true);
-    expect(isMultiPipeline(edited[0])).toBe(false);
+    expect(isInPipeline(edited[0]!, 'tel-aviv')).toBe(false);
+    expect(isInPipeline(edited[0]!, 'us')).toBe(true);
+    expect(isMultiPipeline(edited[0]!)).toBe(false);
   });
 
   it('adding a pipeline via edit makes the company appear in the new pipeline', () => {
@@ -827,9 +828,9 @@ describe('H2 (edit): editing multi-pipeline company', () => {
 
     const edited = applyEditCompany(companies, '1', { pipeline: ['tel-aviv', 'us'] });
 
-    expect(isInPipeline(edited[0], 'tel-aviv')).toBe(true);
-    expect(isInPipeline(edited[0], 'us')).toBe(true);
-    expect(isMultiPipeline(edited[0])).toBe(true);
+    expect(isInPipeline(edited[0]!, 'tel-aviv')).toBe(true);
+    expect(isInPipeline(edited[0]!, 'us')).toBe(true);
+    expect(isMultiPipeline(edited[0]!)).toBe(true);
   });
 
   it('editing stage on a multi-pipeline company is reflected in both pipeline views', () => {
@@ -839,8 +840,8 @@ describe('H2 (edit): editing multi-pipeline company', () => {
 
     const inTelAviv = edited.filter(c => isInPipeline(c, 'tel-aviv'));
     const inUs = edited.filter(c => isInPipeline(c, 'us'));
-    expect(inTelAviv[0].stage).toBe('offer');
-    expect(inUs[0].stage).toBe('offer');
+    expect(inTelAviv[0]!.stage).toBe('offer');
+    expect(inUs[0]!.stage).toBe('offer');
   });
 });
 
@@ -856,9 +857,9 @@ describe('H4 (edit): rapid sequential edits produce consistent state', () => {
     companies = applyEditCompany(companies, '1', { stage: 'technical' });
     companies = applyEditCompany(companies, '1', { pipeline: ['tel-aviv', 'us'] });
 
-    expect(companies[0].position).toBe('Manager');
-    expect(companies[0].stage).toBe('technical');
-    expect(companies[0].pipeline).toEqual(['tel-aviv', 'us']);
+    expect(companies[0]!.position).toBe('Manager');
+    expect(companies[0]!.stage).toBe('technical');
+    expect(companies[0]!.pipeline).toEqual(['tel-aviv', 'us']);
   });
 
   it('editing the same field multiple times keeps only the last value', () => {
@@ -868,7 +869,7 @@ describe('H4 (edit): rapid sequential edits produce consistent state', () => {
     companies = applyEditCompany(companies, '1', { position: 'Head of Engineering' });
     companies = applyEditCompany(companies, '1', { position: 'Senior Software Engineer' });
 
-    expect(companies[0].position).toBe('Senior Software Engineer');
+    expect(companies[0]!.position).toBe('Senior Software Engineer');
   });
 
   it('interleaving edits on different companies does not cross-contaminate', () => {
@@ -881,10 +882,10 @@ describe('H4 (edit): rapid sequential edits produce consistent state', () => {
     companies = applyEditCompany(companies, '2', { position: 'Head of Engineering' });
     companies = applyEditCompany(companies, '1', { stage: 'offer' });
 
-    expect(companies[0].position).toBe('Manager');
-    expect(companies[0].stage).toBe('offer');
-    expect(companies[1].position).toBe('Head of Engineering');
-    expect(companies[1].stage).toBe('applied'); // unchanged
+    expect(companies[0]!.position).toBe('Manager');
+    expect(companies[0]!.stage).toBe('offer');
+    expect(companies[1]!.position).toBe('Head of Engineering');
+    expect(companies[1]!.stage).toBe('applied'); // unchanged
   });
 
   it('editing a non-existent company ID leaves the array unchanged', () => {
@@ -893,9 +894,9 @@ describe('H4 (edit): rapid sequential edits produce consistent state', () => {
     const result = applyEditCompany(companies, 'nonexistent', { position: 'Manager' });
 
     expect(result).toHaveLength(1);
-    expect(result[0].position).toBe('SWE'); // unchanged
+    expect(result[0]!.position).toBe('SWE'); // unchanged
     // The company object should be the same reference (no unnecessary copy)
-    expect(result[0]).toBe(companies[0]);
+    expect(result[0]!).toBe(companies[0]!);
   });
 });
 
@@ -932,7 +933,7 @@ describe('applyEditCompany immutability', () => {
   it('returns a new object reference for the edited company', () => {
     const companies = [makeCompany({ id: '1' })];
     const result = applyEditCompany(companies, '1', { position: 'Manager' });
-    expect(result[0]).not.toBe(companies[0]);
+    expect(result[0]!).not.toBe(companies[0]!);
   });
 
   it('preserves object identity for unedited companies', () => {
@@ -941,6 +942,6 @@ describe('applyEditCompany immutability', () => {
       makeCompany({ id: '2', name: 'Other' }),
     ];
     const result = applyEditCompany(companies, '1', { position: 'Manager' });
-    expect(result[1]).toBe(companies[1]);
+    expect(result[1]!).toBe(companies[1]!);
   });
 });

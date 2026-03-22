@@ -6,6 +6,7 @@
  * in the pure utility functions and matching logic.
  */
 
+import type { Company, Interview } from '../types';
 import {
   matchSuggestionToInterview,
   applyInterviewUpdate,
@@ -16,7 +17,7 @@ import {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeCompany(overrides = {}) {
+function makeCompany(overrides: Record<string, unknown> = {}): Company {
   return {
     id: 'c1',
     name: 'Google',
@@ -27,10 +28,10 @@ function makeCompany(overrides = {}) {
     notes: '',
     createdAt: '2025-01-01T00:00:00.000Z',
     ...overrides,
-  };
+  } as Company;
 }
 
-function makeInterview(overrides = {}) {
+function makeInterview(overrides: Record<string, unknown> = {}): Interview {
   return {
     id: 'i1',
     type: 'Video Interview',
@@ -38,7 +39,7 @@ function makeInterview(overrides = {}) {
     time: '14:00',
     status: 'scheduled',
     ...overrides,
-  };
+  } as unknown as Interview;
 }
 
 // ---------------------------------------------------------------------------
@@ -125,7 +126,7 @@ describe('H2 — sequential cancel then update on the same interview', () => {
 
     // Step 1: Accept cancel — marks interview as cancelled
     const afterCancel = applyInterviewStatusUpdate(companies, 'c1', 'i1', 'cancelled');
-    expect(afterCancel[0].interviews[0].status).toBe('cancelled');
+    expect(afterCancel[0]!.interviews[0]!.status).toBe('cancelled');
 
     // Step 2: Try to match an update suggestion on the same interview
     const updateSuggestion = { companyName: 'Google', date: '2025-01-20', time: '15:00' };
@@ -146,7 +147,7 @@ describe('H2 — sequential cancel then update on the same interview', () => {
 
     // Step 1: Accept update — changes date
     const afterUpdate = applyInterviewUpdate(companies, 'c1', 'i1', { date: '2025-01-25', time: '15:00' });
-    expect(afterUpdate[0].interviews[0].date).toBe('2025-01-25');
+    expect(afterUpdate[0]!.interviews[0]!.date).toBe('2025-01-25');
 
     // Step 2: Try to match a cancel suggestion with the NEW date
     const cancelSuggestion = { companyName: 'Google', date: '2025-01-25', time: '15:00' };
@@ -198,12 +199,12 @@ describe('H3 — applyInterviewUpdate targets correct company regardless of othe
     const result = applyInterviewUpdate(companies, 'c1', 'i1', { date: '2025-01-25', time: '11:00' });
 
     // c1 updated
-    expect(result[0].interviews[0].date).toBe('2025-01-25');
-    expect(result[0].interviews[0].time).toBe('11:00');
+    expect(result[0]!.interviews[0]!.date).toBe('2025-01-25');
+    expect(result[0]!.interviews[0]!.time).toBe('11:00');
 
     // c2 untouched
-    expect(result[1].interviews[0].date).toBe('2025-01-20');
-    expect(result[1].interviews[0].time).toBe('14:00');
+    expect(result[1]!.interviews[0]!.date).toBe('2025-01-20');
+    expect(result[1]!.interviews[0]!.time).toBe('14:00');
   });
 
   it('update with non-existent companyId leaves all companies unchanged', () => {
@@ -218,7 +219,7 @@ describe('H3 — applyInterviewUpdate targets correct company regardless of othe
     const result = applyInterviewUpdate(companies, 'c999', 'i1', { date: '2025-02-01' });
 
     // Nothing changed
-    expect(result[0].interviews[0].date).toBe('2025-01-20');
+    expect(result[0]!.interviews[0]!.date).toBe('2025-01-20');
   });
 
   it('update with non-existent interviewId leaves interviews unchanged', () => {
@@ -232,7 +233,7 @@ describe('H3 — applyInterviewUpdate targets correct company regardless of othe
 
     const result = applyInterviewUpdate(companies, 'c1', 'i999', { date: '2025-02-01' });
 
-    expect(result[0].interviews[0].date).toBe('2025-01-20');
+    expect(result[0]!.interviews[0]!.date).toBe('2025-01-20');
   });
 });
 
@@ -331,7 +332,7 @@ describe('H5 — duration edge cases in applyInterviewUpdate', () => {
       }),
     ];
     const result = applyInterviewUpdate(companies, 'c1', 'i1', { duration: 0 });
-    expect(result[0].interviews[0].duration).toBe(0);
+    expect(result[0]!.interviews[0]!.duration).toBe(0);
   });
 
   it('includes duration=null in updates (explicitly clearing duration)', () => {
@@ -341,8 +342,8 @@ describe('H5 — duration edge cases in applyInterviewUpdate', () => {
         interviews: [makeInterview({ id: 'i1', duration: 60 })],
       }),
     ];
-    const result = applyInterviewUpdate(companies, 'c1', 'i1', { duration: null });
-    expect(result[0].interviews[0].duration).toBeNull();
+    const result = applyInterviewUpdate(companies, 'c1', 'i1', { duration: null as unknown as number });
+    expect(result[0]!.interviews[0]!.duration).toBeNull();
   });
 
   it('does not add duration field when not included in updates', () => {
@@ -354,7 +355,7 @@ describe('H5 — duration edge cases in applyInterviewUpdate', () => {
     ];
     const result = applyInterviewUpdate(companies, 'c1', 'i1', { date: '2025-02-01' });
     // duration should remain whatever it was (undefined in this case)
-    expect(result[0].interviews[0]).not.toHaveProperty('duration');
+    expect(result[0]!.interviews[0]).not.toHaveProperty('duration');
   });
 
   it('preserves existing duration when updating other fields', () => {
@@ -365,6 +366,6 @@ describe('H5 — duration edge cases in applyInterviewUpdate', () => {
       }),
     ];
     const result = applyInterviewUpdate(companies, 'c1', 'i1', { date: '2025-02-01' });
-    expect(result[0].interviews[0].duration).toBe(45);
+    expect(result[0]!.interviews[0]!.duration).toBe(45);
   });
 });

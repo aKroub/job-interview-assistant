@@ -1,3 +1,4 @@
+import type { FlattenedInterview } from '../types';
 import {
   getWeekStart,
   getWeekDays,
@@ -79,14 +80,14 @@ describe('getWeekDays', () => {
 
   it('starts on Sunday and ends on Saturday', () => {
     const days = getWeekDays(new Date(2026, 1, 18));
-    expect(days[0].getDay()).toBe(0); // Sunday
-    expect(days[6].getDay()).toBe(6); // Saturday
+    expect(days[0]!.getDay()).toBe(0); // Sunday
+    expect(days[6]!.getDay()).toBe(6); // Saturday
   });
 
   it('returns consecutive dates', () => {
     const days = getWeekDays(new Date(2026, 1, 18));
     for (let i = 1; i < days.length; i++) {
-      const diff = days[i].getDate() - days[i - 1].getDate();
+      const diff = days[i]!.getDate() - days[i - 1]!.getDate();
       // Handle month boundary: if diff is negative, the day wrapped to next month
       expect(diff === 1 || diff < -25).toBe(true);
     }
@@ -102,12 +103,12 @@ describe('getWeekDays', () => {
   it('handles year boundary correctly', () => {
     // 2025-12-31 is a Wednesday; week is Sun Dec 28 – Sat Jan 3
     const days = getWeekDays(new Date(2025, 11, 31));
-    expect(days[0].getFullYear()).toBe(2025);
-    expect(days[0].getMonth()).toBe(11); // December
-    expect(days[0].getDate()).toBe(28);
-    expect(days[6].getFullYear()).toBe(2026);
-    expect(days[6].getMonth()).toBe(0); // January
-    expect(days[6].getDate()).toBe(3);
+    expect(days[0]!.getFullYear()).toBe(2025);
+    expect(days[0]!.getMonth()).toBe(11); // December
+    expect(days[0]!.getDate()).toBe(28);
+    expect(days[6]!.getFullYear()).toBe(2026);
+    expect(days[6]!.getMonth()).toBe(0); // January
+    expect(days[6]!.getDate()).toBe(3);
   });
 });
 
@@ -126,7 +127,7 @@ describe('groupInterviewsByDate', () => {
       { id: '1', date: '2026-02-18', companyName: 'Acme' },
       { id: '2', date: '2026-02-18', companyName: 'Beta' },
       { id: '3', date: '2026-02-19', companyName: 'Gamma' },
-    ];
+    ] as unknown as FlattenedInterview[];
     const result = groupInterviewsByDate(interviews);
     expect(result.size).toBe(2);
     expect(result.get('2026-02-18')).toHaveLength(2);
@@ -137,15 +138,15 @@ describe('groupInterviewsByDate', () => {
     const interviews = [
       { id: '1', date: '2026-02-18', time: '09:00' },
       { id: '2', date: '2026-02-18', time: '14:00' },
-    ];
+    ] as unknown as FlattenedInterview[];
     const result = groupInterviewsByDate(interviews);
     const group = result.get('2026-02-18');
-    expect(group[0].id).toBe('1');
-    expect(group[1].id).toBe('2');
+    expect(group![0]!.id).toBe('1');
+    expect(group![1]!.id).toBe('2');
   });
 
   it('does not mutate the input array', () => {
-    const interviews = [{ id: '1', date: '2026-02-18' }];
+    const interviews = [{ id: '1', date: '2026-02-18' }] as unknown as FlattenedInterview[];
     const copy = [...interviews];
     groupInterviewsByDate(interviews);
     expect(interviews).toEqual(copy);

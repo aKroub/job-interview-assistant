@@ -36,8 +36,12 @@
     "typescript": "^5.9.3"
   },
   "jest": {
-    "transform": {},
+    "transform": {
+      "\\.ts$": "./jest-ts-transform.cjs"
+    },
+    "extensionsToTreatAsEsm": [".ts"],
     "testEnvironment": "node",
+    "resolver": "./jest-resolver.cjs",
     "testPathIgnorePatterns": [
       "/node_modules/",
       "__tests__/helpers/"

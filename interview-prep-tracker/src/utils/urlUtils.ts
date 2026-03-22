@@ -8,10 +8,10 @@
  * 2. Reject anything that does not start with `http://` or `https://`.
  * 3. Verify the result parses as a structurally valid URL via the `URL` constructor.
  *
- * @param {string} raw — the user-supplied URL string (may be empty/undefined).
- * @returns {string} the trimmed URL when safe, or `''` when unsafe / empty.
+ * @param raw — the user-supplied URL string (may be empty/undefined).
+ * @returns the trimmed URL when safe, or `''` when unsafe / empty.
  */
-export function sanitizeVideoCallUrl(raw) {
+export function sanitizeVideoCallUrl(raw: string | undefined | null): string {
   const trimmed = (raw || '').trim();
   if (!trimmed) return '';
   if (!/^https?:\/\//i.test(trimmed)) return '';
@@ -32,9 +32,8 @@ export function sanitizeVideoCallUrl(raw) {
  * Convenience predicate used by display logic to decide whether a "Join call"
  * link should be rendered.
  *
- * @param {string} raw - the stored video-call URL.
- * @returns {boolean}
+ * @param raw - the stored video-call URL.
  */
-export function isValidVideoCallUrl(raw) {
+export function isValidVideoCallUrl(raw: string | undefined | null): boolean {
   return sanitizeVideoCallUrl(raw) !== '';
 }

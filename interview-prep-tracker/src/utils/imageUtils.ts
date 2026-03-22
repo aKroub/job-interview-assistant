@@ -5,11 +5,11 @@
  * (JPEG, PNG, WebP, GIF, etc.) to a standardized 128x128 PNG. The result is a
  * data URL suitable for storage in localStorage / cloud sync.
  *
- * @param {File} file - Image file from a file input or drag-drop
- * @param {number} [size=128] - Target width and height in pixels
- * @returns {Promise<string>} PNG data URL (e.g. "data:image/png;base64,...")
+ * @param file - Image file from a file input or drag-drop
+ * @param size - Target width and height in pixels
+ * @returns PNG data URL (e.g. "data:image/png;base64,...")
  */
-export function normalizeImage(file, size = 128) {
+export function normalizeImage(file: File, size = 128): Promise<string> {
   return new Promise((resolve, reject) => {
     if (!file || !file.type.startsWith('image/')) {
       return reject(new Error('File is not an image'));
@@ -27,13 +27,13 @@ export function normalizeImage(file, size = 128) {
         canvas.width = size;
         canvas.height = size;
 
-        const ctx = canvas.getContext('2d');
+        const ctx = canvas.getContext('2d')!;
         ctx.drawImage(img, 0, 0, size, size);
 
         resolve(canvas.toDataURL('image/png'));
       };
 
-      img.src = reader.result;
+      img.src = reader.result as string;
     };
 
     reader.readAsDataURL(file);

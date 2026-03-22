@@ -1,3 +1,14 @@
+import type {
+  Company,
+  CompanyDraft,
+  FlattenedInterview,
+  DerivedInterviewStatus,
+  Interview,
+  StageKey,
+  PipelineId,
+  InterviewStatus,
+} from '../types';
+
 /**
  * Pure utility functions for company and interview data transformations.
  *
@@ -10,36 +21,29 @@
  *
  * Handles both the current array format (`['tel-aviv', 'us']`) and the
  * legacy scalar format (`'tel-aviv'`) for pre-migration data in-flight.
- *
- * @param {Object} company
- * @param {string} pipelineId
- * @returns {boolean}
  */
-export function isInPipeline(company, pipelineId) {
+export function isInPipeline(company: Company, pipelineId: PipelineId): boolean {
   return Array.isArray(company.pipeline)
     ? company.pipeline.includes(pipelineId)
-    : company.pipeline === pipelineId;
+    : (company.pipeline as unknown as string) === pipelineId;
 }
 
 /**
  * Returns true if the company belongs to more than one pipeline.
- *
- * @param {Object} company
- * @returns {boolean}
  */
-export function isMultiPipeline(company) {
+export function isMultiPipeline(company: Company): boolean {
   return Array.isArray(company.pipeline) && company.pipeline.length > 1;
 }
 
 /**
  * Builds a complete company object from a user-supplied draft.
  *
- * @param {{ name: string, position: string, stage: string, pipeline: string[], domain?: string, customLogoUrl?: string }} draft
- * @param {() => number} [idFn=Date.now] - injectable ID generator (use in tests to get deterministic IDs)
- * @returns {Object} Full company object with id, pipeline, interviews, notes, createdAt, and optional domain/customLogoUrl
+ * @param draft
+ * @param idFn - injectable ID generator (use in tests to get deterministic IDs)
+ * @returns Full company object with id, pipeline, interviews, notes, createdAt, and optional domain/customLogoUrl
  */
-export function createCompany(draft, idFn = Date.now) {
-  const company = {
+export function createCompany(draft: CompanyDraft, idFn: () => number = Date.now): Company {
+  const company: Company = {
     id:         String(idFn()),
     name:       draft.name,
     position:   draft.position,
@@ -64,30 +68,22 @@ export function createCompany(draft, idFn = Date.now) {
  *
  * Returns the original array reference when no migration is needed (avoids
  * unnecessary re-renders and storage writes).
- *
- * @param {Object[]} companies
- * @param {string}   defaultPipeline - the pipeline value to assign when missing
- * @returns {Object[]}
  */
-export function migrateCompanies(companies, defaultPipeline) {
+export function migrateCompanies(companies: Company[], defaultPipeline: PipelineId): Company[] {
   const needsMigration = companies.some((c) => !Array.isArray(c.pipeline));
   if (!needsMigration) return companies;
   return companies.map((c) => {
     if (Array.isArray(c.pipeline)) return c;
-    if (typeof c.pipeline === 'string' && c.pipeline) return { ...c, pipeline: [c.pipeline] };
+    const pipeline = c.pipeline as unknown;
+    if (typeof pipeline === 'string' && pipeline) return { ...c, pipeline: [pipeline as PipelineId] };
     return { ...c, pipeline: [defaultPipeline] };
   });
 }
 
 /**
  * Returns a new companies array with one company's stage updated.
- *
- * @param {Object[]} companies
- * @param {string}   companyId
- * @param {string}   newStage
- * @returns {Object[]}
  */
-export function applyStageUpdate(companies, companyId, newStage) {
+export function applyStageUpdate(companies: Company[], companyId: string, newStage: StageKey): Company[] {
   return companies.map((c) =>
     c.id === companyId ? { ...c, stage: newStage } : c
   );
@@ -96,12 +92,11 @@ export function applyStageUpdate(companies, companyId, newStage) {
 /**
  * Returns a new companies array with the specified company's fields updated.
  *
- * @param {Object[]} companies
- * @param {string}   companyId
- * @param {Object}   updates - fields to merge (e.g. { position, pipeline })
- * @returns {Object[]}
+ * @param companies
+ * @param companyId
+ * @param updates - fields to merge (e.g. { position, pipeline })
  */
-export function applyEditCompany(companies, companyId, updates) {
+export function applyEditCompany(companies: Company[], companyId: string, updates: Partial<Company>): Company[] {
   return companies.map((c) =>
     c.id === companyId ? { ...c, ...updates } : c
   );
@@ -109,25 +104,20 @@ export function applyEditCompany(companies, companyId, updates) {
 
 /**
  * Returns a new companies array with the specified company removed.
- *
- * @param {Object[]} companies
- * @param {string}   companyId
- * @returns {Object[]}
  */
-export function applyDelete(companies, companyId) {
+export function applyDelete(companies: Company[], companyId: string): Company[] {
   return companies.filter((c) => c.id !== companyId);
 }
 
 /**
  * Returns a new companies array with an interview appended to the target company.
- *
- * @param {Object[]} companies
- * @param {string}   companyId
- * @param {{ type: string, date: string, time: string, status: string }} interview
- * @param {() => number} [idFn=Date.now]
- * @returns {Object[]}
  */
-export function applyAddInterview(companies, companyId, interview, idFn = Date.now) {
+export function applyAddInterview(
+  companies: Company[],
+  companyId: string,
+  interview: Omit<Interview, 'id'>,
+  idFn: () => number = Date.now,
+): Company[] {
   return companies.map((c) =>
     c.id === companyId
       ? { ...c, interviews: [...c.interviews, { ...interview, id: String(idFn()) }] }
@@ -137,13 +127,8 @@ export function applyAddInterview(companies, companyId, interview, idFn = Date.n
 
 /**
  * Returns a new companies array with the specified interview removed.
- *
- * @param {Object[]} companies
- * @param {string}   companyId
- * @param {string}   interviewId
- * @returns {Object[]}
  */
-export function applyDeleteInterview(companies, companyId, interviewId) {
+export function applyDeleteInterview(companies: Company[], companyId: string, interviewId: string): Company[] {
   return companies.map(company => {
     if (company.id !== companyId) return company;
       return {
@@ -156,13 +141,17 @@ export function applyDeleteInterview(companies, companyId, interviewId) {
 /**
  * Returns a new companies array with a single interview's status updated.
  *
- * @param {Object[]} companies
- * @param {string}   companyId
- * @param {string}   interviewId
- * @param {string}   status  - 'scheduled' | 'completed' | 'cancelled'
- * @returns {Object[]}
+ * @param companies
+ * @param companyId
+ * @param interviewId
+ * @param status - 'scheduled' | 'completed' | 'cancelled'
  */
-export function applyInterviewStatusUpdate(companies, companyId, interviewId, status) {
+export function applyInterviewStatusUpdate(
+  companies: Company[],
+  companyId: string,
+  interviewId: string,
+  status: InterviewStatus,
+): Company[] {
   return companies.map((c) =>
     c.id === companyId
       ? {
@@ -178,11 +167,8 @@ export function applyInterviewStatusUpdate(companies, companyId, interviewId, st
 /**
  * Flattens all interviews from all companies into a single chronologically-sorted array.
  * Each entry is decorated with companyName, position, and companyId for display purposes.
- *
- * @param {Object[]} companies
- * @returns {Object[]} Sorted interview objects
  */
-export function flattenAndSortInterviews(companies) {
+export function flattenAndSortInterviews(companies: Company[]): FlattenedInterview[] {
   return companies
     .flatMap((company) =>
       company.interviews.map((interview) => ({
@@ -194,7 +180,7 @@ export function flattenAndSortInterviews(companies) {
         companyCustomLogoUrl: company.customLogoUrl || null,
       }))
     )
-    .sort((a, b) => new Date(a.date) - new Date(b.date));
+    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 }
 
 /**
@@ -206,11 +192,13 @@ export function flattenAndSortInterviews(companies) {
  *  3. If status is 'scheduled' and the interview datetime is in the past → 'passed'
  *  4. Otherwise → 'scheduled'
  *
- * @param {{ date: string, time: string, status: string }} interview
- * @param {Date} [now=new Date()] - injectable for deterministic testing
- * @returns {'scheduled' | 'passed' | 'completed' | 'cancelled'}
+ * @param interview
+ * @param now - injectable for deterministic testing
  */
-export function deriveInterviewStatus(interview, now = new Date()) {
+export function deriveInterviewStatus(
+  interview: { date: string; time: string; status: InterviewStatus },
+  now: Date = new Date(),
+): DerivedInterviewStatus {
   if (interview.status === 'cancelled') return 'cancelled';
   if (interview.status === 'completed') return 'completed';
   const dateTimeStr = interview.time
@@ -225,18 +213,17 @@ export function deriveInterviewStatus(interview, now = new Date()) {
  * Matches by normalised company name (exact or substring) + date. When
  * multiple interviews share the same date, the one with the closest time wins.
  * Exact name matches are preferred over substring matches.
- *
- * @param {Object[]} companies
- * @param {{ companyName: string, date: string, time: string }} suggestion
- * @returns {{ companyId: string, interviewId: string } | null}
  */
-export function matchSuggestionToInterview(companies, suggestion) {
+export function matchSuggestionToInterview(
+  companies: Company[],
+  suggestion: { companyName: string; date: string; time: string },
+): { companyId: string; interviewId: string } | null {
   const targetName = normalizeForMatch(suggestion.companyName || '');
   const targetDate = suggestion.date || '';
 
   if (!targetName || !targetDate) return null;
 
-  let best = null;
+  let best: { companyId: string; interviewId: string } | null = null;
   let bestTimeDiff = Infinity;
   let bestIsExact = false;
 
@@ -273,14 +260,10 @@ export function matchSuggestionToInterview(companies, suggestion) {
  * Finds the first company whose name fuzzy-matches the given name.
  *
  * Uses the same normalisation and substring logic as
- * {@link matchSuggestionToInterview} so that all suggestion actions
+ * matchSuggestionToInterview so that all suggestion actions
  * (add, cancel, update) resolve company names consistently.
- *
- * @param {Object[]} companies
- * @param {string}   name
- * @returns {Object | null}
  */
-export function findCompanyByFuzzyName(companies, name) {
+export function findCompanyByFuzzyName(companies: Company[], name: string): Company | null {
   const target = normalizeForMatch(name);
   if (!target) return null;
 
@@ -291,7 +274,7 @@ export function findCompanyByFuzzyName(companies, name) {
 }
 
 /**
- * Relaxed version of {@link matchSuggestionToInterview} that matches by
+ * Relaxed version of matchSuggestionToInterview that matches by
  * company name only (ignoring date).
  *
  * Used as a fallback for 'update' and 'cancel' actions where the interview
@@ -302,12 +285,11 @@ export function findCompanyByFuzzyName(companies, name) {
  * closest to the suggestion's date+time. When two interviews are on the
  * same date, time proximity is used as a tiebreaker so each interview can
  * be matched independently.
- *
- * @param {Object[]} companies
- * @param {{ companyName: string, date?: string, time?: string }} suggestion
- * @returns {{ companyId: string, interviewId: string } | null}
  */
-export function matchByNameOnly(companies, suggestion) {
+export function matchByNameOnly(
+  companies: Company[],
+  suggestion: { companyName: string; date?: string; time?: string },
+): { companyId: string; interviewId: string } | null {
   const company = findCompanyByFuzzyName(companies, suggestion.companyName);
   if (!company) return null;
 
@@ -315,7 +297,7 @@ export function matchByNameOnly(companies, suggestion) {
   if (active.length === 0) return null;
 
   if (active.length === 1) {
-    return { companyId: company.id, interviewId: active[0].id };
+    return { companyId: company.id, interviewId: active[0]!.id };
   }
 
   // Multiple active interviews — pick the one closest by date, then by time
@@ -323,22 +305,23 @@ export function matchByNameOnly(companies, suggestion) {
     const targetMs = new Date(suggestion.date).getTime();
     const targetTimeMin = suggestion.time ? timeToMinutes(suggestion.time) : null;
 
-    let closest = active[0];
+    let closest = active[0]!;
     let closestDateDiff = Math.abs(new Date(closest.date).getTime() - targetMs);
     let closestTimeDiff = targetTimeMin !== null && closest.time
       ? Math.abs(timeToMinutes(closest.time) - targetTimeMin)
       : Infinity;
 
     for (let i = 1; i < active.length; i++) {
-      const dateDiff = Math.abs(new Date(active[i].date).getTime() - targetMs);
-      const timeDiff = targetTimeMin !== null && active[i].time
-        ? Math.abs(timeToMinutes(active[i].time) - targetTimeMin)
+      const interview = active[i]!;
+      const dateDiff = Math.abs(new Date(interview.date).getTime() - targetMs);
+      const timeDiff = targetTimeMin !== null && interview.time
+        ? Math.abs(timeToMinutes(interview.time) - targetTimeMin)
         : Infinity;
 
       // Prefer closer date; on date tie, prefer closer time
       if (dateDiff < closestDateDiff ||
           (dateDiff === closestDateDiff && timeDiff < closestTimeDiff)) {
-        closest = active[i];
+        closest = interview;
         closestDateDiff = dateDiff;
         closestTimeDiff = timeDiff;
       }
@@ -347,19 +330,23 @@ export function matchByNameOnly(companies, suggestion) {
   }
 
   // No date on suggestion — return the first active interview
-  return { companyId: company.id, interviewId: active[0].id };
+  return { companyId: company.id, interviewId: active[0]!.id };
 }
 
 /**
  * Returns a new companies array with one interview's fields updated.
  *
- * @param {Object[]} companies
- * @param {string}   companyId
- * @param {string}   interviewId
- * @param {Object}   updates - fields to merge (e.g. { date, time, duration })
- * @returns {Object[]}
+ * @param companies
+ * @param companyId
+ * @param interviewId
+ * @param updates - fields to merge (e.g. { date, time, duration })
  */
-export function applyInterviewUpdate(companies, companyId, interviewId, updates) {
+export function applyInterviewUpdate(
+  companies: Company[],
+  companyId: string,
+  interviewId: string,
+  updates: Partial<Interview>,
+): Company[] {
   return companies.map((c) =>
     c.id === companyId
       ? {
@@ -381,12 +368,8 @@ export function applyInterviewUpdate(companies, companyId, interviewId, updates)
  *
  * Requires the shorter string to be at least 3 characters to avoid
  * false positives on very short strings like "at" matching "meta".
- *
- * @param {string} a - normalised name
- * @param {string} b - normalised name
- * @returns {boolean}
  */
-function namesMatch(a, b) {
+function namesMatch(a: string, b: string): boolean {
   if (!a || !b) return false;
   const shorter = a.length <= b.length ? a : b;
   if (shorter.length < 3) return false;
@@ -396,11 +379,8 @@ function namesMatch(a, b) {
 /**
  * Normalises a company name for fuzzy matching: lowercase, strip
  * whitespace, punctuation, and common suffixes (ltd, inc, etc.).
- *
- * @param {string} name
- * @returns {string}
  */
-function normalizeForMatch(name) {
+function normalizeForMatch(name: string): string {
   if (!name) return '';
   return name
     .toLowerCase()
@@ -418,11 +398,11 @@ function normalizeForMatch(name) {
  * cancelled, or passed), and sorts by time ascending. Interviews without
  * a time are sorted after timed interviews.
  *
- * @param {Object[]} companies - the full companies array with nested interviews
- * @param {Date} [now=new Date()] - injectable for deterministic testing
- * @returns {Object[]} Flat interview objects with companyName, companyId, position
+ * @param companies - the full companies array with nested interviews
+ * @param now - injectable for deterministic testing
+ * @returns Flat interview objects with companyName, companyId, position
  */
-export function getTodaysUpcomingInterviews(companies, now = new Date()) {
+export function getTodaysUpcomingInterviews(companies: Company[], now: Date = new Date()): FlattenedInterview[] {
   const y = now.getFullYear();
   const m = String(now.getMonth() + 1).padStart(2, '0');
   const d = String(now.getDate()).padStart(2, '0');
@@ -443,11 +423,8 @@ export function getTodaysUpcomingInterviews(companies, now = new Date()) {
 
 /**
  * Converts "HH:mm" to total minutes since midnight.
- *
- * @param {string} time - "HH:mm" format
- * @returns {number}
  */
-function timeToMinutes(time) {
+function timeToMinutes(time: string): number {
   const [h, m] = time.split(':').map(Number);
   return (h || 0) * 60 + (m || 0);
 }

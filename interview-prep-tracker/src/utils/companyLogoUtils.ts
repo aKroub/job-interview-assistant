@@ -8,24 +8,24 @@ import { COMPANY_POOL_BY_NAME, COMPANY_ALIASES } from '../constants/companies';
  * 2. Alias lookup via COMPANY_ALIASES (e.g. "Facebook" → "Meta")
  * 3. No match → null (caller should render nothing)
  *
- * @param {string} companyName - The company name to look up.
- * @returns {string | null} Absolute path to the static logo PNG, or null.
+ * @param companyName - The company name to look up.
+ * @returns Absolute path to the static logo PNG, or null.
  */
-export function getCompanyLogoUrl(companyName) {
+export function getCompanyLogoUrl(companyName: string): string | null {
   if (!companyName) return null;
 
   const key = companyName.toLowerCase();
 
   if (Object.hasOwn(COMPANY_POOL_BY_NAME, key)) {
-    const direct = COMPANY_POOL_BY_NAME[key];
-    return direct.hasLogo === false ? null : `/logos/${direct.slug}.png`;
+    const direct = COMPANY_POOL_BY_NAME[key]!;
+    return `/logos/${direct.slug}.png`;
   }
 
   if (Object.hasOwn(COMPANY_ALIASES, key)) {
-    const aliasTarget = COMPANY_ALIASES[key];
+    const aliasTarget = COMPANY_ALIASES[key]!;
     if (Object.hasOwn(COMPANY_POOL_BY_NAME, aliasTarget)) {
-      const aliased = COMPANY_POOL_BY_NAME[aliasTarget];
-      return aliased.hasLogo === false ? null : `/logos/${aliased.slug}.png`;
+      const aliased = COMPANY_POOL_BY_NAME[aliasTarget]!;
+      return `/logos/${aliased.slug}.png`;
     }
   }
 
@@ -43,11 +43,8 @@ export function getCompanyLogoUrl(companyName) {
  *
  * Custom uploads take priority over domain guesses because the user
  * explicitly chose that image.
- *
- * @param {{ name: string, domain?: string, customLogoUrl?: string }} company
- * @returns {string | null}
  */
-export function resolveCompanyLogoUrl(company) {
+export function resolveCompanyLogoUrl(company: { name: string; domain?: string; customLogoUrl?: string } | null): string | null {
   if (!company) return null;
 
   const poolUrl = getCompanyLogoUrl(company.name);
@@ -67,10 +64,10 @@ export function resolveCompanyLogoUrl(company) {
  * This is a **heuristic only** — the result should always be presented
  * to the user as an editable, pre-filled suggestion.
  *
- * @param {string} companyName - The company name to guess a domain for.
- * @returns {string} A guessed domain string (e.g. "checkpointsoftware.com").
+ * @param companyName - The company name to guess a domain for.
+ * @returns A guessed domain string (e.g. "checkpointsoftware.com").
  */
-export function guessDomain(companyName) {
+export function guessDomain(companyName: string): string {
   if (!companyName) return '';
   return companyName.toLowerCase().replace(/[^a-z0-9]/g, '') + '.com';
 }

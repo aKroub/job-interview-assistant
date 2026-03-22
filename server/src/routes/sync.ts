@@ -1,19 +1,16 @@
 import { Router } from 'express';
+import type { Request, Response } from 'express';
+import type { DriveService, GoogleAuth } from '../types';
+
+interface SyncRouterDeps {
+  driveService: DriveService;
+  googleAuth: Pick<GoogleAuth, 'isAuthenticated'>;
+}
 
 /**
  * Creates the sync router for Google Drive backup/restore of app state.
- *
- * All endpoints require Google authentication. Supports multi-version backups:
- * - Status returns a list of available backup versions
- * - Save creates a new version and returns the updated list
- * - Load requires a fileId to select which version to restore
- *
- * @param {Object} deps
- * @param {{ saveState: Function, loadState: Function, listBackups: Function }} deps.driveService
- * @param {{ isAuthenticated: Function }} deps.googleAuth
- * @returns {import('express').Router}
  */
-export function createSyncRouter({ driveService, googleAuth }) {
+export function createSyncRouter({ driveService, googleAuth }: SyncRouterDeps): Router {
   const router = Router();
 
   /**
@@ -21,7 +18,7 @@ export function createSyncRouter({ driveService, googleAuth }) {
    *
    * Returns a list of available backup versions on Google Drive.
    */
-  router.get('/status', async (_req, res) => {
+  router.get('/status', async (_req: Request, res: Response) => {
     if (!googleAuth.isAuthenticated()) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
@@ -29,8 +26,8 @@ export function createSyncRouter({ driveService, googleAuth }) {
     try {
       const result = await driveService.listBackups();
       res.json(result);
-    } catch (err) {
-      console.error('[sync] operation failed:', err.message);
+    } catch (err: unknown) {
+      console.error('[sync] operation failed:', (err as Error).message);
       res.status(500).json({ error: 'Sync operation failed' });
     }
   });
@@ -42,7 +39,7 @@ export function createSyncRouter({ driveService, googleAuth }) {
    * Saves the current app state as a new backup version on Google Drive.
    * Returns the updated list of available backups.
    */
-  router.post('/save', async (req, res) => {
+  router.post('/save', async (req: Request, res: Response) => {
     if (!googleAuth.isAuthenticated()) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
@@ -60,8 +57,8 @@ export function createSyncRouter({ driveService, googleAuth }) {
 
       const { backups } = await driveService.listBackups();
       res.json({ saved: true, savedAt, backups });
-    } catch (err) {
-      console.error('[sync] operation failed:', err.message);
+    } catch (err: unknown) {
+      console.error('[sync] operation failed:', (err as Error).message);
       res.status(500).json({ error: 'Sync operation failed' });
     }
   });
@@ -72,12 +69,12 @@ export function createSyncRouter({ driveService, googleAuth }) {
    * Loads app state from a specific backup version on Google Drive.
    * Requires a fileId query parameter. Returns { exists: false } if the file is not found.
    */
-  router.get('/load', async (req, res) => {
+  router.get('/load', async (req: Request, res: Response) => {
     if (!googleAuth.isAuthenticated()) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const { fileId } = req.query;
+    const fileId = req.query.fileId as string | undefined;
     if (!fileId) {
       return res.status(400).json({ error: 'fileId query parameter is required' });
     }
@@ -91,8 +88,8 @@ export function createSyncRouter({ driveService, googleAuth }) {
         return res.json({ exists: false });
       }
       res.json(state);
-    } catch (err) {
-      console.error('[sync] operation failed:', err.message);
+    } catch (err: unknown) {
+      console.error('[sync] operation failed:', (err as Error).message);
       res.status(500).json({ error: 'Sync operation failed' });
     }
   });

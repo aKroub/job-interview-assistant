@@ -1,4 +1,14 @@
 import { Router } from 'express';
+import type { Request, Response } from 'express';
+import type { InterviewDetector, TokenStore, GoogleAuth } from '../types';
+
+interface InterviewsRouterDeps {
+  detector: InterviewDetector;
+  tokenStore: Pick<TokenStore, 'addDismissed' | 'clearDismissed'>;
+  pollIntervalMs: number;
+  googleAuth: Pick<GoogleAuth, 'isAuthenticated'>;
+  scanCooldownMs?: number;
+}
 
 /**
  * Creates the interviews router for SSE suggestions and dismiss endpoint.
@@ -6,23 +16,15 @@ import { Router } from 'express';
  * The polling loop ONLY runs while at least one SSE client is connected.
  * When the last client disconnects, polling stops. This means the system
  * is completely idle until the frontend actually subscribes.
- *
- * @param {Object} deps
- * @param {{ detect: Function }} deps.detector - interview detector service
- * @param {{ addDismissed: Function }} deps.tokenStore - for persisting dismissals
- * @param {number} deps.pollIntervalMs - how often to poll (from config)
- * @param {{ isAuthenticated: Function }} deps.googleAuth - for auth checks
- * @param {number} [deps.scanCooldownMs=30000] - minimum interval between manual scans
- * @returns {import('express').Router}
  */
-export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, googleAuth, scanCooldownMs = 30_000 }) {
+export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, googleAuth, scanCooldownMs = 30_000 }: InterviewsRouterDeps): Router {
   const router = Router();
 
   /** Set of active SSE response objects. */
-  const clients = new Set();
+  const clients = new Set<Response>();
 
   /** Handle to the polling timeout (null when not running). */
-  let pollHandle = null;
+  let pollHandle: ReturnType<typeof setTimeout> | null = null;
 
   /** True while pollOnce() is executing — prevents overlapping loops. */
   let pollInFlight = false;
@@ -30,10 +32,8 @@ export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, g
   /**
    * Broadcasts an SSE event to all connected clients.
    *
-   * @param {string} event - the SSE event name
-   * @param {*} data - the data payload (will be JSON-serialised)
    */
-  function broadcast(event, data) {
+  function broadcast(event: string, data: unknown): void {
     const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
     for (const client of clients) {
       try {
@@ -55,9 +55,9 @@ export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, g
       } else {
         broadcast('scan-complete', { count: 0 });
       }
-    } catch (err) {
+    } catch (err: unknown) {
       // Broadcast the error so the frontend can show a status message
-      console.error('[interviews] poll error:', err.message);
+      console.error('[interviews] poll error:', (err as Error).message);
       broadcast('error', { message: 'Detection cycle failed' });
     }
   }
@@ -112,7 +112,7 @@ export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, g
    * 4. Sends heartbeats every 30s to keep the connection alive
    * 5. On disconnect: removes client, stops polling if last client
    */
-  router.get('/suggestions', (req, res) => {
+  router.get('/suggestions', (req: Request, res: Response) => {
     // Auth check
     if (!googleAuth.isAuthenticated()) {
       return res.status(401).json({ error: 'Not authenticated' });
@@ -156,7 +156,7 @@ export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, g
    * composite suggestion ID so the same interview is recognised even when the
    * suggestion source changes (e.g. email-only → cross-referenced).
    */
-  router.post('/dismiss', async (req, res) => {
+  router.post('/dismiss', async (req: Request, res: Response) => {
     // Auth check
     if (!googleAuth.isAuthenticated()) {
       return res.status(401).json({ error: 'Not authenticated' });
@@ -175,8 +175,8 @@ export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, g
         calendarId: typeof calendarEventId === 'string' ? calendarEventId : '',
       });
       res.json({ dismissed: true });
-    } catch (err) {
-      console.error('[interviews] dismiss failed:', err.message);
+    } catch (err: unknown) {
+      console.error('[interviews] dismiss failed:', (err as Error).message);
       res.status(500).json({ error: 'Dismiss failed' });
     }
   });
@@ -192,7 +192,7 @@ export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, g
    */
   let lastScanAt = 0;
 
-  router.post('/scan', async (_req, res) => {
+  router.post('/scan', async (_req: Request, res: Response) => {
     // Auth check
     if (!googleAuth.isAuthenticated()) {
       return res.status(401).json({ error: 'Not authenticated' });
@@ -209,8 +209,8 @@ export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, g
     try {
       const suggestions = await detector.detect();
       res.json({ suggestions });
-    } catch (err) {
-      console.error('[interviews] scan failed:', err.message);
+    } catch (err: unknown) {
+      console.error('[interviews] scan failed:', (err as Error).message);
       res.status(500).json({ error: 'Scan failed' });
     }
   });
@@ -221,7 +221,7 @@ export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, g
    * Clears all dismissed suggestion state. Used for a one-time clean-slate
    * reset so the user can re-evaluate all suggestions from scratch.
    */
-  router.post('/reset', async (_req, res) => {
+  router.post('/reset', async (_req: Request, res: Response) => {
     if (!googleAuth.isAuthenticated()) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
@@ -229,8 +229,8 @@ export function createInterviewsRouter({ detector, tokenStore, pollIntervalMs, g
     try {
       await tokenStore.clearDismissed();
       res.json({ reset: true });
-    } catch (err) {
-      console.error('[interviews] reset failed:', err.message);
+    } catch (err: unknown) {
+      console.error('[interviews] reset failed:', (err as Error).message);
       res.status(500).json({ error: 'Reset failed' });
     }
   });

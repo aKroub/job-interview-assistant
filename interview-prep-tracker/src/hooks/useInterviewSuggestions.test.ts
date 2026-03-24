@@ -1,11 +1,12 @@
 import { renderHook, act } from '@testing-library/react';
 import { useInterviewSuggestions } from './useInterviewSuggestions';
+import type { ApiService } from '../types';
 
 /**
  * Creates a mock API service with controllable return values.
  * All methods are vi.fn() so callers can customize per-test.
  */
-function createMockApi(overrides = {}) {
+function createMockApi(overrides: Record<string, unknown> = {}) {
   const streamInstance = {
     onConnected: vi.fn().mockReturnThis(),
     onSuggestions: vi.fn().mockReturnThis(),
@@ -20,24 +21,36 @@ function createMockApi(overrides = {}) {
     dismissSuggestion: vi.fn().mockResolvedValue({ dismissed: true }),
     triggerScan: vi.fn().mockResolvedValue({ suggestions: [] }),
     resetSuggestions: vi.fn().mockResolvedValue({ reset: true }),
+    saveToDrive: vi.fn().mockResolvedValue({ saved: true, savedAt: '', backups: [] }),
+    loadFromDrive: vi.fn().mockResolvedValue({ companies: [], seenQuestions: [] }),
+    fetchBackupStatus: vi.fn().mockResolvedValue({ backups: [] }),
     createSuggestionStream: vi.fn().mockReturnValue(streamInstance),
     _stream: streamInstance,
     ...overrides,
-  };
+  } as unknown as ApiService & { _stream: typeof streamInstance };
 }
 
 /**
  * Helper: renders the hook and waits for the initial auth check to settle.
  */
-async function setup(apiOverrides = {}) {
+async function setup(apiOverrides: Record<string, unknown> = {}) {
   const api = createMockApi(apiOverrides);
 
-  let hookResult;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let hookResult: any;
   await act(async () => {
-    hookResult = renderHook(() => useInterviewSuggestions(api));
+    hookResult = renderHook(() => useInterviewSuggestions(api as unknown as ApiService));
   });
 
-  return { result: hookResult.result, unmount: hookResult.unmount, api };
+  type MockFn = ReturnType<typeof vi.fn>;
+  type MockApi = {
+    fetchAuthStatus: MockFn; fetchAuthUrl: MockFn; disconnectAuth: MockFn;
+    dismissSuggestion: MockFn; triggerScan: MockFn; resetSuggestions: MockFn;
+    saveToDrive: MockFn; loadFromDrive: MockFn; fetchBackupStatus: MockFn;
+    createSuggestionStream: MockFn;
+    _stream: { onConnected: MockFn; onSuggestions: MockFn; onError: MockFn; close: MockFn };
+  };
+  return { result: hookResult.result as { current: ReturnType<typeof useInterviewSuggestions> }, unmount: hookResult.unmount as () => void, api: api as unknown as MockApi };
 }
 
 describe('useInterviewSuggestions', () => {
@@ -111,7 +124,7 @@ describe('useInterviewSuggestions', () => {
       expect(result.current.connectionStatus).toBe('connecting');
 
       // Capture the onConnected callback
-      const onConnectedCallback = api._stream.onConnected.mock.calls[0][0];
+      const onConnectedCallback = api._stream.onConnected.mock.calls[0]![0];
 
       // Trigger connected event
       await act(async () => {
@@ -127,7 +140,7 @@ describe('useInterviewSuggestions', () => {
       });
 
       // Capture the onConnected callback
-      const onConnectedCallback = api._stream.onConnected.mock.calls[0][0];
+      const onConnectedCallback = api._stream.onConnected.mock.calls[0]![0];
 
       // Trigger connected event
       await act(async () => {
@@ -155,7 +168,7 @@ describe('useInterviewSuggestions', () => {
       });
 
       // Capture the onError callback
-      const onErrorCallback = api._stream.onError.mock.calls[0][0];
+      const onErrorCallback = api._stream.onError.mock.calls[0]![0];
 
       // Trigger error
       await act(async () => {
@@ -180,7 +193,7 @@ describe('useInterviewSuggestions', () => {
       });
 
       // Capture the onError callback
-      const onErrorCallback = api._stream.onError.mock.calls[0][0];
+      const onErrorCallback = api._stream.onError.mock.calls[0]![0];
 
       // Trigger error 4 times
       for (let i = 0; i < 4; i++) {
@@ -258,7 +271,7 @@ describe('useInterviewSuggestions', () => {
   });
 
   describe('error logging', () => {
-    let consoleWarnSpy;
+    let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
 
     beforeEach(() => {
       consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -354,7 +367,7 @@ describe('useInterviewSuggestions', () => {
       });
 
       expect(result.current.suggestions).toHaveLength(1);
-      expect(result.current.suggestions[0].id).toBe('s2');
+      expect(result.current.suggestions[0]!.id).toBe('s2');
     });
 
     it('calls the API to persist the dismissal with component IDs', async () => {
@@ -389,7 +402,7 @@ describe('useInterviewSuggestions', () => {
       });
 
       // Capture the onSuggestions callback from the SSE stream
-      const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0][0];
+      const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0]![0];
 
       // Initial SSE push with two suggestions
       await act(async () => {
@@ -405,7 +418,7 @@ describe('useInterviewSuggestions', () => {
         await result.current.dismissSuggestion({ id: 's1', companyName: 'Google' });
       });
       expect(result.current.suggestions).toHaveLength(1);
-      expect(result.current.suggestions[0].id).toBe('s2');
+      expect(result.current.suggestions[0]!.id).toBe('s2');
 
       // SSE polling fires BEFORE server persists the dismiss — includes s1 again
       await act(async () => {
@@ -417,7 +430,7 @@ describe('useInterviewSuggestions', () => {
 
       // s1 must NOT reappear — the local dismissedIds filter catches it
       expect(result.current.suggestions).toHaveLength(1);
-      expect(result.current.suggestions[0].id).toBe('s2');
+      expect(result.current.suggestions[0]!.id).toBe('s2');
     });
 
     it('filters dismissed suggestions from triggerScan results', async () => {
@@ -453,18 +466,18 @@ describe('useInterviewSuggestions', () => {
 
       // s1 must NOT reappear
       expect(result.current.suggestions).toHaveLength(1);
-      expect(result.current.suggestions[0].id).toBe('s2');
+      expect(result.current.suggestions[0]!.id).toBe('s2');
     });
 
     it('keeps dismissed suggestion hidden even when server dismiss fails', async () => {
-      let consoleWarnSpy;
+      let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
       consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
       const { result, api } = await setup({
         fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
       });
 
-      const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0][0];
+      const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0]![0];
 
       // Initial SSE push
       await act(async () => {
@@ -493,7 +506,7 @@ describe('useInterviewSuggestions', () => {
         fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
       });
 
-      const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0][0];
+      const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0]![0];
 
       // Push a suggestion and dismiss it
       await act(async () => {
@@ -531,7 +544,7 @@ describe('useInterviewSuggestions', () => {
           newOnSuggestions([{ id: 's1', companyName: 'Google' }]);
         });
         expect(result.current.suggestions).toHaveLength(1);
-        expect(result.current.suggestions[0].id).toBe('s1');
+        expect(result.current.suggestions[0]!.id).toBe('s1');
       }
     });
   });
@@ -574,7 +587,7 @@ describe('useInterviewSuggestions', () => {
 
   describe('connectGoogle', () => {
     it('calls fetchAuthUrl and opens the URL', async () => {
-      const openSpy = vi.spyOn(window, 'open').mockImplementation(() => {});
+      const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
       const { result, api } = await setup();
 
       api.fetchAuthUrl.mockResolvedValue({ url: 'https://google.com/auth' });
@@ -608,7 +621,7 @@ describe('useInterviewSuggestions', () => {
         fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
       });
 
-      const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0][0];
+      const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0]![0];
 
       // Push a suggestion and dismiss it
       await act(async () => {
@@ -636,7 +649,7 @@ describe('useInterviewSuggestions', () => {
 
       // s1 should reappear since local dismissed IDs were cleared
       expect(result.current.suggestions).toHaveLength(1);
-      expect(result.current.suggestions[0].id).toBe('s1');
+      expect(result.current.suggestions[0]!.id).toBe('s1');
     });
 
     it('clears component-level dismissed IDs (email and calendar)', async () => {
@@ -644,7 +657,7 @@ describe('useInterviewSuggestions', () => {
         fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
       });
 
-      const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0][0];
+      const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0]![0];
 
       // Push and dismiss a suggestion with component IDs
       await act(async () => {

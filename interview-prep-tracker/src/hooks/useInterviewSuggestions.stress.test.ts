@@ -1,10 +1,11 @@
 import { renderHook, act } from '@testing-library/react';
 import { useInterviewSuggestions } from './useInterviewSuggestions';
+import type { ApiService } from '../types';
 
 /**
  * Creates a mock API service with controllable return values.
  */
-function createMockApi(overrides = {}) {
+function createMockApi(overrides: Record<string, unknown> = {}) {
   const streamInstance = {
     onConnected: vi.fn().mockReturnThis(),
     onSuggestions: vi.fn().mockReturnThis(),
@@ -19,24 +20,36 @@ function createMockApi(overrides = {}) {
     dismissSuggestion: vi.fn().mockResolvedValue({ dismissed: true }),
     triggerScan: vi.fn().mockResolvedValue({ suggestions: [] }),
     resetSuggestions: vi.fn().mockResolvedValue({ reset: true }),
+    saveToDrive: vi.fn().mockResolvedValue({ saved: true, savedAt: '', backups: [] }),
+    loadFromDrive: vi.fn().mockResolvedValue({ companies: [], seenQuestions: [] }),
+    fetchBackupStatus: vi.fn().mockResolvedValue({ backups: [] }),
     createSuggestionStream: vi.fn().mockReturnValue(streamInstance),
     _stream: streamInstance,
     ...overrides,
-  };
+  } as unknown as ApiService & { _stream: typeof streamInstance };
 }
 
 /**
  * Helper: renders the hook and waits for the initial auth check to settle.
  */
-async function setup(apiOverrides = {}) {
+async function setup(apiOverrides: Record<string, unknown> = {}) {
   const api = createMockApi(apiOverrides);
 
-  let hookResult;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let hookResult: any;
   await act(async () => {
-    hookResult = renderHook(() => useInterviewSuggestions(api));
+    hookResult = renderHook(() => useInterviewSuggestions(api as unknown as ApiService));
   });
 
-  return { result: hookResult.result, unmount: hookResult.unmount, api };
+  type MockFn = ReturnType<typeof vi.fn>;
+  type MockApi = {
+    fetchAuthStatus: MockFn; fetchAuthUrl: MockFn; disconnectAuth: MockFn;
+    dismissSuggestion: MockFn; triggerScan: MockFn; resetSuggestions: MockFn;
+    saveToDrive: MockFn; loadFromDrive: MockFn; fetchBackupStatus: MockFn;
+    createSuggestionStream: MockFn;
+    _stream: { onConnected: MockFn; onSuggestions: MockFn; onError: MockFn; close: MockFn };
+  };
+  return { result: hookResult.result as { current: ReturnType<typeof useInterviewSuggestions> }, unmount: hookResult.unmount as () => void, api: api as unknown as MockApi };
 }
 
 // ---------------------------------------------------------------------------
@@ -50,7 +63,7 @@ async function setup(apiOverrides = {}) {
 //   - Local dismissed refs are cleared
 // ---------------------------------------------------------------------------
 describe('H6: Rapid resetSuggestions calls from hook', () => {
-  let consoleWarnSpy;
+  let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -84,7 +97,7 @@ describe('H6: Rapid resetSuggestions calls from hook', () => {
 
     // Final suggestions should be from the last scan
     expect(result.current.suggestions).toHaveLength(1);
-    expect(result.current.suggestions[0].id).toMatch(/^scan-/);
+    expect(result.current.suggestions[0]!.id).toMatch(/^scan-/);
   });
 
   it('rapid resets clear dismissed refs so SSE updates are not filtered', async () => {
@@ -92,7 +105,7 @@ describe('H6: Rapid resetSuggestions calls from hook', () => {
       fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
     });
 
-    const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0][0];
+    const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0]![0];
 
     // Push initial suggestions and dismiss them
     await act(async () => {
@@ -160,7 +173,7 @@ describe('H6: Rapid resetSuggestions calls from hook', () => {
 // and the catch block catches the scan error. We verify both paths.
 // ---------------------------------------------------------------------------
 describe('H7: Reset failure leaves dismissed refs intact', () => {
-  let consoleWarnSpy;
+  let consoleWarnSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -175,7 +188,7 @@ describe('H7: Reset failure leaves dismissed refs intact', () => {
       fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
     });
 
-    const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0][0];
+    const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0]![0];
 
     // Push and dismiss
     await act(async () => {
@@ -205,7 +218,7 @@ describe('H7: Reset failure leaves dismissed refs intact', () => {
       fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
     });
 
-    const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0][0];
+    const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0]![0];
 
     // Push and dismiss
     await act(async () => {
@@ -232,7 +245,7 @@ describe('H7: Reset failure leaves dismissed refs intact', () => {
 
     // s1 reappears because refs were cleared by the successful reset
     expect(result.current.suggestions).toHaveLength(1);
-    expect(result.current.suggestions[0].id).toBe('s1');
+    expect(result.current.suggestions[0]!.id).toBe('s1');
   });
 });
 
@@ -250,7 +263,7 @@ describe('H8: Reset followed by dismiss', () => {
       fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
     });
 
-    const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0][0];
+    const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0]![0];
 
     // Reset (clears refs)
     api.triggerScan.mockResolvedValue({
@@ -279,7 +292,7 @@ describe('H8: Reset followed by dismiss', () => {
       ]);
     });
     expect(result.current.suggestions).toHaveLength(1);
-    expect(result.current.suggestions[0].id).toBe('s2');
+    expect(result.current.suggestions[0]!.id).toBe('s2');
   });
 
   it('component ID dismiss tracking works after reset', async () => {
@@ -287,7 +300,7 @@ describe('H8: Reset followed by dismiss', () => {
       fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
     });
 
-    const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0][0];
+    const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0]![0];
 
     // Reset
     api.triggerScan.mockResolvedValue({ suggestions: [] });
@@ -341,10 +354,10 @@ describe('H9: Reset + SSE race — SSE push between reset and scan', () => {
       fetchAuthStatus: vi.fn().mockResolvedValue({ authenticated: true }),
     });
 
-    const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0][0];
+    const onSuggestionsCallback = api._stream.onSuggestions.mock.calls[0]![0];
 
     // Make triggerScan take some time and push SSE during that time
-    let scanResolve;
+    let scanResolve: (value: unknown) => void;
     api.triggerScan.mockImplementation(() => {
       return new Promise((resolve) => {
         scanResolve = resolve;
@@ -358,7 +371,7 @@ describe('H9: Reset + SSE race — SSE push between reset and scan', () => {
     });
 
     // Start the reset
-    let resetPromise;
+    let resetPromise: Promise<void>;
     await act(async () => {
       resetPromise = result.current.resetSuggestions();
     });
@@ -370,7 +383,7 @@ describe('H9: Reset + SSE race — SSE push between reset and scan', () => {
 
     // SSE push should have set suggestions
     expect(result.current.suggestions).toHaveLength(1);
-    expect(result.current.suggestions[0].id).toBe('sse-1');
+    expect(result.current.suggestions[0]!.id).toBe('sse-1');
 
     // Now resolve the scan
     await act(async () => {
@@ -385,7 +398,7 @@ describe('H9: Reset + SSE race — SSE push between reset and scan', () => {
 
     // Final state should be the scan result (overwrites SSE)
     expect(result.current.suggestions).toHaveLength(2);
-    expect(result.current.suggestions[0].id).toBe('scan-1');
-    expect(result.current.suggestions[1].id).toBe('scan-2');
+    expect(result.current.suggestions[0]!.id).toBe('scan-1');
+    expect(result.current.suggestions[1]!.id).toBe('scan-2');
   });
 });

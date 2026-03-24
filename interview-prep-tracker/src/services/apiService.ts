@@ -175,10 +175,10 @@ export function createSuggestionStream(EventSourceCtor: typeof EventSource = Eve
   let connectedHandler: ((data: { status: string }) => void) | null = null;
 
   source.onopen = () => {
-    opened = true;
-    if (connectedHandler) {
+    if (!opened && connectedHandler) {
       connectedHandler({ status: 'connected' });
     }
+    opened = true;
   };
 
   /**
@@ -193,6 +193,7 @@ export function createSuggestionStream(EventSourceCtor: typeof EventSource = Eve
     onConnected(handler) {
       connectedHandler = handler;
       if (isOpen()) {
+        opened = true;
         handler({ status: 'connected' });
       }
       return stream;

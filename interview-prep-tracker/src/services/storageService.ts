@@ -19,7 +19,7 @@ export const localStorageService: StorageService = {
  * Useful in tests — each test gets its own isolated store.
  */
 export function createMemoryStorage(): StorageService {
-  const store: Record<string, string> = {};
+  const store: Record<string, string> = Object.create(null) as Record<string, string>;
   return {
     getItem:  (key)        => store[key] ?? null,
     setItem:  (key, value) => { store[key] = value; },

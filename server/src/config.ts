@@ -1,25 +1,26 @@
 import { config as loadEnv } from 'dotenv';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import type { AppConfig } from './types';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /**
  * Loads environment variables from server/.env and returns a validated config object.
  *
- * @param {Object} [env=process.env] - injectable env source for testing
- * @param {string} [envPath] - optional path to .env file (defaults to server/.env)
- * @returns {{ clientId: string, clientSecret: string, port: number, pollIntervalMs: number, emailLookbackDays: number, calendarLookaheadDays: number, redirectUri: string, anthropicApiKey: string, llmDryMode: boolean, llmModel: string, llmMaxConcurrency: number, llmMaxRetries: number, scanCooldownMs: number, logLevel: string }}
  * @throws {Error} if required env vars are missing
  */
-export function loadConfig(env = process.env, envPath) {
+export function loadConfig(
+  env: Record<string, string | undefined> = process.env,
+  envPath?: string,
+): AppConfig {
   const dotenvPath = envPath || resolve(__dirname, '..', '.env');
   loadEnv({ path: dotenvPath });
 
   const clientId     = env.GOOGLE_CLIENT_ID;
   const clientSecret = env.GOOGLE_CLIENT_SECRET;
 
-  const missing = [];
+  const missing: string[] = [];
   if (!clientId)     missing.push('GOOGLE_CLIENT_ID');
   if (!clientSecret) missing.push('GOOGLE_CLIENT_SECRET');
 
@@ -30,10 +31,10 @@ export function loadConfig(env = process.env, envPath) {
     );
   }
 
-  const port                = parseInt(env.PORT, 10) || 3001;
-  const pollIntervalMs      = parseInt(env.POLL_INTERVAL_MS, 10) || 300_000;
-  const emailLookbackDays   = parseInt(env.EMAIL_LOOKBACK_DAYS, 10) || 7;
-  const calendarLookaheadDays = parseInt(env.CALENDAR_LOOKAHEAD_DAYS, 10) || 30;
+  const port                = parseInt(env.PORT ?? '', 10) || 3001;
+  const pollIntervalMs      = parseInt(env.POLL_INTERVAL_MS ?? '', 10) || 300_000;
+  const emailLookbackDays   = parseInt(env.EMAIL_LOOKBACK_DAYS ?? '', 10) || 7;
+  const calendarLookaheadDays = parseInt(env.CALENDAR_LOOKAHEAD_DAYS ?? '', 10) || 30;
   const redirectUri         = `http://localhost:${port}/api/auth/callback`;
 
   // LLM extraction config (optional — dry mode works without an API key)
@@ -50,9 +51,9 @@ export function loadConfig(env = process.env, envPath) {
   const effectiveLlmDryMode = (!llmDryMode && !anthropicApiKey) ? true : llmDryMode;
 
   // LLM resilience config
-  const llmMaxConcurrency   = parseInt(env.LLM_MAX_CONCURRENCY, 10) || 2;
-  const llmMaxRetries       = parseInt(env.LLM_MAX_RETRIES, 10) || 3;
-  const scanCooldownMs      = parseInt(env.SCAN_COOLDOWN_MS, 10) || 30_000;
+  const llmMaxConcurrency   = parseInt(env.LLM_MAX_CONCURRENCY ?? '', 10) || 2;
+  const llmMaxRetries       = parseInt(env.LLM_MAX_RETRIES ?? '', 10) || 3;
+  const scanCooldownMs      = parseInt(env.SCAN_COOLDOWN_MS ?? '', 10) || 30_000;
 
   // Logging config
   const logLevel = (env.LOG_LEVEL || 'info').toLowerCase();
@@ -61,8 +62,8 @@ export function loadConfig(env = process.env, envPath) {
   const corsOrigin = env.CORS_ORIGIN || 'http://localhost:3000';
 
   return {
-    clientId,
-    clientSecret,
+    clientId: clientId!,
+    clientSecret: clientSecret!,
     port,
     pollIntervalMs,
     emailLookbackDays,

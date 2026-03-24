@@ -19,6 +19,8 @@
       "src": ["src/**/*.{js,ts}"],
       "ignoreExports": [
         "src/index.*",
+        "src/types.*",
+        "src/config.*",
         "src/utils/matchingUtils.*",
         "src/services/llmExtractor.*",
         "src/routes/logo.*"

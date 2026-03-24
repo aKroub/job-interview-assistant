@@ -3,6 +3,14 @@
  * No side effects, no I/O — all functions take input and return output.
  */
 
+import type {
+  EmailIntent,
+  EmailScoreResult,
+  DateTimeExtraction,
+  ParsedGmailMessage,
+  CalendarDataExtraction,
+} from '../types';
+
 /**
  * Keywords that strongly suggest an email is about a job interview.
  * Ordered roughly by specificity (most specific first).
@@ -214,20 +222,19 @@ const NOISE_DOMAINS = [
  * @param {string} email - e.g. "recruiter@google.com"
  * @returns {string} - e.g. "google.com", or empty string if invalid
  */
-export function extractDomain(email) {
+export function extractDomain(email: string): string {
   if (!email || typeof email !== 'string') return '';
   const match = email.match(/@([a-zA-Z0-9.-]+)$/);
-  return match ? match[1].toLowerCase() : '';
+  return match ? match[1]!.toLowerCase() : '';
 }
 
 /**
  * Extracts the company name from a sender's email domain.
  * Strips common TLDs and subdomains to get the core company name.
  *
- * @param {string} domain - e.g. "mail.google.com"
- * @returns {string} - e.g. "google"
+ * @param domain - e.g. "mail.google.com"
  */
-export function extractCompanyFromDomain(domain) {
+export function extractCompanyFromDomain(domain: string): string {
   if (!domain || typeof domain !== 'string') return '';
   const parts = domain.toLowerCase().split('.');
   // Remove TLD and common subdomains
@@ -235,7 +242,7 @@ export function extractCompanyFromDomain(domain) {
     (p) => !['com', 'org', 'net', 'io', 'co', 'ai', 'dev', 'mail', 'smtp', 'email', 'hr', 'jobs', 'recruit'].includes(p)
   );
   // Take the most significant part (usually the company name)
-  return filtered.length > 0 ? filtered[filtered.length - 1] : parts[0] || '';
+  return filtered.length > 0 ? filtered[filtered.length - 1]! : parts[0] ?? '';
 }
 
 /**
@@ -247,7 +254,7 @@ export function extractCompanyFromDomain(domain) {
  * @param {string} senderEmail - sender's email address
  * @returns {{ score: number, matchedKeywords: string[] }}
  */
-export function scoreEmailForInterview(subject, body, senderEmail) {
+export function scoreEmailForInterview(subject: string, body: string, senderEmail: string): EmailScoreResult {
   const subjectLower = (subject || '').toLowerCase();
   const bodyLower = (body || '').toLowerCase();
   const combined = `${subjectLower} ${bodyLower}`;
@@ -329,10 +336,10 @@ export function scoreEmailForInterview(subject, body, senderEmail) {
  * @param {RegExpMatchArray} match - a match from the time pattern regex
  * @returns {string} time in HH:mm format
  */
-function parseTimeMatch(match) {
-  let hours = parseInt(match[1], 10);
-  const minutes = match[2];
-  const ampm = (match[3] || '').toLowerCase();
+function parseTimeMatch(match: RegExpMatchArray): string {
+  let hours = parseInt(match[1]!, 10);
+  const minutes = match[2]!;
+  const ampm = (match[3] ?? '').toLowerCase();
 
   if (ampm === 'pm' && hours < 12) hours += 12;
   if (ampm === 'am' && hours === 12) hours = 0;
@@ -346,8 +353,8 @@ function parseTimeMatch(match) {
  * @param {string} timeStr - time in HH:mm format
  * @returns {number} minutes since midnight
  */
-function timeToMinutes(timeStr) {
-  const [h, m] = timeStr.split(':').map(Number);
+function timeToMinutes(timeStr: string): number {
+  const [h, m] = timeStr.split(':').map(Number) as [number, number];
   return h * 60 + m;
 }
 
@@ -362,7 +369,7 @@ function timeToMinutes(timeStr) {
  * @returns {{ startTime: string, duration: number } | null}
  *          non-null when a valid range is detected
  */
-function detectTimeRange(fullText, firstMatch, secondMatch) {
+function detectTimeRange(fullText: string, firstMatch: RegExpMatchArray, secondMatch: RegExpMatchArray): { startTime: string; duration: number } | null {
   const startTime = parseTimeMatch(firstMatch);
   const endTime = parseTimeMatch(secondMatch);
 
@@ -372,8 +379,8 @@ function detectTimeRange(fullText, firstMatch, secondMatch) {
   if (endMinutes <= startMinutes) return null;
 
   // Extract the text between the two time matches
-  const betweenStart = firstMatch.index + firstMatch[0].length;
-  const betweenEnd = secondMatch.index;
+  const betweenStart = firstMatch.index! + firstMatch[0].length;
+  const betweenEnd = secondMatch.index!;
   const between = fullText.slice(betweenStart, betweenEnd);
 
   // Check for rescheduling keywords — if present, this is NOT a range.
@@ -381,7 +388,7 @@ function detectTimeRange(fullText, firstMatch, secondMatch) {
   // time, because phrases like "moved from 2:00 PM to 4:00 PM" place the
   // rescheduling keyword before the range, not inside it.
   const reschedulePattern = /\b(changed|rescheduled|moved|updated|originally|previously|was|now)\b/i;
-  const beforeFirst = fullText.slice(Math.max(0, firstMatch.index - 30), firstMatch.index);
+  const beforeFirst = fullText.slice(Math.max(0, firstMatch.index! - 30), firstMatch.index!);
   if (reschedulePattern.test(between) || reschedulePattern.test(beforeFirst)) return null;
 
   // Check for range connectors — the connector must be the only content
@@ -409,7 +416,7 @@ function detectTimeRange(fullText, firstMatch, secondMatch) {
  *   - allDates: ALL dates found in text order (first → last), useful for update emails
  *     where the first date is the new value and the last is the old value
  */
-export function extractDateTimeFromText(text) {
+export function extractDateTimeFromText(text: string): DateTimeExtraction {
   if (!text || typeof text !== 'string') return { date: null, time: null, duration: null, allDates: [] };
 
   let date = null;
@@ -418,7 +425,7 @@ export function extractDateTimeFromText(text) {
   const allDates = [];
 
   // Month name → zero-based index lookup (avoids timezone issues with Date constructor)
-  const MONTH_MAP = {
+  const MONTH_MAP: Record<string, string> = {
     january: '01', jan: '01', february: '02', feb: '02', march: '03', mar: '03',
     april: '04', apr: '04', may: '05', june: '06', jun: '06',
     july: '07', jul: '07', august: '08', aug: '08', september: '09', sep: '09',
@@ -443,9 +450,9 @@ export function extractDateTimeFromText(text) {
 
   // Combine both name-based formats and pick the LAST match by position in text
   const mdyMatches = Array.from(text.matchAll(monthDayYearPattern))
-    .map((m) => ({ index: m.index, month: m[1], day: m[2], year: m[3] }));
+    .map((m) => ({ index: m.index!, month: m[1]!, day: m[2]!, year: m[3]! }));
   const dmyMatches = Array.from(text.matchAll(dayMonthYearPattern))
-    .map((m) => ({ index: m.index, month: m[2], day: m[1], year: m[3] }));
+    .map((m) => ({ index: m.index!, month: m[2]!, day: m[1]!, year: m[3]! }));
 
   const allMonthMatches = [...mdyMatches, ...dmyMatches].sort((a, b) => a.index - b.index);
   for (const m of allMonthMatches) {
@@ -475,7 +482,7 @@ export function extractDateTimeFromText(text) {
   if (!date) {
     const ymdSlashPattern = /\b(\d{4})\/(\d{2})\/(\d{2})\b/g;
     for (const m of text.matchAll(ymdSlashPattern)) {
-      const isoDate = `${m[1]}-${m[2]}-${m[3]}`;
+      const isoDate = `${m[1]!}-${m[2]!}-${m[3]!}`;
       allDates.push(isoDate);
       date = isoDate;
     }
@@ -489,9 +496,9 @@ export function extractDateTimeFromText(text) {
   if (!date) {
     const slashPattern = /\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/g;
     for (const m of text.matchAll(slashPattern)) {
-      const parsed = new Date(`${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}`);
+      const parsed = new Date(`${m[3]!}-${m[1]!.padStart(2, '0')}-${m[2]!.padStart(2, '0')}`);
       if (!isNaN(parsed.getTime())) {
-        const isoDate = parsed.toISOString().split('T')[0];
+        const isoDate = parsed.toISOString().split('T')[0]!;
         allDates.push(isoDate);
         date = isoDate;
       }
@@ -502,9 +509,9 @@ export function extractDateTimeFromText(text) {
   if (!date) {
     const dotPattern = /\b(\d{1,2})\.(\d{1,2})\.(\d{4})\b/g;
     for (const m of text.matchAll(dotPattern)) {
-      const dd = m[1].padStart(2, '0');
-      const mm = m[2].padStart(2, '0');
-      const yyyy = m[3];
+      const dd = m[1]!.padStart(2, '0');
+      const mm = m[2]!.padStart(2, '0');
+      const yyyy = m[3]!;
       if (parseInt(dd) <= 31 && parseInt(mm) <= 12) {
         const isoDate = `${yyyy}-${mm}-${dd}`;
         allDates.push(isoDate);
@@ -523,7 +530,7 @@ export function extractDateTimeFromText(text) {
     // 3:00 PM" where the last two times do NOT form a range but an earlier
     // pair does.
     for (let i = timeMatches.length - 1; i >= 1; i--) {
-      const rangeResult = detectTimeRange(text, timeMatches[i - 1], timeMatches[i]);
+      const rangeResult = detectTimeRange(text, timeMatches[i - 1]!, timeMatches[i]!);
       if (rangeResult) {
         time = rangeResult.startTime;
         duration = rangeResult.duration;
@@ -532,10 +539,10 @@ export function extractDateTimeFromText(text) {
     }
     if (!duration) {
       // No valid range found — rescheduling or unrelated; use last time
-      time = parseTimeMatch(timeMatches[timeMatches.length - 1]);
+      time = parseTimeMatch(timeMatches[timeMatches.length - 1]!);
     }
   } else if (timeMatches.length === 1) {
-    time = parseTimeMatch(timeMatches[0]);
+    time = parseTimeMatch(timeMatches[0]!);
   }
 
   return { date, time, duration, allDates };
@@ -547,8 +554,9 @@ export function extractDateTimeFromText(text) {
  * @param {Object} message - Gmail API message resource
  * @returns {{ subject: string, snippet: string, from: string, messageId: string }}
  */
-export function parseGmailMessage(message) {
-  const headers = message.payload?.headers || [];
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function parseGmailMessage(message: any): ParsedGmailMessage {
+  const headers: Array<{ name: string; value: string }> = message.payload?.headers || [];
   const subject = headers.find((h) => h.name.toLowerCase() === 'subject')?.value || '';
   const from = headers.find((h) => h.name.toLowerCase() === 'from')?.value || '';
   const snippet = message.snippet || '';
@@ -564,10 +572,10 @@ export function parseGmailMessage(message) {
  * @param {string} fromHeader - the From header value
  * @returns {string} - the email address, or the original string if no match
  */
-export function extractEmailFromHeader(fromHeader) {
+export function extractEmailFromHeader(fromHeader: string): string {
   if (!fromHeader || typeof fromHeader !== 'string') return '';
   const match = fromHeader.match(/<([^>]+)>/);
-  return match ? match[1] : fromHeader.trim();
+  return match ? match[1]! : fromHeader.trim();
 }
 
 /**
@@ -577,7 +585,7 @@ export function extractEmailFromHeader(fromHeader) {
  * @param {string} text - free-form text to search for company names
  * @returns {string} lowercase company name, or empty string if none found
  */
-export function extractCompanyNameFromText(text) {
+export function extractCompanyNameFromText(text: string): string {
   if (!text || typeof text !== 'string') return '';
 
   // COMPANY_TAIL — for patterns where the company name is the LAST capture
@@ -630,7 +638,7 @@ export function extractCompanyNameFromText(text) {
  * @param {string} name - company name from any source
  * @returns {string} normalized lowercase name for comparison
  */
-export function normalizeCompanyName(name) {
+export function normalizeCompanyName(name: string): string {
   if (!name || typeof name !== 'string') return '';
   return name
     .toLowerCase()
@@ -647,17 +655,18 @@ export function normalizeCompanyName(name) {
  * @param {Object} message - Gmail API message resource (format: 'full')
  * @returns {string} decoded plain-text body, or empty string if none found
  */
-export function extractPlainTextBody(message) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function extractPlainTextBody(message: any): string {
   const payload = message?.payload;
   if (!payload) return '';
 
   /**
    * Recursively find the first text/plain part in the MIME tree.
    *
-   * @param {Object} part - a MIME part node
-   * @returns {string | null} base64url-encoded data, or null
+   * @param part - a MIME part node
    */
-  function findPlainText(part) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function findPlainText(part: any): string | null {
     if (!part) return null;
 
     if (part.mimeType === 'text/plain' && part.body?.data) {
@@ -697,17 +706,18 @@ export function extractPlainTextBody(message) {
  * @returns {{ date: string, startTime: string, endTime: string | null, duration: number | null } | null}
  *   Parsed calendar data, or null if no text/calendar part or unparseable
  */
-export function extractCalendarData(message) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function extractCalendarData(message: any): CalendarDataExtraction | null {
   const payload = message?.payload;
   if (!payload) return null;
 
   /**
    * Recursively find the first text/calendar part in the MIME tree.
    *
-   * @param {Object} part - a MIME part node
-   * @returns {string | null} base64url-encoded data, or null
+   * @param part - a MIME part node
    */
-  function findCalendarPart(part) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  function findCalendarPart(part: any): string | null {
     if (!part) return null;
 
     if (part.mimeType === 'text/calendar' && part.body?.data) {
@@ -740,19 +750,19 @@ export function extractCalendarData(message) {
 
   if (!dtStartMatch) return null;
 
-  const date = `${dtStartMatch[1]}-${dtStartMatch[2]}-${dtStartMatch[3]}`;
-  const startTime = `${dtStartMatch[4]}:${dtStartMatch[5]}`;
+  const date = `${dtStartMatch[1]!}-${dtStartMatch[2]!}-${dtStartMatch[3]!}`;
+  const startTime = `${dtStartMatch[4]!}:${dtStartMatch[5]!}`;
 
   if (!dtEndMatch) {
     // Have start but no end — still useful for date/time
     return { date, startTime, endTime: null, duration: null };
   }
 
-  const endTime = `${dtEndMatch[4]}:${dtEndMatch[5]}`;
+  const endTime = `${dtEndMatch[4]!}:${dtEndMatch[5]!}`;
 
   // Compute duration in minutes
-  const startMinutes = parseInt(dtStartMatch[4]) * 60 + parseInt(dtStartMatch[5]);
-  const endMinutes = parseInt(dtEndMatch[4]) * 60 + parseInt(dtEndMatch[5]);
+  const startMinutes = parseInt(dtStartMatch[4]!) * 60 + parseInt(dtStartMatch[5]!);
+  const endMinutes = parseInt(dtEndMatch[4]!) * 60 + parseInt(dtEndMatch[5]!);
   const duration = endMinutes > startMinutes ? endMinutes - startMinutes : null;
 
   return { date, startTime, endTime, duration };
@@ -771,7 +781,7 @@ export function extractCalendarData(message) {
  * @param {string} body - email body text (plain text preferred)
  * @returns {'add' | 'cancel' | 'update'}
  */
-export function detectEmailIntent(subject, body) {
+export function detectEmailIntent(subject: string, body: string): EmailIntent {
   const subjectLower = (subject || '').toLowerCase();
   const bodyLower = (body || '').toLowerCase();
   const combined = `${subjectLower} ${bodyLower}`;
@@ -818,7 +828,7 @@ const VIDEO_URL_PATTERNS = [
  * @param {string} text - plain text to search
  * @returns {string} the first matching video URL, or `''`
  */
-export function extractVideoCallUrl(text) {
+export function extractVideoCallUrl(text: string): string {
   if (!text) return '';
 
   for (const pattern of VIDEO_URL_PATTERNS) {

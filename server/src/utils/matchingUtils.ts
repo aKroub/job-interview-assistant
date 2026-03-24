@@ -4,6 +4,13 @@
  */
 
 import { normalizeCompanyName, SCHEDULING_PLATFORM_DOMAINS } from './emailParser.js';
+import type {
+  KeywordMatchResult,
+  CalendarScoreResult,
+  CrossReferenceResult,
+  EmailResult,
+  CalendarEvent,
+} from '../types';
 
 /**
  * Keywords that indicate a calendar event is likely an interview.
@@ -34,14 +41,10 @@ const MAX_INTERVIEW_DURATION_MINS = 480;
 
 /**
  * Checks if a calendar event title or description contains interview-related keywords.
- *
- * @param {string} summary - event title / summary
- * @param {string} description - event description (may be HTML or plain text)
- * @returns {{ isMatch: boolean, matchedKeywords: string[] }}
  */
-export function matchesInterviewKeywords(summary, description) {
+export function matchesInterviewKeywords(summary: string, description: string): KeywordMatchResult {
   const combined = `${(summary || '').toLowerCase()} ${(description || '').toLowerCase()}`;
-  const matchedKeywords = [];
+  const matchedKeywords: string[] = [];
 
   for (const kw of INTERVIEW_KEYWORDS) {
     if (combined.includes(kw)) {
@@ -54,12 +57,8 @@ export function matchesInterviewKeywords(summary, description) {
 
 /**
  * Checks if an event's duration falls within typical interview length.
- *
- * @param {string} startIso - ISO 8601 datetime string
- * @param {string} endIso - ISO 8601 datetime string
- * @returns {boolean}
  */
-export function isTypicalInterviewDuration(startIso, endIso) {
+export function isTypicalInterviewDuration(startIso: string, endIso: string): boolean {
   if (!startIso || !endIso) return false;
 
   const startMs = new Date(startIso).getTime();
@@ -74,12 +73,8 @@ export function isTypicalInterviewDuration(startIso, endIso) {
 /**
  * Checks if the event organizer is external (different domain than the user).
  * External organizers are more likely to be sending interview invitations.
- *
- * @param {string} organizerEmail - the event organizer's email
- * @param {string} userEmail - the authenticated user's email
- * @returns {boolean}
  */
-export function isExternalOrganizer(organizerEmail, userEmail) {
+export function isExternalOrganizer(organizerEmail: string, userEmail: string): boolean {
   if (!organizerEmail || !userEmail) return false;
 
   const orgDomain = organizerEmail.split('@')[1]?.toLowerCase();
@@ -93,29 +88,24 @@ export function isExternalOrganizer(organizerEmail, userEmail) {
 /**
  * Checks if a calendar event is recurring (e.g. weekly standup).
  * Recurring events are unlikely to be interviews.
- *
- * @param {Object} event - Google Calendar event resource
- * @returns {boolean}
  */
-export function isRecurringEvent(event) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function isRecurringEvent(event: any): boolean {
   return !!(event.recurringEventId || event.recurrence);
 }
 
 /**
  * Computes a confidence score for a calendar event being an interview.
- *
- * @param {Object} event - Google Calendar event resource
- * @param {string} userEmail - the authenticated user's email
- * @returns {{ score: number, matchedKeywords: string[], reasons: string[] }}
  */
-export function scoreCalendarEvent(event, userEmail) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function scoreCalendarEvent(event: any, userEmail: string): CalendarScoreResult {
   const summary = event.summary || '';
   const description = event.description || '';
   const organizerEmail = event.organizer?.email || '';
   const startTime = event.start?.dateTime || '';
   const endTime = event.end?.dateTime || '';
 
-  const reasons = [];
+  const reasons: string[] = [];
   let score = 0;
 
   // Recurring events are almost never interviews
@@ -176,12 +166,11 @@ export function scoreCalendarEvent(event, userEmail) {
  * Scheduling platform organizer domains (e.g. group.calendar.google.com,
  * comeet-notifications.com) are excluded from domain matching to prevent
  * false positives.
- *
- * @param {Object} emailResult - result from gmailService.scanForInterviews()
- * @param {Object} calendarResult - result from calendarService.scanForInterviews() (flattened shape)
- * @returns {{ isMatch: boolean, confidence: number }}
  */
-export function crossReferenceEmailAndEvent(emailResult, calendarResult) {
+export function crossReferenceEmailAndEvent(
+  emailResult: Pick<EmailResult, 'senderDomain' | 'extractedDate' | 'extractedTime' | 'companyName'>,
+  calendarResult: Pick<CalendarEvent, 'organizerEmail' | 'date' | 'startDateTime' | 'time' | 'companyName'>,
+): CrossReferenceResult {
   const eventOrganizerDomain = (calendarResult.organizerEmail || '').split('@')[1]?.toLowerCase() || '';
   const emailDomain = (emailResult.senderDomain || '').toLowerCase();
 

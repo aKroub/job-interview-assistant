@@ -6,16 +6,16 @@
  * @module llmEnrichment
  */
 
+import type { EmailResult, CalendarEvent, LlmEmailExtraction, LlmCalendarExtraction, EmailIntent } from '../types';
+
 /**
  * Maps free-form LLM interview_type strings to the detector's
  * canonical format values. Round-type descriptions (e.g. "technical")
  * are intentionally unmapped because they describe content, not format —
  * the regex heuristic based on video links and physical locations is
  * more reliable for format detection.
- *
- * @type {Record<string, string>}
  */
-const TYPE_MAP = {
+const TYPE_MAP: Record<string, string> = {
   'phone': 'Phone Interview',
   'phone screen': 'Phone Interview',
   'phone interview': 'Phone Interview',
@@ -36,7 +36,7 @@ const TYPE_MAP = {
   'office': 'In-Person Interview',
 };
 
-const VALID_INTENTS = ['add', 'cancel', 'update'];
+const VALID_INTENTS: string[] = ['add', 'cancel', 'update'];
 const TIME_RE = /^\d{2}:\d{2}$/;
 
 /**
@@ -47,11 +47,8 @@ const TIME_RE = /^\d{2}:\d{2}$/;
  * Returns null when the type is unrecognised or describes a round
  * (e.g. "technical", "behavioral") rather than a format, so the
  * caller can fall back to the regex-based guess.
- *
- * @param {string|null|undefined} llmType - raw interview_type from the LLM
- * @returns {string|null} canonical type or null
  */
-export function normalizeInterviewType(llmType) {
+export function normalizeInterviewType(llmType: string | null | undefined): string | null {
   if (!llmType || typeof llmType !== 'string') return null;
   return TYPE_MAP[llmType.toLowerCase().trim()] ?? null;
 }
@@ -59,19 +56,15 @@ export function normalizeInterviewType(llmType) {
 /**
  * Computes the duration in minutes between two HH:MM time strings.
  * Returns null when either value is missing or the end is not after the start.
- *
- * @param {string|null|undefined} startTime - time in HH:MM format
- * @param {string|null|undefined} endTime - time in HH:MM format
- * @returns {number|null} duration in minutes, or null
  */
-function computeDurationFromTimes(startTime, endTime) {
+function computeDurationFromTimes(startTime: string | null | undefined, endTime: string | null | undefined): number | null {
   if (!startTime || !endTime) return null;
   if (typeof startTime !== 'string' || typeof endTime !== 'string') return null;
   if (!TIME_RE.test(startTime) || !TIME_RE.test(endTime)) return null;
   const start = new Date(`1970-01-01T${startTime}:00`);
   const end = new Date(`1970-01-01T${endTime}:00`);
-  if (isNaN(start) || isNaN(end)) return null;
-  const diffMinutes = (end - start) / 60000;
+  if (isNaN(start.getTime()) || isNaN(end.getTime())) return null;
+  const diffMinutes = (end.getTime() - start.getTime()) / 60000;
   return diffMinutes > 0 ? diffMinutes : null;
 }
 
@@ -81,13 +74,8 @@ function computeDurationFromTimes(startTime, endTime) {
  *
  * The LLM returns raw `start_time` and `end_time` strings. Duration is
  * computed here (business logic) rather than asking the LLM to calculate it.
- *
- * @param {Object} emailResult - regex-extracted email from gmailService
- * @param {Object|null} llmExtraction - unwrapped extraction from llmExtractor
- *   (i.e. the `.extraction` property, not the `{ dryModePrompt, extraction }` wrapper)
- * @returns {Object} enriched email result (new object, original not mutated)
  */
-export function mergeEmailExtraction(emailResult, llmExtraction) {
+export function mergeEmailExtraction(emailResult: EmailResult, llmExtraction: LlmEmailExtraction | null): EmailResult {
   if (!llmExtraction) return emailResult;
 
   const llmDuration = computeDurationFromTimes(
@@ -101,8 +89,8 @@ export function mergeEmailExtraction(emailResult, llmExtraction) {
     extractedDate: llmExtraction.date || emailResult.extractedDate,
     extractedTime: llmExtraction.start_time || emailResult.extractedTime,
     extractedDuration: llmDuration ?? emailResult.extractedDuration,
-    intent: VALID_INTENTS.includes(llmExtraction.intent)
-      ? llmExtraction.intent
+    intent: VALID_INTENTS.includes(llmExtraction.intent ?? '')
+      ? llmExtraction.intent as EmailIntent
       : emailResult.intent,
     llmInterviewType: llmExtraction.interview_type || null,
   };
@@ -112,12 +100,8 @@ export function mergeEmailExtraction(emailResult, llmExtraction) {
  * Merges LLM-extracted fields into a regex-extracted calendar result.
  * Calendar events already have structured date/time/duration from the
  * Calendar API, so only company_name and interview_type are enriched.
- *
- * @param {Object} calendarResult - regex-extracted event from calendarService
- * @param {Object|null} llmExtraction - unwrapped extraction from llmExtractor
- * @returns {Object} enriched calendar result (new object, original not mutated)
  */
-export function mergeCalendarExtraction(calendarResult, llmExtraction) {
+export function mergeCalendarExtraction(calendarResult: CalendarEvent, llmExtraction: LlmCalendarExtraction | null): CalendarEvent {
   if (!llmExtraction) return calendarResult;
 
   return {

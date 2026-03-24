@@ -1,4 +1,4 @@
-import type { Company, DriveBackup, SuggestionStream } from '../types';
+import type { Company, DriveBackup, Suggestion, SuggestionStream } from '../types';
 
 /**
  * API service for communicating with the Express backend.
@@ -75,7 +75,7 @@ export async function dismissSuggestion(
  *
  * @param fetchFn - injectable fetch for testing
  */
-export async function triggerScan(fetchFn: typeof fetch = fetch): Promise<{ suggestions: unknown[] }> {
+export async function triggerScan(fetchFn: typeof fetch = fetch): Promise<{ suggestions: Suggestion[] }> {
   const res = await fetchFn('/api/interviews/scan', { method: 'POST' });
   if (!res.ok) throw new Error(`Scan failed: ${res.status}`);
   return res.json();

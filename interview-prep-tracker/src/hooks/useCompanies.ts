@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { localStorageService } from '../services/storageService';
-import { DEFAULT_PIPELINE } from '../constants/pipelines';
+import { localStorageService } from '../services/storageService.js';
+import { DEFAULT_PIPELINE } from '../constants/pipelines.js';
 import {
   applyAddInterview,
   applyDeleteInterview,
@@ -11,7 +11,8 @@ import {
   applyStageUpdate,
   createCompany,
   migrateCompanies,
-} from '../utils/companyUtils';
+} from '../utils/companyUtils.js';
+import type { Company, CompanyDraft, Interview, InterviewStatus, StageKey, StorageService } from '../types';
 
 const STORAGE_KEY = 'companies';
 
@@ -20,19 +21,16 @@ const STORAGE_KEY = 'companies';
  * Prevents corrupted or tampered localStorage data from poisoning app state.
  *
  * Exported for unit-testing; not part of the hook's public API.
- *
- * @param {unknown} value
- * @returns {boolean}
  */
-export function isValidCompany(value) {
+export function isValidCompany(value: unknown): value is Company {
   return (
     value !== null &&
     typeof value === 'object' &&
-    typeof value.id       === 'string' &&
-    typeof value.name     === 'string' &&
-    typeof value.position === 'string' &&
-    typeof value.stage    === 'string' &&
-    Array.isArray(value.interviews)
+    typeof (value as Record<string, unknown>).id       === 'string' &&
+    typeof (value as Record<string, unknown>).name     === 'string' &&
+    typeof (value as Record<string, unknown>).position === 'string' &&
+    typeof (value as Record<string, unknown>).stage    === 'string' &&
+    Array.isArray((value as Record<string, unknown>).interviews)
   );
 }
 
@@ -41,19 +39,16 @@ export function isValidCompany(value) {
  *
  * Accepts an injectable `storage` implementation so that tests can pass
  * a createMemoryStorage() instance instead of touching the real localStorage.
- *
- * @param {Object} [storage=localStorageService]
- * @returns {{ companies, addCompany, updateCompanyStage, deleteCompany, addInterview, updateInterviewStatus }}
  */
-export function useCompanies(storage = localStorageService) {
-  const [companies, setCompanies] = useState([]);
+export function useCompanies(storage: StorageService = localStorageService) {
+  const [companies, setCompanies] = useState<Company[]>([]);
 
   // Load persisted companies on first mount, migrating legacy data if needed
   useEffect(() => {
     try {
       const raw = storage.getItem(STORAGE_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw);
+        const parsed: unknown = JSON.parse(raw);
         if (Array.isArray(parsed) && parsed.every(isValidCompany)) {
           const migrated = migrateCompanies(parsed, DEFAULT_PIPELINE);
           setCompanies(migrated);
@@ -72,10 +67,8 @@ export function useCompanies(storage = localStorageService) {
    * Apply a transform to the current companies state, persist the result,
    * and update React state — all via a functional updater so the transform
    * always reads the latest state (no stale closure).
-   *
-   * @param {(prev: Object[]) => Object[]} transform
    */
-  function persistWith(transform) {
+  function persistWith(transform: (prev: Company[]) => Company[]) {
     setCompanies(prev => {
       const updated = transform(prev);
       storage.setItem(STORAGE_KEY, JSON.stringify(updated));
@@ -83,35 +76,35 @@ export function useCompanies(storage = localStorageService) {
     });
   }
 
-  function addCompany(draft) {
+  function addCompany(draft: CompanyDraft) {
     persistWith(prev => [...prev, createCompany(draft)]);
   }
 
-  function updateCompanyStage(companyId, newStage) {
+  function updateCompanyStage(companyId: string, newStage: StageKey) {
     persistWith(prev => applyStageUpdate(prev, companyId, newStage));
   }
 
-  function updateCompany(companyId, updates) {
+  function updateCompany(companyId: string, updates: Partial<Company>) {
     persistWith(prev => applyEditCompany(prev, companyId, updates));
   }
 
-  function deleteCompany(companyId) {
+  function deleteCompany(companyId: string) {
     persistWith(prev => applyDelete(prev, companyId));
   }
 
-  function addInterview(companyId, interview) {
+  function addInterview(companyId: string, interview: Omit<Interview, 'id'>) {
     persistWith(prev => applyAddInterview(prev, companyId, interview));
   }
 
-  function deleteInterview(companyId, interviewId) {
+  function deleteInterview(companyId: string, interviewId: string) {
     persistWith(prev => applyDeleteInterview(prev, companyId, interviewId));
   }
 
-  function updateInterviewStatus(companyId, interviewId, status) {
+  function updateInterviewStatus(companyId: string, interviewId: string, status: InterviewStatus) {
     persistWith(prev => applyInterviewStatusUpdate(prev, companyId, interviewId, status));
   }
 
-  function updateInterview(companyId, interviewId, updates) {
+  function updateInterview(companyId: string, interviewId: string, updates: Partial<Interview>) {
     persistWith(prev => applyInterviewUpdate(prev, companyId, interviewId, updates));
   }
 
@@ -119,10 +112,8 @@ export function useCompanies(storage = localStorageService) {
    * Replaces all companies with a cloud-loaded array.
    * Validates each entry before accepting. Migrates legacy entries that are
    * missing the `pipeline` field, then persists to storage.
-   *
-   * @param {Object[]} companiesArray - the full companies array from cloud backup
    */
-  function replaceCompanies(companiesArray) {
+  function replaceCompanies(companiesArray: unknown[]) {
     if (!Array.isArray(companiesArray) || !companiesArray.every(isValidCompany)) {
       return;
     }

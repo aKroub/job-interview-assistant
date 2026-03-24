@@ -1,9 +1,10 @@
-import { localStorageService } from '../services/storageService';
-import * as defaultApiService from '../services/apiService';
-import { useCompanies } from './useCompanies';
-import { useSeenQuestions } from './useSeenQuestions';
-import { useInterviewSuggestions } from './useInterviewSuggestions';
-import { useCloudSync } from './useCloudSync';
+import { localStorageService } from '../services/storageService.js';
+import * as defaultApiService from '../services/apiService.js';
+import { useCompanies } from './useCompanies.js';
+import { useSeenQuestions } from './useSeenQuestions.js';
+import { useInterviewSuggestions } from './useInterviewSuggestions.js';
+import { useCloudSync } from './useCloudSync.js';
+import type { ApiService, StorageService } from '../types';
 
 /**
  * Orchestrating hook that composes useCompanies + useSeenQuestions +
@@ -14,12 +15,8 @@ import { useCloudSync } from './useCloudSync';
  * backing store (and so tests can inject one shared mock storage).
  * The api parameter is forwarded to useInterviewSuggestions and useCloudSync
  * for backend communication.
- *
- * @param {Object} [storage=localStorageService]
- * @param {Object} [api=defaultApiService]
- * @returns {Object} Combined API from all hooks
  */
-export function useInterviewTracker(storage = localStorageService, api = defaultApiService) {
+export function useInterviewTracker(storage: StorageService = localStorageService, api: ApiService = defaultApiService) {
   const companiesApi    = useCompanies(storage);
   const questionsApi    = useSeenQuestions(storage);
   const suggestionsApi  = useInterviewSuggestions(api);

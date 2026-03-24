@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
-import { localStorageService } from '../services/storageService';
+import { localStorageService } from '../services/storageService.js';
 import {
   getAvailableQuestions,
   getTotalSeen,
   addSeenQuestion,
   resetCompanyQuestions,
-} from '../utils/questionUtils';
-import { SYSTEM_DESIGN_QUESTIONS } from '../constants/questions';
+} from '../utils/questionUtils.js';
+import { SYSTEM_DESIGN_QUESTIONS } from '../constants/questions.js';
+import type { StorageService, SystemDesignQuestion } from '../types';
 
 const STORAGE_KEY = 'seenQuestions';
 
@@ -15,21 +16,18 @@ const STORAGE_KEY = 'seenQuestions';
  *
  * Accepts an injectable `storage` implementation so that tests can pass
  * a createMemoryStorage() instance instead of touching the real localStorage.
- *
- * @param {Object} [storage=localStorageService]
- * @returns {{ seenQuestions, markQuestionSeen, resetCompanyQuestionsFor, getAvailableQuestionsFor, getTotalSeenFor }}
  */
-export function useSeenQuestions(storage = localStorageService) {
-  const [seenQuestions, setSeenQuestions] = useState(new Set());
+export function useSeenQuestions(storage: StorageService = localStorageService) {
+  const [seenQuestions, setSeenQuestions] = useState<Set<string>>(new Set());
 
   // Load persisted seen-question IDs on first mount
   useEffect(() => {
     try {
       const raw = storage.getItem(STORAGE_KEY);
       if (raw) {
-        const parsed = JSON.parse(raw);
+        const parsed: unknown = JSON.parse(raw);
         // Only accept an array of strings — rejects injected non-string values
-        if (Array.isArray(parsed) && parsed.every((id) => typeof id === 'string')) {
+        if (Array.isArray(parsed) && parsed.every((id): id is string => typeof id === 'string')) {
           setSeenQuestions(new Set(parsed));
         }
         // If shape is invalid, silently discard and start fresh
@@ -40,38 +38,36 @@ export function useSeenQuestions(storage = localStorageService) {
   }, [storage]);
 
   /** Persist and update state together to keep them in sync. */
-  function persist(updatedSet) {
+  function persist(updatedSet: Set<string>) {
     setSeenQuestions(updatedSet);
     storage.setItem(STORAGE_KEY, JSON.stringify([...updatedSet]));
   }
 
-  function markQuestionSeen(questionId) {
+  function markQuestionSeen(questionId: string) {
     persist(addSeenQuestion(seenQuestions, questionId));
   }
 
-  function resetCompanyQuestionsFor(companyName) {
-    const companyQuestions = SYSTEM_DESIGN_QUESTIONS[companyName] ?? [];
+  function resetCompanyQuestionsFor(companyName: string) {
+    const companyQuestions: SystemDesignQuestion[] = SYSTEM_DESIGN_QUESTIONS[companyName] ?? [];
     persist(resetCompanyQuestions(seenQuestions, companyQuestions));
   }
 
   /** Convenience selector — wraps the pure utility with current state. */
-  function getAvailableQuestionsFor(companyName) {
+  function getAvailableQuestionsFor(companyName: string) {
     return getAvailableQuestions(SYSTEM_DESIGN_QUESTIONS, seenQuestions, companyName);
   }
 
   /** Convenience selector — wraps the pure utility with current state. */
-  function getTotalSeenFor(companyName) {
+  function getTotalSeenFor(companyName: string) {
     return getTotalSeen(SYSTEM_DESIGN_QUESTIONS, seenQuestions, companyName);
   }
 
   /**
    * Replaces all seen-question IDs with a cloud-loaded array.
    * Validates that all entries are strings before accepting.
-   *
-   * @param {string[]} idsArray - the full seenQuestions array from cloud backup
    */
-  function replaceSeenQuestions(idsArray) {
-    if (!Array.isArray(idsArray) || !idsArray.every((id) => typeof id === 'string')) {
+  function replaceSeenQuestions(idsArray: unknown[]) {
+    if (!Array.isArray(idsArray) || !idsArray.every((id): id is string => typeof id === 'string')) {
       return;
     }
     persist(new Set(idsArray));

@@ -31,7 +31,10 @@
         "src/services/interviewDetector.*",
         "src/services/llmExtractor.*",
         "src/services/driveService.*",
-        "src/routes/logo.*"
+        "src/routes/auth.*",
+        "src/routes/interviews.*",
+        "src/routes/logo.*",
+        "src/routes/sync.*"
       ]
     }]
   },

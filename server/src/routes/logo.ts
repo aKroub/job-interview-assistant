@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import type { Request, Response } from 'express';
+import type { RateLimiter, DomainValidation } from '../types';
 
 /**
  * Regex for a valid public domain: alphanumeric segments separated by dots,
@@ -26,15 +28,12 @@ const BLOCKED_PATTERNS = [
 /**
  * Simple in-memory sliding-window rate limiter.
  *
- * @param {number} maxRequests - max requests per window
- * @param {number} windowMs   - window size in milliseconds
- * @returns {{ isAllowed: (ip: string) => boolean }}
  */
-export function createRateLimiter(maxRequests = 30, windowMs = 60_000) {
-  const requests = new Map();
+export function createRateLimiter(maxRequests = 30, windowMs = 60_000): RateLimiter {
+  const requests = new Map<string, number[]>();
 
   return {
-    isAllowed(ip) {
+    isAllowed(ip: string): boolean {
       const now = Date.now();
       const timestamps = requests.get(ip) || [];
       const recent = timestamps.filter((t) => now - t < windowMs);
@@ -64,10 +63,8 @@ export function createRateLimiter(maxRequests = 30, windowMs = 60_000) {
 /**
  * Validates that a domain string is a safe, public domain.
  *
- * @param {string} domain
- * @returns {{ valid: boolean, reason?: string }}
  */
-export function validateDomain(domain) {
+export function validateDomain(domain: string): DomainValidation {
   if (!domain || typeof domain !== 'string') {
     return { valid: false, reason: 'Missing domain parameter' };
   }
@@ -92,12 +89,8 @@ export function validateDomain(domain) {
  * on the frontend. Includes domain validation, SSRF protection, content-type
  * verification, and rate limiting.
  *
- * @param {Object} [deps]
- * @param {Function} [deps.fetchFn]      - injectable fetch for testing
- * @param {Object}   [deps.rateLimiter]  - injectable rate limiter
- * @returns {import('express').Router}
  */
-export function createLogoRouter(deps = {}) {
+export function createLogoRouter(deps: { fetchFn?: typeof globalThis.fetch; rateLimiter?: RateLimiter } = {}): Router {
   const fetchFn     = deps.fetchFn     || globalThis.fetch;
   const rateLimiter = deps.rateLimiter || createRateLimiter();
   const router      = Router();
@@ -108,21 +101,21 @@ export function createLogoRouter(deps = {}) {
    * Proxies the request to Google's Favicon API and streams the image back.
    * Returns 128px PNG favicons with a 7-day cache header.
    */
-  router.get('/', async (req, res) => {
-    const { domain } = req.query;
+  router.get('/', async (req: Request, res: Response) => {
+    const domain = req.query.domain as string | undefined;
     const clientIp = req.ip || req.socket?.remoteAddress || 'unknown';
 
     if (!rateLimiter.isAllowed(clientIp)) {
       return res.status(429).json({ error: 'Too many requests' });
     }
 
-    const validation = validateDomain(domain);
+    const validation = validateDomain(domain ?? '');
     if (!validation.valid) {
       return res.status(400).json({ error: validation.reason });
     }
 
     try {
-      const upstreamUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`;
+      const upstreamUrl = `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain!)}&sz=128`;
       const upstream = await fetchFn(upstreamUrl);
 
       if (!upstream.ok) {
@@ -139,8 +132,8 @@ export function createLogoRouter(deps = {}) {
       res.set('Content-Type', contentType);
       res.set('Cache-Control', 'public, max-age=604800');
       res.send(buffer);
-    } catch (err) {
-      console.error('[logo] proxy error:', err.message);
+    } catch (err: unknown) {
+      console.error('[logo] proxy error:', (err as Error).message);
       res.status(502).json({ error: 'Logo proxy failed' });
     }
   });

@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { google } from 'googleapis';
+import type { Auth } from 'googleapis';
+import type { Request, Response, NextFunction } from 'express';
 import { loadConfig } from './config.js';
 import { createTokenStore } from './services/tokenStore.js';
 import { createGoogleAuth } from './services/googleAuth.js';
@@ -14,28 +16,27 @@ import { createAuthRouter } from './routes/auth.js';
 import { createInterviewsRouter } from './routes/interviews.js';
 import { createSyncRouter } from './routes/sync.js';
 import { createLogoRouter } from './routes/logo.js';
+import type { CreateAppDeps, AppInstance } from './types';
 
 /**
  * Creates an async function that lazily fetches and caches the authenticated user's email.
  *
- * @param {import('googleapis').Auth.OAuth2Client} authClient - authenticated OAuth2 client
- * @param {Object} [options]
- * @param {Function} [options.gmailApi] - injectable Gmail API instance for testing
- * @returns {() => Promise<string>}
  */
-export function createGetUserEmail(authClient, options = {}) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function createGetUserEmail(authClient: Auth.OAuth2Client, options: { gmailApi?: any } = {}): () => Promise<string> {
   const gmailApi = options.gmailApi || google.gmail({ version: 'v1', auth: authClient });
-  let cachedEmail = null;
+  let cachedEmail: string | null = null;
 
-  return async function getUserEmail() {
+  return async function getUserEmail(): Promise<string> {
     if (cachedEmail) return cachedEmail;
 
     try {
       const response = await gmailApi.users.getProfile({ userId: 'me' });
-      cachedEmail = response.data.emailAddress || '';
-      return cachedEmail;
-    } catch (err) {
-      console.warn('Failed to fetch user email:', err.message);
+      const email = response.data.emailAddress ?? '';
+      cachedEmail = email;
+      return email;
+    } catch (err: unknown) {
+      console.warn('Failed to fetch user email:', (err as Error).message);
       return '';
     }
   };
@@ -49,16 +50,8 @@ export function createGetUserEmail(authClient, options = {}) {
  * 1. The user has authenticated via OAuth (tokens exist)
  * 2. A frontend client connects to the SSE endpoint
  *
- * @param {Object} [deps] - optional dependency overrides
- * @param {Object} [deps.config] - config object (defaults to loadConfig())
- * @param {Object} [deps.tokenStore] - token store instance
- * @param {Object} [deps.googleAuth] - google auth instance
- * @param {Object} [deps.llmExtractor] - LLM extractor instance (null disables LLM enrichment)
- * @param {Object} [deps.detector] - interview detector instance
- * @param {Object} [deps.driveService] - Google Drive backup service
- * @returns {{ app: import('express').Express, config: Object, tokenStore: Object, googleAuth: Object }}
  */
-export function createApp(deps = {}) {
+export function createApp(deps: CreateAppDeps = {}): AppInstance {
   const config     = deps.config     || loadConfig();
   const tokenStore = deps.tokenStore || createTokenStore();
   const googleAuth = deps.googleAuth || createGoogleAuth(config, tokenStore);
@@ -124,8 +117,8 @@ export function createApp(deps = {}) {
 
   // Global error handler — catches unhandled async errors (Express 5 forwards
   // rejected promises here automatically).  Always responds with JSON.
-  // eslint-disable-next-line no-unused-vars
-  app.use((err, _req, res, next) => {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  app.use((err: Error, _req: Request, res: Response, next: NextFunction) => {
     // If headers are already sent (e.g. mid-SSE stream), delegate to Express's
     // default error handler which will close the connection gracefully.
     if (res.headersSent) {
@@ -150,8 +143,8 @@ if (isDirectRun) {
       console.log(`Interview Tracker server running on http://localhost:${config.port}`);
       console.log(`OAuth callback URL: ${config.redirectUri}`);
     });
-  } catch (err) {
-    console.error('Failed to start server:', err.message);
+  } catch (err: unknown) {
+    console.error('Failed to start server:', (err as Error).message);
     process.exit(1);
   }
 }

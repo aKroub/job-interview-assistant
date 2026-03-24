@@ -1,25 +1,18 @@
 import { Router } from 'express';
+import type { Request, Response } from 'express';
+import type { GoogleAuth } from '../types';
 
 /**
  * Creates the authentication router for Google OAuth flow.
- *
- * Routes:
- *   GET  /api/auth/status   — returns { authenticated: boolean }
- *   GET  /api/auth/url      — returns { url: string } for the OAuth consent screen
- *   GET  /api/auth/callback  — handles Google's OAuth redirect
- *   POST /api/auth/disconnect — clears stored tokens
- *
- * @param {{ getAuthUrl: Function, handleCallback: Function, isAuthenticated: Function, disconnect: Function }} googleAuth
- * @returns {import('express').Router}
  */
-export function createAuthRouter(googleAuth) {
+export function createAuthRouter(googleAuth: GoogleAuth): Router {
   const router = Router();
 
   /**
    * GET /api/auth/status
    * Returns whether the user has authenticated with Google.
    */
-  router.get('/status', (_req, res) => {
+  router.get('/status', (_req: Request, res: Response) => {
     res.json({ authenticated: googleAuth.isAuthenticated() });
   });
 
@@ -27,7 +20,7 @@ export function createAuthRouter(googleAuth) {
    * GET /api/auth/url
    * Returns the Google OAuth consent URL for the frontend to redirect to.
    */
-  router.get('/url', (_req, res) => {
+  router.get('/url', (_req: Request, res: Response) => {
     const url = googleAuth.getAuthUrl();
     res.json({ url });
   });
@@ -37,8 +30,9 @@ export function createAuthRouter(googleAuth) {
    * Handles the OAuth redirect from Google.
    * Exchanges the authorization code for tokens and shows a success page.
    */
-  router.get('/callback', async (req, res) => {
-    const { code, state } = req.query;
+  router.get('/callback', async (req: Request, res: Response) => {
+    const code = req.query.code as string | undefined;
+    const state = req.query.state as string | undefined;
 
     if (!code) {
       return res.status(400).send(
@@ -46,7 +40,7 @@ export function createAuthRouter(googleAuth) {
       );
     }
 
-    if (!googleAuth.verifyState(state)) {
+    if (!googleAuth.verifyState(state ?? '')) {
       return res.status(403).send(
         '<html><body style="font-family: sans-serif; text-align: center; padding: 60px;">' +
         '<h2 style="color: #dc2626;">Authorization Failed</h2>' +
@@ -64,8 +58,8 @@ export function createAuthRouter(googleAuth) {
         '<p>You can close this tab and return to the app.</p>' +
         '</body></html>'
       );
-    } catch (err) {
-      console.error('[auth] callback failed:', err.message);
+    } catch (err: unknown) {
+      console.error('[auth] callback failed:', (err as Error).message);
       res.status(500).send(
         '<html><body style="font-family: sans-serif; text-align: center; padding: 60px;">' +
         '<h2 style="color: #dc2626;">Connection Failed</h2>' +
@@ -79,12 +73,12 @@ export function createAuthRouter(googleAuth) {
    * POST /api/auth/disconnect
    * Clears stored tokens and disconnects from Google.
    */
-  router.post('/disconnect', async (_req, res) => {
+  router.post('/disconnect', async (_req: Request, res: Response) => {
     try {
       await googleAuth.disconnect();
       res.json({ authenticated: false });
-    } catch (err) {
-      console.error('[auth] disconnect failed:', err.message);
+    } catch (err: unknown) {
+      console.error('[auth] disconnect failed:', (err as Error).message);
       res.status(500).json({ error: 'Disconnect failed' });
     }
   });

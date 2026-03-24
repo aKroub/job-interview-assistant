@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "nodemon src/index.js",
+    "start": "node --import tsx src/index.ts",
+    "dev": "nodemon src/index.ts",
     "test": "node --import tsx --experimental-vm-modules node_modules/.bin/jest --verbose --forceExit",
     "lint": "eslint src/ --ext .js,.ts --max-warnings 0",
     "typecheck": "tsc --noEmit"

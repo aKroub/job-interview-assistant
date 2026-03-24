@@ -163,5 +163,14 @@ export interface Suggestion {
   id: string;
   emailMessageId?: string;
   calendarEventId?: string;
+  companyName?: string;
+  type?: string;
+  date?: string;
+  time?: string;
+  action?: string;
+  source?: string;
+  subject?: string;
+  emailSnippet?: string;
+  confidence?: number;
   [key: string]: unknown;
 }

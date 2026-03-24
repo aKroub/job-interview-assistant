@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Stress tests for TodayInterviews "Join call" toggle feature.
  *

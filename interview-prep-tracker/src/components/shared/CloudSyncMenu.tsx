@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Settings, Upload, Download, Check, AlertCircle, Loader, ChevronLeft } from 'lucide-react';
+import type { AuthStatus, DriveBackup, SyncStatus } from '../../types';
 
 /**
  * Formats a timestamp into a human-readable relative or absolute string.
@@ -7,10 +8,10 @@ import { Settings, Upload, Download, Check, AlertCircle, Loader, ChevronLeft } f
  * @param {string} isoString - ISO 8601 timestamp
  * @returns {string}
  */
-function formatLastSaved(isoString) {
+function formatLastSaved(isoString: string) {
   const date = new Date(isoString);
   const now = new Date();
-  const diffMs = now - date;
+  const diffMs = now.getTime() - date.getTime();
   const diffMin = Math.floor(diffMs / 60_000);
 
   if (diffMin < 1)  return 'Just now';
@@ -28,7 +29,7 @@ function formatLastSaved(isoString) {
  * @param {string} isoString - ISO 8601 timestamp
  * @returns {string} e.g. "Feb 22, 2026, 10:00 AM"
  */
-function formatVersionTimestamp(isoString) {
+function formatVersionTimestamp(isoString: string) {
   const date = new Date(isoString);
   return date.toLocaleString(undefined, {
     month: 'short',
@@ -53,10 +54,20 @@ function formatVersionTimestamp(isoString) {
  *   onLoad:     (fileId: string) => void,
  * }} props
  */
-export function CloudSyncMenu({ authStatus, syncStatus, lastSaved, syncError, backups, onSave, onLoad }) {
+interface CloudSyncMenuProps {
+  authStatus: AuthStatus;
+  syncStatus: SyncStatus;
+  lastSaved: string | null;
+  syncError: string | null;
+  backups: DriveBackup[];
+  onSave: () => void;
+  onLoad: (fileId: string) => void;
+}
+
+export function CloudSyncMenu({ authStatus, syncStatus, lastSaved, syncError, backups, onSave, onLoad }: CloudSyncMenuProps) {
   const [isOpen, setIsOpen]               = useState(false);
   const [showVersionList, setShowVersionList] = useState(false);
-  const menuRef = useRef(null);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   const isAuthenticated = authStatus === 'authenticated';
   const isBusy = syncStatus === 'saving' || syncStatus === 'loading';
@@ -65,8 +76,8 @@ export function CloudSyncMenu({ authStatus, syncStatus, lastSaved, syncError, ba
   useEffect(() => {
     if (!isOpen) return;
 
-    function handleClickOutside(e) {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
+    function handleClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setIsOpen(false);
         setShowVersionList(false);
       }
@@ -76,7 +87,7 @@ export function CloudSyncMenu({ authStatus, syncStatus, lastSaved, syncError, ba
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
-  function handleLoadVersion(fileId) {
+  function handleLoadVersion(fileId: string) {
     const confirmed = window.confirm(
       'This will replace all local data with the selected backup. Continue?'
     );

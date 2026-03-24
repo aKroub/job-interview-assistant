@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TabNav } from './TabNav';
@@ -27,25 +26,25 @@ describe('TabNav — active tab styling', () => {
   it('applies active style to the kanban tab when activeTab is "kanban"', () => {
     setup('kanban');
     const pipelineBtn = screen.getByText('Pipeline').closest('button');
-    expect(pipelineBtn.className).toContain('bg-purple-600');
+    expect(pipelineBtn!.className).toContain('bg-purple-600');
   });
 
   it('applies active style to the timeline tab when activeTab is "timeline"', () => {
     setup('timeline');
     const timelineBtn = screen.getByText('Timeline').closest('button');
-    expect(timelineBtn.className).toContain('bg-purple-600');
+    expect(timelineBtn!.className).toContain('bg-purple-600');
   });
 
   it('applies active style to the prep tab when activeTab is "prep"', () => {
     setup('prep');
     const prepBtn = screen.getByText('Prep Content').closest('button');
-    expect(prepBtn.className).toContain('bg-purple-600');
+    expect(prepBtn!.className).toContain('bg-purple-600');
   });
 
   it('does not apply active style to inactive tabs', () => {
     setup('kanban');
     const timelineBtn = screen.getByText('Timeline').closest('button');
-    expect(timelineBtn.className).not.toContain('bg-purple-600');
+    expect(timelineBtn!.className).not.toContain('bg-purple-600');
   });
 });
 

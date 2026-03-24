@@ -9,21 +9,23 @@
  *  H5: Mixed interview types and edge-case data (empty URLs, long URLs, specials)
  */
 
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TodayInterviews } from './TodayInterviews';
+import type { FlattenedInterview } from '../../types';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeInterview(overrides = {}) {
+function makeInterview(overrides: Partial<FlattenedInterview> = {}): FlattenedInterview {
   return {
     id: 'i1',
     companyId: 'c1',
     companyName: 'Acme Corp',
     position: 'Engineer',
+    companyDomain: null,
+    companyCustomLogoUrl: null,
     type: 'Phone Interview',
     date: '2026-03-19',
     time: '10:00',
@@ -32,10 +34,10 @@ function makeInterview(overrides = {}) {
   };
 }
 
-function makeVideoInterview(overrides = {}) {
+function makeVideoInterview(overrides: Partial<FlattenedInterview> = {}): FlattenedInterview {
   return makeInterview({
     type: 'Video Interview',
-    videoCallLink: 'https://zoom.us/j/123',
+    videoCallUrl: 'https://zoom.us/j/123',
     ...overrides,
   });
 }
@@ -49,24 +51,24 @@ describe('H1: Rapid toggles across multiple video chips', () => {
 
   it('only one panel is ever open after rapid sequential toggles across 4 chips', async () => {
     const interviews = [
-      makeVideoInterview({ id: 'v1', companyName: 'Alpha', videoCallLink: 'https://zoom.us/j/1' }),
-      makeVideoInterview({ id: 'v2', companyName: 'Beta', videoCallLink: 'https://zoom.us/j/2', time: '11:00' }),
-      makeVideoInterview({ id: 'v3', companyName: 'Gamma', videoCallLink: 'https://zoom.us/j/3', time: '12:00' }),
-      makeVideoInterview({ id: 'v4', companyName: 'Delta', videoCallLink: 'https://zoom.us/j/4', time: '13:00' }),
+      makeVideoInterview({ id: 'v1', companyName: 'Alpha', videoCallUrl: 'https://zoom.us/j/1' }),
+      makeVideoInterview({ id: 'v2', companyName: 'Beta', videoCallUrl: 'https://zoom.us/j/2', time: '11:00' }),
+      makeVideoInterview({ id: 'v3', companyName: 'Gamma', videoCallUrl: 'https://zoom.us/j/3', time: '12:00' }),
+      makeVideoInterview({ id: 'v4', companyName: 'Delta', videoCallUrl: 'https://zoom.us/j/4', time: '13:00' }),
     ];
     render(<TodayInterviews interviews={interviews} />);
 
     const toggles = screen.getAllByRole('button', { name: /show.*video call link/i });
     expect(toggles).toHaveLength(4);
 
-    await user.click(toggles[0]);
-    await user.click(toggles[1]);
-    await user.click(toggles[2]);
-    await user.click(toggles[3]);
+    await user.click(toggles[0]!);
+    await user.click(toggles[1]!);
+    await user.click(toggles[2]!);
+    await user.click(toggles[3]!);
 
     const links = screen.getAllByRole('link', { name: /join.*video call/i });
     expect(links).toHaveLength(1);
-    expect(links[0]).toHaveAttribute('href', 'https://zoom.us/j/4');
+    expect(links[0]!).toHaveAttribute('href', 'https://zoom.us/j/4');
   });
 
   it('rapid toggle-on then toggle-off on the same chip leaves panel closed', async () => {
@@ -82,8 +84,8 @@ describe('H1: Rapid toggles across multiple video chips', () => {
 
   it('toggling chip A open, chip B open, chip A open again shows only A', async () => {
     const interviews = [
-      makeVideoInterview({ id: 'v1', companyName: 'Alpha', videoCallLink: 'https://zoom.us/j/1' }),
-      makeVideoInterview({ id: 'v2', companyName: 'Beta', videoCallLink: 'https://zoom.us/j/2', time: '11:00' }),
+      makeVideoInterview({ id: 'v1', companyName: 'Alpha', videoCallUrl: 'https://zoom.us/j/1' }),
+      makeVideoInterview({ id: 'v2', companyName: 'Beta', videoCallUrl: 'https://zoom.us/j/2', time: '11:00' }),
     ];
     render(<TodayInterviews interviews={interviews} />);
 
@@ -186,8 +188,8 @@ describe('H3: Prop changes while panel is open', () => {
   const user = userEvent.setup({ delay: null });
 
   it('panel stays correct when interviews array is reordered during re-render', async () => {
-    const interviewA = makeVideoInterview({ id: 'v1', companyName: 'Alpha', videoCallLink: 'https://zoom.us/j/1' });
-    const interviewB = makeVideoInterview({ id: 'v2', companyName: 'Beta', videoCallLink: 'https://zoom.us/j/2', time: '11:00' });
+    const interviewA = makeVideoInterview({ id: 'v1', companyName: 'Alpha', videoCallUrl: 'https://zoom.us/j/1' });
+    const interviewB = makeVideoInterview({ id: 'v2', companyName: 'Beta', videoCallUrl: 'https://zoom.us/j/2', time: '11:00' });
 
     const { rerender } = render(
       <TodayInterviews interviews={[interviewA, interviewB]} />
@@ -203,8 +205,8 @@ describe('H3: Prop changes while panel is open', () => {
   });
 
   it('panel disappears when the open interview is removed from props', async () => {
-    const interviewA = makeVideoInterview({ id: 'v1', companyName: 'Alpha', videoCallLink: 'https://zoom.us/j/1' });
-    const interviewB = makeVideoInterview({ id: 'v2', companyName: 'Beta', videoCallLink: 'https://zoom.us/j/2', time: '11:00' });
+    const interviewA = makeVideoInterview({ id: 'v1', companyName: 'Alpha', videoCallUrl: 'https://zoom.us/j/1' });
+    const interviewB = makeVideoInterview({ id: 'v2', companyName: 'Beta', videoCallUrl: 'https://zoom.us/j/2', time: '11:00' });
 
     const { rerender } = render(
       <TodayInterviews interviews={[interviewA, interviewB]} />
@@ -228,7 +230,7 @@ describe('H3: Prop changes while panel is open', () => {
     await user.click(screen.getByRole('button', { name: /show alpha video call link/i }));
     expect(screen.getByRole('link', { name: /join alpha video call/i })).toBeInTheDocument();
 
-    const phoneInterview = { ...interview, type: 'Phone Interview' };
+    const phoneInterview = { ...interview, type: 'Phone Interview' as const };
     rerender(<TodayInterviews interviews={[phoneInterview]} />);
 
     expect(screen.queryByRole('button', { name: /video call/i })).not.toBeInTheDocument();
@@ -236,7 +238,7 @@ describe('H3: Prop changes while panel is open', () => {
   });
 
   it('panel URL updates when the video call link changes while panel is open', async () => {
-    const interview = makeVideoInterview({ id: 'v1', videoCallLink: 'https://zoom.us/j/old' });
+    const interview = makeVideoInterview({ id: 'v1', videoCallUrl: 'https://zoom.us/j/old' });
 
     const { rerender } = render(
       <TodayInterviews interviews={[interview]} />
@@ -245,14 +247,14 @@ describe('H3: Prop changes while panel is open', () => {
     await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
     expect(screen.getByRole('link', { name: /join.*video call/i })).toHaveAttribute('href', 'https://zoom.us/j/old');
 
-    const updated = { ...interview, videoCallLink: 'https://teams.microsoft.com/l/new' };
+    const updated = { ...interview, videoCallUrl: 'https://teams.microsoft.com/l/new' };
     rerender(<TodayInterviews interviews={[updated]} />);
 
     expect(screen.getByRole('link', { name: /join.*video call/i })).toHaveAttribute('href', 'https://teams.microsoft.com/l/new');
   });
 
   it('panel disappears when video call link becomes invalid', async () => {
-    const interview = makeVideoInterview({ id: 'v1', videoCallLink: 'https://zoom.us/j/123' });
+    const interview = makeVideoInterview({ id: 'v1', videoCallUrl: 'https://zoom.us/j/123' });
 
     const { rerender } = render(
       <TodayInterviews interviews={[interview]} />
@@ -261,7 +263,7 @@ describe('H3: Prop changes while panel is open', () => {
     await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
     expect(screen.getByRole('link', { name: /join.*video call/i })).toBeInTheDocument();
 
-    const invalidLink = { ...interview, videoCallLink: 'javascript:alert(1)' };
+    const invalidLink = { ...interview, videoCallUrl: 'javascript:alert(1)' };
     rerender(<TodayInterviews interviews={[invalidLink]} />);
 
     expect(screen.queryByRole('link', { name: /join.*video call/i })).not.toBeInTheDocument();
@@ -294,7 +296,7 @@ describe('H4: Navigation auto-close interactions', () => {
   it('clicking a non-video chip while video panel is open closes the panel', async () => {
     const onClick = vi.fn();
     const interviews = [
-      makeVideoInterview({ id: 'v1', companyName: 'Alpha', videoCallLink: 'https://zoom.us/j/1' }),
+      makeVideoInterview({ id: 'v1', companyName: 'Alpha', videoCallUrl: 'https://zoom.us/j/1' }),
       makeInterview({ id: 'p1', companyName: 'Beta', type: 'Phone Interview', time: '11:00' }),
     ];
     render(<TodayInterviews interviews={interviews} onInterviewClick={onClick} />);
@@ -311,9 +313,9 @@ describe('H4: Navigation auto-close interactions', () => {
   it('rapid navigation clicks across chips all close panels and fire callbacks', async () => {
     const onClick = vi.fn();
     const interviews = [
-      makeVideoInterview({ id: 'v1', companyName: 'Alpha', videoCallLink: 'https://zoom.us/j/1' }),
-      makeVideoInterview({ id: 'v2', companyName: 'Beta', videoCallLink: 'https://zoom.us/j/2', time: '11:00' }),
-      makeVideoInterview({ id: 'v3', companyName: 'Gamma', videoCallLink: 'https://zoom.us/j/3', time: '12:00' }),
+      makeVideoInterview({ id: 'v1', companyName: 'Alpha', videoCallUrl: 'https://zoom.us/j/1' }),
+      makeVideoInterview({ id: 'v2', companyName: 'Beta', videoCallUrl: 'https://zoom.us/j/2', time: '11:00' }),
+      makeVideoInterview({ id: 'v3', companyName: 'Gamma', videoCallUrl: 'https://zoom.us/j/3', time: '12:00' }),
     ];
     render(<TodayInterviews interviews={interviews} onInterviewClick={onClick} />);
 
@@ -329,7 +331,7 @@ describe('H4: Navigation auto-close interactions', () => {
 
   it('join call link click does not propagate to chip navigate', async () => {
     const onClick = vi.fn();
-    const interview = makeVideoInterview({ id: 'v1', videoCallLink: 'https://zoom.us/j/123' });
+    const interview = makeVideoInterview({ id: 'v1', videoCallUrl: 'https://zoom.us/j/123' });
     render(<TodayInterviews interviews={[interview]} onInterviewClick={onClick} />);
 
     await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
@@ -349,21 +351,21 @@ describe('H5: Mixed types and edge-case data', () => {
   const user = userEvent.setup({ delay: null });
 
   it('video chip with empty string URL does not show toggle', () => {
-    const interview = makeVideoInterview({ id: 'v1', videoCallLink: '' });
+    const interview = makeVideoInterview({ id: 'v1', videoCallUrl: '' });
     render(<TodayInterviews interviews={[interview]} />);
     expect(screen.queryByRole('button', { name: /video call/i })).not.toBeInTheDocument();
   });
 
   it('video chip with undefined URL does not show toggle', () => {
-    const interview = makeVideoInterview({ id: 'v1', videoCallLink: undefined });
+    const interview = makeVideoInterview({ id: 'v1', videoCallUrl: undefined });
     render(<TodayInterviews interviews={[interview]} />);
     expect(screen.queryByRole('button', { name: /video call/i })).not.toBeInTheDocument();
   });
 
   it('handles mix of video (with/without URL) and non-video chips correctly', async () => {
     const interviews = [
-      makeVideoInterview({ id: 'v1', companyName: 'Valid Video', videoCallLink: 'https://zoom.us/j/1' }),
-      makeVideoInterview({ id: 'v2', companyName: 'No URL Video', videoCallLink: '', time: '11:00' }),
+      makeVideoInterview({ id: 'v1', companyName: 'Valid Video', videoCallUrl: 'https://zoom.us/j/1' }),
+      makeVideoInterview({ id: 'v2', companyName: 'No URL Video', videoCallUrl: '', time: '11:00' }),
       makeInterview({ id: 'p1', companyName: 'Phone Co', type: 'Phone Interview', time: '12:00' }),
       makeInterview({ id: 'ip1', companyName: 'In Person Co', type: 'In-Person Interview', time: '13:00' }),
     ];
@@ -372,14 +374,14 @@ describe('H5: Mixed types and edge-case data', () => {
     const toggles = screen.getAllByRole('button', { name: /show.*video call link/i });
     expect(toggles).toHaveLength(1);
 
-    await user.click(toggles[0]);
+    await user.click(toggles[0]!);
     const link = screen.getByRole('link', { name: /join valid video video call/i });
     expect(link).toHaveAttribute('href', 'https://zoom.us/j/1');
   });
 
   it('handles very long URLs correctly', async () => {
     const longUrl = 'https://zoom.us/j/' + 'a'.repeat(500);
-    const interview = makeVideoInterview({ id: 'v1', videoCallLink: longUrl });
+    const interview = makeVideoInterview({ id: 'v1', videoCallUrl: longUrl });
     render(<TodayInterviews interviews={[interview]} />);
 
     await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
@@ -391,14 +393,14 @@ describe('H5: Mixed types and edge-case data', () => {
     const interview = makeVideoInterview({
       id: 'v1',
       companyName: "O'Reilly & Sons <Corp>",
-      videoCallLink: 'https://zoom.us/j/123',
+      videoCallUrl: 'https://zoom.us/j/123',
     });
     render(<TodayInterviews interviews={[interview]} onInterviewClick={vi.fn()} />);
     expect(screen.getByText("O'Reilly & Sons <Corp>")).toBeInTheDocument();
   });
 
   it('aria-expanded reflects panel state correctly through toggle cycle', async () => {
-    const interview = makeVideoInterview({ id: 'v1', videoCallLink: 'https://zoom.us/j/123' });
+    const interview = makeVideoInterview({ id: 'v1', videoCallUrl: 'https://zoom.us/j/123' });
     render(<TodayInterviews interviews={[interview]} />);
 
     const toggle = screen.getByRole('button', { name: /show.*video call link/i });
@@ -415,17 +417,17 @@ describe('H5: Mixed types and edge-case data', () => {
 
   it('opening panel on one chip updates aria-expanded on both chips correctly', async () => {
     const interviews = [
-      makeVideoInterview({ id: 'v1', companyName: 'Alpha', videoCallLink: 'https://zoom.us/j/1' }),
-      makeVideoInterview({ id: 'v2', companyName: 'Beta', videoCallLink: 'https://zoom.us/j/2', time: '11:00' }),
+      makeVideoInterview({ id: 'v1', companyName: 'Alpha', videoCallUrl: 'https://zoom.us/j/1' }),
+      makeVideoInterview({ id: 'v2', companyName: 'Beta', videoCallUrl: 'https://zoom.us/j/2', time: '11:00' }),
     ];
     render(<TodayInterviews interviews={interviews} />);
 
     const toggles = screen.getAllByRole('button', { name: /show.*video call link/i });
-    expect(toggles[0]).toHaveAttribute('aria-expanded', 'false');
-    expect(toggles[1]).toHaveAttribute('aria-expanded', 'false');
+    expect(toggles[0]!).toHaveAttribute('aria-expanded', 'false');
+    expect(toggles[1]!).toHaveAttribute('aria-expanded', 'false');
 
     // Open Alpha
-    await user.click(toggles[0]);
+    await user.click(toggles[0]!);
 
     // Alpha should show expanded, Beta should still show collapsed
     const hideAlpha = screen.getByRole('button', { name: /hide video call link/i });

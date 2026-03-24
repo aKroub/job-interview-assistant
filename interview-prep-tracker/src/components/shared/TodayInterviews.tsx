@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { CalendarCheck, ExternalLink, HelpCircle } from 'lucide-react';
-import { TYPE_CONFIG } from '../../constants/interviewTypes';
-import { resolveCompanyLogoUrl } from '../../utils/companyLogoUtils';
-import { isValidVideoCallUrl, sanitizeVideoCallUrl } from '../../utils/urlUtils';
-import { CompanyLogo } from './CompanyLogo';
+import { TYPE_CONFIG } from '../../constants/interviewTypes.js';
+import { resolveCompanyLogoUrl } from '../../utils/companyLogoUtils.js';
+import { isValidVideoCallUrl, sanitizeVideoCallUrl } from '../../utils/urlUtils.js';
+import { CompanyLogo } from './CompanyLogo.js';
+import type { FlattenedInterview, InterviewTypeName } from '../../types';
 
 /**
  * A single compact interview chip within the today strip.
@@ -26,18 +27,25 @@ import { CompanyLogo } from './CompanyLogo';
  *   onToggleCallLink: () => void,
  * }} props
  */
-function TodayInterviewItem({ interview, onClick, isCallLinkOpen, onToggleCallLink }) {
-  const typeConfig = TYPE_CONFIG[interview.type];
+interface TodayInterviewItemProps {
+  interview: FlattenedInterview;
+  onClick?: (interview: FlattenedInterview) => void;
+  isCallLinkOpen: boolean;
+  onToggleCallLink: () => void;
+}
+
+function TodayInterviewItem({ interview, onClick, isCallLinkOpen, onToggleCallLink }: TodayInterviewItemProps) {
+  const typeConfig = TYPE_CONFIG[interview.type as InterviewTypeName];
   const InterviewIcon = typeConfig ? typeConfig.Icon : HelpCircle;
   const logoUrl = resolveCompanyLogoUrl({
     name: interview.companyName,
-    domain: interview.companyDomain,
-    customLogoUrl: interview.companyCustomLogoUrl,
+    domain: interview.companyDomain ?? undefined,
+    customLogoUrl: interview.companyCustomLogoUrl ?? undefined,
   });
 
   const isVideoInterview = interview.type === 'Video Interview';
-  const hasVideoCallLink = isVideoInterview && isValidVideoCallUrl(interview.videoCallLink);
-  const trimmedVideoLink = hasVideoCallLink ? sanitizeVideoCallUrl(interview.videoCallLink) : '';
+  const hasVideoCallLink = isVideoInterview && isValidVideoCallUrl(interview.videoCallUrl ?? '');
+  const trimmedVideoLink = hasVideoCallLink ? sanitizeVideoCallUrl(interview.videoCallUrl!) : '';
 
   const baseClasses =
     'flex items-center gap-1.5 bg-white border rounded-md px-3 py-1.5 text-sm transition';
@@ -51,7 +59,7 @@ function TodayInterviewItem({ interview, onClick, isCallLinkOpen, onToggleCallLi
     if (onClick) onClick(interview);
   }
 
-  function handleKeyDown(e) {
+  function handleKeyDown(e: React.KeyboardEvent) {
     // Guard: only handle key events that originate on the chip div itself,
     // not on nested interactive children (e.g. the video-icon button).
     // Without this, pressing Enter while focused on the inner button would
@@ -62,7 +70,7 @@ function TodayInterviewItem({ interview, onClick, isCallLinkOpen, onToggleCallLi
     }
   }
 
-  function handleVideoIconClick(e) {
+  function handleVideoIconClick(e: React.MouseEvent) {
     e.stopPropagation();
     onToggleCallLink();
   }
@@ -146,12 +154,17 @@ function TodayInterviewItem({ interview, onClick, isCallLinkOpen, onToggleCallLi
  *   onInterviewClick?: (interview: Object) => void,
  * }} props
  */
-export function TodayInterviews({ interviews, onInterviewClick }) {
-  const [openCallLinkId, setOpenCallLinkId] = useState(null);
+interface TodayInterviewsProps {
+  interviews: FlattenedInterview[];
+  onInterviewClick?: (interview: FlattenedInterview) => void;
+}
+
+export function TodayInterviews({ interviews, onInterviewClick }: TodayInterviewsProps) {
+  const [openCallLinkId, setOpenCallLinkId] = useState<string | null>(null);
 
   if (interviews.length === 0) return null;
 
-  function handleInterviewClick(interview) {
+  function handleInterviewClick(interview: FlattenedInterview) {
     setOpenCallLinkId(null);
     if (onInterviewClick) onInterviewClick(interview);
   }

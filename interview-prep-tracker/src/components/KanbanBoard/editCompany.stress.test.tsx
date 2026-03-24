@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Stress tests for the edit-company feature (PR: feature/edit-company-card).
  *
@@ -8,7 +9,7 @@
  * - H5: editing a company not in the active pipeline view
  */
 
-import React from 'react';
+
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { KanbanBoard } from './KanbanBoard';

@@ -1,40 +1,40 @@
-import React, { useState } from 'react';
-import { CompanyCard } from './CompanyCard';
+import { useState } from 'react';
+import { CompanyCard } from './CompanyCard.js';
+import type { Company, PipelineId, StageKey } from '../../types';
+
+interface KanbanColumnProps {
+  stage: StageKey;
+  label: string;
+  companies: Company[];
+  onDelete: (companyId: string) => void;
+  onEditCompany: (company: Company) => void;
+  onUpdateStage: (companyId: string, newStage: StageKey) => void;
+  onDragStart: (e: React.DragEvent, companyId: string) => void;
+  onDragEnd: (e: React.DragEvent) => void;
+  pipelineLabels: Record<PipelineId, string>;
+}
 
 /**
  * A single pipeline stage column in the Kanban board.
  *
  * Acts as a drop target for drag-and-drop stage changes.
- * Companies are dragged from one column and dropped here to move them.
- *
- * @param {{
- *   stage:          string,
- *   label:          string,
- *   companies:      Object[],
- *   onDelete:       (companyId: string) => void,
- *   onEditCompany:  (company: Object) => void,
- *   onUpdateStage:  (companyId: string, newStage: string) => void,
- *   onDragStart:    (e: DragEvent, companyId: string) => void,
- *   onDragEnd:      (e: DragEvent) => void,
- *   pipelineLabels: Record<string, string>,
- * }} props
  */
-export function KanbanColumn({ stage, label, companies, onDelete, onEditCompany, onUpdateStage, onDragStart, onDragEnd, pipelineLabels }) {
+export function KanbanColumn({ stage, label, companies, onDelete, onEditCompany, onUpdateStage, onDragStart, onDragEnd, pipelineLabels }: KanbanColumnProps) {
   const [isDragOver, setIsDragOver] = useState(false);
 
   const columnCompanies = companies.filter((c) => c.stage === stage);
 
-  function handleDragOver(e) {
-    e.preventDefault(); // required to allow drop
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
     setIsDragOver(true);
   }
 
-  function handleDragLeave(e) {
-    if (e.currentTarget.contains(e.relatedTarget)) return;
+  function handleDragLeave(e: React.DragEvent) {
+    if ((e.currentTarget as Node).contains(e.relatedTarget as Node)) return;
     setIsDragOver(false);
   }
 
-  function handleDrop(e) {
+  function handleDrop(e: React.DragEvent) {
     e.preventDefault();
     setIsDragOver(false);
     const companyId = e.dataTransfer.getData('companyId');

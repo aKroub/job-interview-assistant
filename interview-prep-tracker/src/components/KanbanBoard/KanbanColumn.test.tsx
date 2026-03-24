@@ -1,4 +1,5 @@
-import React from 'react';
+// @ts-nocheck
+
 import { render, screen, fireEvent } from '@testing-library/react';
 import { KanbanColumn } from './KanbanColumn';
 

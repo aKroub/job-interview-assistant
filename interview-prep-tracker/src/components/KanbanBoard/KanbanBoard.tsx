@@ -1,44 +1,44 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Archive, ChevronDown, ChevronRight, Plus } from 'lucide-react';
-import { KanbanColumn } from './KanbanColumn';
-import { CompanyCard } from './CompanyCard';
+import { KanbanColumn } from './KanbanColumn.js';
+import { CompanyCard } from './CompanyCard.js';
+import type { ActiveStageKey, Company, PipelineId, StageKey } from '../../types';
+
+interface KanbanBoardProps {
+  companies: Company[];
+  stages: ActiveStageKey[];
+  stageLabels: Record<StageKey, string>;
+  closedStage: StageKey;
+  activePipeline: PipelineId;
+  pipelines: PipelineId[];
+  pipelineLabels: Record<PipelineId, string>;
+  pipelineCounts: Record<PipelineId, number>;
+  onPipelineChange: (pipeline: PipelineId) => void;
+  onAddCompany: () => void;
+  onDeleteCompany: (companyId: string) => void;
+  onEditCompany: (company: Company) => void;
+  onUpdateStage: (companyId: string, newStage: StageKey) => void;
+}
 
 /**
  * Pipeline view rendered as a Kanban board with drag-and-drop stage movement.
  *
  * Active stages render as a 6-column grid (left-to-right progression).
- * The closed stage renders as a separate collapsible row below, since it
- * represents an exit from the pipeline rather than the next step.
- *
- * @param {{
- *   companies:        Object[],
- *   stages:           string[],
- *   stageLabels:      Object,
- *   closedStage:      string,
- *   activePipeline:   string,
- *   pipelines:        string[],
- *   pipelineLabels:   Record<string, string>,
- *   pipelineCounts:   Record<string, number>,
- *   onPipelineChange: (pipeline: string) => void,
- *   onAddCompany:     () => void,
- *   onDeleteCompany:  (companyId: string) => void,
- *   onEditCompany:    (company: Object) => void,
- *   onUpdateStage:    (companyId: string, newStage: string) => void,
- * }} props
+ * The closed stage renders as a separate collapsible row below.
  */
 export function KanbanBoard({
   companies, stages, stageLabels, closedStage,
   activePipeline, pipelines, pipelineLabels, pipelineCounts, onPipelineChange,
   onAddCompany, onDeleteCompany, onEditCompany, onUpdateStage,
-}) {
-  const [draggingId, setDraggingId] = useState(null);
+}: KanbanBoardProps) {
+  const [draggingId, setDraggingId] = useState<string | null>(null);
   const [closedExpanded, setClosedExpanded] = useState(false);
   const [isClosedDragOver, setIsClosedDragOver] = useState(false);
 
   const activeCompanies = companies.filter((c) => c.stage !== closedStage);
   const closedCompanies = companies.filter((c) => c.stage === closedStage);
 
-  function handleDragStart(e, companyId) {
+  function handleDragStart(e: React.DragEvent, companyId: string) {
     setDraggingId(companyId);
     e.dataTransfer.setData('companyId', companyId);
     e.dataTransfer.effectAllowed = 'move';
@@ -49,18 +49,18 @@ export function KanbanBoard({
     setIsClosedDragOver(false);
   }
 
-  function handleClosedDragOver(e) {
+  function handleClosedDragOver(e: React.DragEvent) {
     e.preventDefault();
     if (!isClosedDragOver) setIsClosedDragOver(true);
   }
 
-  function handleClosedDragLeave(e) {
-    if (!e.currentTarget.contains(e.relatedTarget)) {
+  function handleClosedDragLeave(e: React.DragEvent) {
+    if (!(e.currentTarget as Node).contains(e.relatedTarget as Node)) {
       setIsClosedDragOver(false);
     }
   }
 
-  function handleClosedDrop(e) {
+  function handleClosedDrop(e: React.DragEvent) {
     e.preventDefault();
     setIsClosedDragOver(false);
     const companyId = e.dataTransfer.getData('companyId');
@@ -168,6 +168,7 @@ export function KanbanBoard({
                   company={company}
                   onDelete={onDeleteCompany}
                   onEdit={onEditCompany}
+                  onStageChange={onUpdateStage}
                   onDragStart={handleDragStart}
                   onDragEnd={handleDragEnd}
                   pipelineLabels={pipelineLabels}

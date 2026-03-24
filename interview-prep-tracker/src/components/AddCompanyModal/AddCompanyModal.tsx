@@ -1,31 +1,28 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { FieldLabel } from '../shared/FieldLabel';
-import { FormError } from '../shared/FormError';
-import { CompanyCombobox } from '../shared/CompanyCombobox';
+import { useState, useEffect, useRef } from 'react';
+import { FieldLabel } from '../shared/FieldLabel.js';
+import { FormError } from '../shared/FormError.js';
+import { CompanyCombobox } from '../shared/CompanyCombobox.js';
+import type { Company, CompanyDraft, PipelineId, StageKey } from '../../types';
+
+interface AddCompanyModalProps {
+  draft: CompanyDraft;
+  onDraftChange: (updatedDraft: CompanyDraft) => void;
+  onAdd: () => void;
+  onClose: () => void;
+  stages: StageKey[];
+  stageLabels: Record<StageKey, string>;
+  positions: string[];
+  pipelines: PipelineId[];
+  pipelineLabels: Record<PipelineId, string>;
+  editingCompany?: Company | null;
+  onEdit?: () => void;
+}
 
 /**
  * Modal dialog for adding a new company or editing an existing one.
  *
  * Owns only ephemeral UI state (submitted flag for showing validation errors).
  * All persisted data and callbacks arrive via props.
- *
- * When `editingCompany` is provided, the modal switches to edit mode:
- * the title changes to "Edit Company", the company name field is disabled,
- * and the submit button reads "Save Changes".
- *
- * @param {{
- *   draft:            { name: string, position: string, stage: string, pipeline: string[], domain?: string, customLogoUrl?: string },
- *   onDraftChange:    (updatedDraft: Object) => void,
- *   onAdd:            () => void,
- *   onClose:          () => void,
- *   stages:           string[],
- *   stageLabels:      Object,
- *   positions:        string[],
- *   pipelines:        string[],
- *   pipelineLabels:   Record<string, string>,
- *   editingCompany?:  Object | null,
- *   onEdit?:          () => void,
- * }} props
  */
 export function AddCompanyModal({
   draft,
@@ -39,25 +36,25 @@ export function AddCompanyModal({
   pipelineLabels,
   editingCompany = null,
   onEdit,
-}) {
+}: AddCompanyModalProps) {
   const isEditMode = !!editingCompany;
   const [submitted, setSubmitted] = useState(false);
-  const modalRef = useRef(null);
+  const modalRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const modal = modalRef.current;
     if (!modal) return;
 
     const selector = 'input:not([disabled]), select:not([disabled]), button:not([disabled]), [tabindex]:not([tabindex="-1"])';
-    const firstFocusable = modal.querySelector(selector);
+    const firstFocusable = modal.querySelector<HTMLElement>(selector);
     if (firstFocusable) firstFocusable.focus();
 
-    function handleTab(e) {
+    function handleTab(e: KeyboardEvent) {
       if (e.key !== 'Tab') return;
-      const focusables = [...modal.querySelectorAll(selector)];
+      const focusables = [...modal!.querySelectorAll<HTMLElement>(selector)];
       if (focusables.length === 0) return;
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
+      const first = focusables[0]!;
+      const last = focusables[focusables.length - 1]!;
       if (e.shiftKey && document.activeElement === first) {
         e.preventDefault();
         last.focus();
@@ -83,7 +80,7 @@ export function AddCompanyModal({
     setSubmitted(true);
     if (!isValid) return;
     if (isEditMode) {
-      onEdit();
+      onEdit?.();
     } else {
       onAdd();
     }
@@ -94,7 +91,7 @@ export function AddCompanyModal({
     onClose();
   }
 
-  function handleTogglePipeline(pipelineId) {
+  function handleTogglePipeline(pipelineId: PipelineId) {
     const current = draft.pipeline || [];
     const isSelected = current.includes(pipelineId);
 
@@ -108,11 +105,11 @@ export function AddCompanyModal({
     onDraftChange({ ...draft, pipeline: updated });
   }
 
-  function handleCompanyNameChange(name) {
+  function handleCompanyNameChange(name: string) {
     onDraftChange({ ...draft, name, domain: undefined, customLogoUrl: undefined });
   }
 
-  function handleCustomCompany(info) {
+  function handleCustomCompany(info: { name: string; domain: string | null; customLogoUrl: string | null }) {
     onDraftChange({
       ...draft,
       name: info.name,
@@ -207,7 +204,7 @@ export function AddCompanyModal({
             <select
               id="company-stage"
               value={draft.stage}
-              onChange={(e) => onDraftChange({ ...draft, stage: e.target.value })}
+              onChange={(e) => onDraftChange({ ...draft, stage: e.target.value as StageKey })}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             >
               {stages.map((s) => (

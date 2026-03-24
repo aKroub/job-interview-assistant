@@ -1,4 +1,5 @@
-import React from 'react';
+// @ts-nocheck
+
 import { render, screen, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { KanbanBoard } from './KanbanBoard';

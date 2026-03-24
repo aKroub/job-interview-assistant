@@ -1,9 +1,19 @@
-import React from 'react';
 import { Calendar, Pencil, X } from 'lucide-react';
-import { isMultiPipeline } from '../../utils/companyUtils';
-import { STAGES, STAGE_LABELS } from '../../constants/stages';
-import { resolveCompanyLogoUrl } from '../../utils/companyLogoUtils';
-import { CompanyLogo } from '../shared/CompanyLogo';
+import { isMultiPipeline } from '../../utils/companyUtils.js';
+import { STAGES, STAGE_LABELS } from '../../constants/stages.js';
+import { resolveCompanyLogoUrl } from '../../utils/companyLogoUtils.js';
+import { CompanyLogo } from '../shared/CompanyLogo.js';
+import type { Company, PipelineId, StageKey } from '../../types';
+
+interface CompanyCardProps {
+  company: Company;
+  onDelete: (companyId: string) => void;
+  onEdit?: (company: Company) => void;
+  onStageChange: (companyId: string, newStage: StageKey) => void;
+  onDragStart: (e: React.DragEvent, companyId: string) => void;
+  onDragEnd: (e: React.DragEvent) => void;
+  pipelineLabels?: Record<PipelineId, string>;
+}
 
 /**
  * A single company card within a Kanban column.
@@ -11,22 +21,8 @@ import { CompanyLogo } from '../shared/CompanyLogo';
  * Draggable — the user drags this card to a different column to change stage.
  * A screen-reader-only select element provides an accessible keyboard
  * alternative for users who cannot drag and drop.
- *
- * When a company belongs to multiple pipelines, small pipeline badges are shown
- * beneath the position text so the user can see at a glance where else this
- * company appears.
- *
- * @param {{
- *   company:        Object,
- *   onDelete:       (companyId: string) => void,
- *   onEdit:         (company: Object) => void,
- *   onStageChange:  (companyId: string, newStage: string) => void,
- *   onDragStart:    (e: DragEvent, companyId: string) => void,
- *   onDragEnd:      (e: DragEvent) => void,
- *   pipelineLabels: Record<string, string>,
- * }} props
  */
-export function CompanyCard({ company, onDelete, onEdit, onStageChange, onDragStart, onDragEnd, pipelineLabels }) {
+export function CompanyCard({ company, onDelete, onEdit, onStageChange, onDragStart, onDragEnd, pipelineLabels }: CompanyCardProps) {
   return (
     <div
       draggable
@@ -98,7 +94,7 @@ export function CompanyCard({ company, onDelete, onEdit, onStageChange, onDragSt
         id={`stage-select-${company.id}`}
         className="sr-only"
         value={company.stage}
-        onChange={(e) => onStageChange(company.id, e.target.value)}
+        onChange={(e) => onStageChange(company.id, e.target.value as StageKey)}
       >
         {STAGES.map((s) => (
           <option key={s} value={s}>{STAGE_LABELS[s]}</option>

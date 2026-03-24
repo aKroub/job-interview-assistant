@@ -1,15 +1,15 @@
-import React from 'react';
+import type { ReactNode } from 'react';
+
+interface FieldLabelProps {
+  children: ReactNode;
+  required?: boolean;
+  htmlFor?: string;
+}
 
 /**
  * Renders a form field label with an optional red required-field asterisk.
- *
- * @param {{
- *   children:  React.ReactNode,
- *   required?: boolean,
- *   htmlFor?:  string,
- * }} props
  */
-export function FieldLabel({ children, required = false, htmlFor }) {
+export function FieldLabel({ children, required = false, htmlFor }: FieldLabelProps) {
   return (
     <label htmlFor={htmlFor} className="block text-sm font-medium text-gray-700 mb-1">
       {children}

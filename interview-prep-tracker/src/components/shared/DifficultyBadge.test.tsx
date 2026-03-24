@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
 import { DifficultyBadge } from './DifficultyBadge';
 
@@ -30,7 +29,7 @@ describe('DifficultyBadge', () => {
   });
 
   it('applies gray fallback classes for an unknown difficulty', () => {
-    render(<DifficultyBadge difficulty="Unknown" />);
+    render(<DifficultyBadge difficulty={'Unknown' as 'Easy'} />);
     const badge = screen.getByText('Unknown');
     expect(badge.className).toContain('bg-gray-100');
     expect(badge.className).toContain('text-gray-700');

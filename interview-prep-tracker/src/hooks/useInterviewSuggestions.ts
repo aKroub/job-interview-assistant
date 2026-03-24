@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import * as defaultApi from '../services/apiService';
+import * as defaultApi from '../services/apiService.js';
+import type { ApiService, AuthStatus, ConnectionStatus, Suggestion, SuggestionStream } from '../types';
 
 /**
  * Custom hook that manages the SSE connection to the interview suggestions
@@ -12,30 +13,18 @@ import * as defaultApi from '../services/apiService';
  *  1. On mount → checks auth status
  *  2. If authenticated → opens SSE stream, receives suggestions in real time
  *  3. On unmount → closes SSE stream
- *
- * @param {Object} [api=defaultApi] - injectable API service
- * @returns {{
- *   suggestions: Object[],
- *   authStatus: 'checking' | 'authenticated' | 'unauthenticated',
- *   connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error',
- *   dismissSuggestion: (suggestion: Object) => Promise<void>,
- *   triggerScan: () => Promise<void>,
- *   resetSuggestions: () => Promise<void>,
- *   connectGoogle: () => Promise<void>,
- *   disconnectGoogle: () => Promise<void>,
- * }}
  */
-export function useInterviewSuggestions(api = defaultApi) {
-  const [suggestions,      setSuggestions]      = useState([]);
-  const [authStatus,       setAuthStatus]       = useState('checking');
-  const [connectionStatus, setConnectionStatus] = useState('disconnected');
+export function useInterviewSuggestions(api: ApiService = defaultApi) {
+  const [suggestions,      setSuggestions]      = useState<Suggestion[]>([]);
+  const [authStatus,       setAuthStatus]       = useState<AuthStatus>('checking');
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
 
   /** Ref to the active SSE stream — allows cleanup from any callback. */
-  const streamRef = useRef(null);
+  const streamRef = useRef<SuggestionStream | null>(null);
 
   /** Retry count and timer for SSE error recovery. */
   const retryCountRef = useRef(0);
-  const retryTimerRef = useRef(null);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /**
    * Whether the hook is mounted.  Prevents state updates (and
@@ -58,7 +47,7 @@ export function useInterviewSuggestions(api = defaultApi) {
    * server-side filter will have caught up, but the local set
    * guarantees no flicker in the meantime.
    */
-  const dismissedIdsRef = useRef(new Set());
+  const dismissedIdsRef = useRef(new Set<string>());
 
   /**
    * Local sets of dismissed component IDs (email message IDs and calendar
@@ -66,17 +55,14 @@ export function useInterviewSuggestions(api = defaultApi) {
    * a different composite suggestion ID when the source changes (e.g.
    * email-only → cross-referenced after a calendar event is added).
    */
-  const dismissedEmailIdsRef = useRef(new Set());
-  const dismissedCalendarIdsRef = useRef(new Set());
+  const dismissedEmailIdsRef = useRef(new Set<string>());
+  const dismissedCalendarIdsRef = useRef(new Set<string>());
 
   /**
    * Returns true when a suggestion matches any locally dismissed ID
    * (composite suggestion ID, email message ID, or calendar event ID).
-   *
-   * @param {{ id: string, emailMessageId?: string, calendarEventId?: string }} s
-   * @returns {boolean}
    */
-  function isDismissedLocally(s) {
+  function isDismissedLocally(s: Suggestion): boolean {
     if (dismissedIdsRef.current.has(s.id)) return true;
     if (s.emailMessageId && dismissedEmailIdsRef.current.has(s.emailMessageId)) return true;
     if (s.calendarEventId && dismissedCalendarIdsRef.current.has(s.calendarEventId)) return true;
@@ -198,10 +184,8 @@ export function useInterviewSuggestions(api = defaultApi) {
    * the dismissal on the server. Tracks component IDs (emailMessageId,
    * calendarEventId) locally so the same interview is recognised even
    * when the composite suggestion ID changes.
-   *
-   * @param {Object} suggestion - the full suggestion object
    */
-  const dismissSuggestion = useCallback(async (suggestion) => {
+  const dismissSuggestion = useCallback(async (suggestion: Suggestion) => {
     // Record the composite ID and component IDs locally so incoming
     // SSE updates never re-surface this interview under any form
     dismissedIdsRef.current.add(suggestion.id);

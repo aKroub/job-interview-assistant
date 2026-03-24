@@ -1,5 +1,6 @@
 import { renderHook, act } from '@testing-library/react';
 import { useCloudSync } from './useCloudSync';
+import type { ApiService, AuthStatus, Company } from '../types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -8,7 +9,7 @@ import { useCloudSync } from './useCloudSync';
 /**
  * Creates a mock API service with controllable return values.
  */
-function createMockApi(overrides = {}) {
+function createMockApi(overrides: Record<string, unknown> = {}) {
   return {
     fetchBackupStatus: vi.fn().mockResolvedValue({ backups: [] }),
     saveToDrive: vi.fn().mockResolvedValue({
@@ -23,15 +24,22 @@ function createMockApi(overrides = {}) {
       seenQuestions: ['q1'],
     }),
     ...overrides,
-  };
+  } as unknown as ApiService;
 }
 
-function setup(overrides = {}) {
+interface SetupOverrides {
+  apiOverrides?: Record<string, unknown>;
+  companies?: Company[];
+  seenQuestions?: Set<string>;
+  authStatus?: AuthStatus;
+}
+
+function setup(overrides: SetupOverrides = {}) {
   const api = createMockApi(overrides.apiOverrides);
   const replaceCompanies = vi.fn();
   const replaceSeenQuestions = vi.fn();
   const companies = overrides.companies || [];
-  const seenQuestions = overrides.seenQuestions || new Set();
+  const seenQuestions = overrides.seenQuestions || new Set<string>();
   const authStatus = overrides.authStatus || 'unauthenticated';
 
   const { result } = renderHook(() =>
@@ -45,7 +53,7 @@ function setup(overrides = {}) {
     })
   );
 
-  return { result, api, replaceCompanies, replaceSeenQuestions };
+  return { result, api: api as unknown as Record<string, ReturnType<typeof vi.fn>>, replaceCompanies, replaceSeenQuestions };
 }
 
 // ---------------------------------------------------------------------------
@@ -158,7 +166,7 @@ describe('useCloudSync — backup status check', () => {
 
 describe('useCloudSync — saveToDrive', () => {
   it('sends companies and seenQuestions to the API', async () => {
-    const companies = [{ id: '1', name: 'Google', position: 'SWE', stage: 'applied', interviews: [] }];
+    const companies = [{ id: '1', name: 'Google', position: 'SWE', stage: 'applied' as const, pipeline: ['tel-aviv' as const], interviews: [], notes: '', createdAt: '' }];
     const seenQuestions = new Set(['q1', 'q2']);
 
     const { result, api } = setup({ companies, seenQuestions, authStatus: 'authenticated' });

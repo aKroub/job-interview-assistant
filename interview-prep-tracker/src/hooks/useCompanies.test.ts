@@ -13,8 +13,8 @@ function setup() {
   return { result, storage };
 }
 
-const DRAFT = { name: 'Google', position: 'SWE', stage: 'applied', pipeline: ['tel-aviv'] };
-const INTERVIEW = { type: 'Phone Screen', date: '2024-07-01', time: '10:00', status: 'scheduled' };
+const DRAFT = { name: 'Google', position: 'SWE', stage: 'applied' as const, pipeline: ['tel-aviv' as const] };
+const INTERVIEW = { type: 'Phone Interview' as const, date: '2024-07-01', time: '10:00', status: 'scheduled' as const };
 
 // ---------------------------------------------------------------------------
 // Initial state
@@ -33,7 +33,7 @@ describe('useCompanies — initial state', () => {
 
     const { result } = renderHook(() => useCompanies(storage));
     expect(result.current.companies).toHaveLength(1);
-    expect(result.current.companies[0].name).toBe('Meta');
+    expect(result.current.companies[0]!.name).toBe('Meta');
   });
 });
 
@@ -46,15 +46,15 @@ describe('useCompanies — addCompany', () => {
     const { result } = setup();
     act(() => { result.current.addCompany(DRAFT); });
     expect(result.current.companies).toHaveLength(1);
-    expect(result.current.companies[0].name).toBe('Google');
+    expect(result.current.companies[0]!.name).toBe('Google');
   });
 
   it('persists the new company to storage', () => {
     const { result, storage } = setup();
     act(() => { result.current.addCompany(DRAFT); });
-    const stored = JSON.parse(storage.getItem('companies'));
+    const stored = JSON.parse(storage.getItem('companies')!);
     expect(stored).toHaveLength(1);
-    expect(stored[0].name).toBe('Google');
+    expect(stored[0]!.name).toBe('Google');
   });
 });
 
@@ -66,10 +66,10 @@ describe('useCompanies — updateCompanyStage', () => {
   it('updates the stage of the specified company', () => {
     const { result } = setup();
     act(() => { result.current.addCompany(DRAFT); });
-    const companyId = result.current.companies[0].id;
+    const companyId = result.current.companies[0]!.id;
 
     act(() => { result.current.updateCompanyStage(companyId, 'technical'); });
-    expect(result.current.companies[0].stage).toBe('technical');
+    expect(result.current.companies[0]!.stage).toBe('technical');
   });
 });
 
@@ -81,7 +81,7 @@ describe('useCompanies — deleteCompany', () => {
   it('removes the company from the list', () => {
     const { result } = setup();
     act(() => { result.current.addCompany(DRAFT); });
-    const companyId = result.current.companies[0].id;
+    const companyId = result.current.companies[0]!.id;
 
     act(() => { result.current.deleteCompany(companyId); });
     expect(result.current.companies).toHaveLength(0);
@@ -90,10 +90,10 @@ describe('useCompanies — deleteCompany', () => {
   it('persists the deletion to storage', () => {
     const { result, storage } = setup();
     act(() => { result.current.addCompany(DRAFT); });
-    const companyId = result.current.companies[0].id;
+    const companyId = result.current.companies[0]!.id;
 
     act(() => { result.current.deleteCompany(companyId); });
-    const stored = JSON.parse(storage.getItem('companies'));
+    const stored = JSON.parse(storage.getItem('companies')!);
     expect(stored).toHaveLength(0);
   });
 });
@@ -106,20 +106,20 @@ describe('useCompanies — updateCompany', () => {
   it('updates the specified fields on the matching company', () => {
     const { result } = setup();
     act(() => { result.current.addCompany(DRAFT); });
-    const companyId = result.current.companies[0].id;
+    const companyId = result.current.companies[0]!.id;
 
     act(() => { result.current.updateCompany(companyId, { position: 'Head of Engineering' }); });
-    expect(result.current.companies[0].position).toBe('Head of Engineering');
+    expect(result.current.companies[0]!.position).toBe('Head of Engineering');
   });
 
   it('persists the update to storage', () => {
     const { result, storage } = setup();
     act(() => { result.current.addCompany(DRAFT); });
-    const companyId = result.current.companies[0].id;
+    const companyId = result.current.companies[0]!.id;
 
     act(() => { result.current.updateCompany(companyId, { position: 'Manager' }); });
-    const stored = JSON.parse(storage.getItem('companies'));
-    expect(stored[0].position).toBe('Manager');
+    const stored = JSON.parse(storage.getItem('companies')!);
+    expect(stored[0]!.position).toBe('Manager');
   });
 });
 
@@ -131,11 +131,11 @@ describe('useCompanies — addInterview', () => {
   it('appends an interview to the target company', () => {
     const { result } = setup();
     act(() => { result.current.addCompany(DRAFT); });
-    const companyId = result.current.companies[0].id;
+    const companyId = result.current.companies[0]!.id;
 
     act(() => { result.current.addInterview(companyId, INTERVIEW); });
-    expect(result.current.companies[0].interviews).toHaveLength(1);
-    expect(result.current.companies[0].interviews[0].type).toBe('Phone Screen');
+    expect(result.current.companies[0]!.interviews).toHaveLength(1);
+    expect(result.current.companies[0]!.interviews[0]!.type).toBe('Phone Interview');
   });
 });
 
@@ -147,13 +147,13 @@ describe('useCompanies — updateInterviewStatus', () => {
   it('updates the status of the specified interview', () => {
     const { result } = setup();
     act(() => { result.current.addCompany(DRAFT); });
-    const companyId = result.current.companies[0].id;
+    const companyId = result.current.companies[0]!.id;
 
     act(() => { result.current.addInterview(companyId, INTERVIEW); });
-    const interviewId = result.current.companies[0].interviews[0].id;
+    const interviewId = result.current.companies[0]!.interviews[0]!.id;
 
     act(() => { result.current.updateInterviewStatus(companyId, interviewId, 'completed'); });
-    expect(result.current.companies[0].interviews[0].status).toBe('completed');
+    expect(result.current.companies[0]!.interviews[0]!.status).toBe('completed');
   });
 });
 
@@ -165,27 +165,27 @@ describe('useCompanies — updateInterview', () => {
   it('updates the specified fields on the matching interview', () => {
     const { result } = setup();
     act(() => { result.current.addCompany(DRAFT); });
-    const companyId = result.current.companies[0].id;
+    const companyId = result.current.companies[0]!.id;
 
     act(() => { result.current.addInterview(companyId, INTERVIEW); });
-    const interviewId = result.current.companies[0].interviews[0].id;
+    const interviewId = result.current.companies[0]!.interviews[0]!.id;
 
     act(() => { result.current.updateInterview(companyId, interviewId, { date: '2025-02-01', time: '15:00' }); });
-    expect(result.current.companies[0].interviews[0].date).toBe('2025-02-01');
-    expect(result.current.companies[0].interviews[0].time).toBe('15:00');
+    expect(result.current.companies[0]!.interviews[0]!.date).toBe('2025-02-01');
+    expect(result.current.companies[0]!.interviews[0]!.time).toBe('15:00');
   });
 
   it('persists the updated interview to storage', () => {
     const { result, storage } = setup();
     act(() => { result.current.addCompany(DRAFT); });
-    const companyId = result.current.companies[0].id;
+    const companyId = result.current.companies[0]!.id;
 
     act(() => { result.current.addInterview(companyId, INTERVIEW); });
-    const interviewId = result.current.companies[0].interviews[0].id;
+    const interviewId = result.current.companies[0]!.interviews[0]!.id;
 
     act(() => { result.current.updateInterview(companyId, interviewId, { date: '2025-02-01' }); });
-    const stored = JSON.parse(storage.getItem('companies'));
-    expect(stored[0].interviews[0].date).toBe('2025-02-01');
+    const stored = JSON.parse(storage.getItem('companies')!);
+    expect(stored[0]!.interviews[0]!.date).toBe('2025-02-01');
   });
 });
 
@@ -287,7 +287,7 @@ describe('useCompanies — pipeline migration', () => {
     storage.setItem('companies', JSON.stringify(legacy));
 
     const { result } = renderHook(() => useCompanies(storage));
-    expect(result.current.companies[0].pipeline).toEqual(['tel-aviv']);
+    expect(result.current.companies[0]!.pipeline).toEqual(['tel-aviv']);
   });
 
   it('migrates scalar string pipeline to array', () => {
@@ -296,7 +296,7 @@ describe('useCompanies — pipeline migration', () => {
     storage.setItem('companies', JSON.stringify(legacy));
 
     const { result } = renderHook(() => useCompanies(storage));
-    expect(result.current.companies[0].pipeline).toEqual(['us']);
+    expect(result.current.companies[0]!.pipeline).toEqual(['us']);
   });
 
   it('persists the migrated data back to storage', () => {
@@ -305,8 +305,8 @@ describe('useCompanies — pipeline migration', () => {
     storage.setItem('companies', JSON.stringify(legacy));
 
     renderHook(() => useCompanies(storage));
-    const stored = JSON.parse(storage.getItem('companies'));
-    expect(stored[0].pipeline).toEqual(['tel-aviv']);
+    const stored = JSON.parse(storage.getItem('companies')!);
+    expect(stored[0]!.pipeline).toEqual(['tel-aviv']);
   });
 
   it('does not re-write storage when all companies already have array pipeline', () => {
@@ -326,8 +326,8 @@ describe('useCompanies — pipeline migration', () => {
     const cloudData = [{ id: '1', name: 'Cloud Co', position: 'SWE', stage: 'phone', interviews: [] }];
 
     act(() => { result.current.replaceCompanies(cloudData); });
-    expect(result.current.companies[0].pipeline).toEqual(['tel-aviv']);
-    const stored = JSON.parse(storage.getItem('companies'));
-    expect(stored[0].pipeline).toEqual(['tel-aviv']);
+    expect(result.current.companies[0]!.pipeline).toEqual(['tel-aviv']);
+    const stored = JSON.parse(storage.getItem('companies')!);
+    expect(stored[0]!.pipeline).toEqual(['tel-aviv']);
   });
 });

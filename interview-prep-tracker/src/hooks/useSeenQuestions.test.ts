@@ -46,7 +46,7 @@ describe('useSeenQuestions — markQuestionSeen', () => {
   it('persists the id to storage', () => {
     const { result, storage } = setup();
     act(() => { result.current.markQuestionSeen('g1'); });
-    const stored = JSON.parse(storage.getItem('seenQuestions'));
+    const stored = JSON.parse(storage.getItem('seenQuestions')!);
     expect(stored).toContain('g1');
   });
 

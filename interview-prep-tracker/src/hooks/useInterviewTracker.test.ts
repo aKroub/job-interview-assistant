@@ -1,6 +1,7 @@
 import { renderHook, act } from '@testing-library/react';
 import { useInterviewTracker } from './useInterviewTracker';
 import { createMemoryStorage } from '../services/storageService';
+import type { CompanyDraft } from '../types';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -11,6 +12,8 @@ function setup() {
   const { result } = renderHook(() => useInterviewTracker(storage));
   return { result, storage };
 }
+
+const DRAFT: CompanyDraft = { name: 'Acme', position: 'Eng', stage: 'applied', pipeline: ['tel-aviv'] };
 
 // ---------------------------------------------------------------------------
 // API shape — verifies composition of useCompanies + useSeenQuestions
@@ -54,30 +57,30 @@ describe('useInterviewTracker — shared storage', () => {
 
   it('addCompany persists to the injected storage', () => {
     const { result, storage } = setup();
-    act(() => { result.current.addCompany({ name: 'Acme', position: 'Eng', stage: 'applied' }); });
-    const stored = JSON.parse(storage.getItem('companies'));
+    act(() => { result.current.addCompany(DRAFT); });
+    const stored = JSON.parse(storage.getItem('companies')!);
     expect(stored).toHaveLength(1);
-    expect(stored[0].name).toBe('Acme');
+    expect(stored[0]!.name).toBe('Acme');
   });
 
   it('markQuestionSeen persists to the injected storage', () => {
     const { result, storage } = setup();
     act(() => { result.current.markQuestionSeen('g1'); });
-    const stored = JSON.parse(storage.getItem('seenQuestions'));
+    const stored = JSON.parse(storage.getItem('seenQuestions')!);
     expect(stored).toContain('g1');
   });
 
   it('companies and questions use separate storage keys', () => {
     const { result, storage } = setup();
-    act(() => { result.current.addCompany({ name: 'X', position: 'Y', stage: 'applied' }); });
+    act(() => { result.current.addCompany(DRAFT); });
     act(() => { result.current.markQuestionSeen('g1'); });
 
     // Each key is independently parseable
-    expect(() => JSON.parse(storage.getItem('companies'))).not.toThrow();
-    expect(() => JSON.parse(storage.getItem('seenQuestions'))).not.toThrow();
+    expect(() => JSON.parse(storage.getItem('companies')!)).not.toThrow();
+    expect(() => JSON.parse(storage.getItem('seenQuestions')!)).not.toThrow();
     // And they don't overwrite each other
-    expect(JSON.parse(storage.getItem('companies'))[0].name).toBe('X');
-    expect(JSON.parse(storage.getItem('seenQuestions'))).toContain('g1');
+    expect(JSON.parse(storage.getItem('companies')!)[0]!.name).toBe('Acme');
+    expect(JSON.parse(storage.getItem('seenQuestions')!)).toContain('g1');
   });
 });
 
@@ -89,11 +92,11 @@ describe('useInterviewTracker — end-to-end flows', () => {
   it('full company lifecycle: add → update stage → delete', () => {
     const { result } = setup();
 
-    act(() => { result.current.addCompany({ name: 'Google', position: 'SWE', stage: 'applied' }); });
-    const id = result.current.companies[0].id;
+    act(() => { result.current.addCompany({ name: 'Google', position: 'SWE', stage: 'applied' as const, pipeline: ['tel-aviv' as const] }); });
+    const id = result.current.companies[0]!.id;
 
     act(() => { result.current.updateCompanyStage(id, 'technical'); });
-    expect(result.current.companies[0].stage).toBe('technical');
+    expect(result.current.companies[0]!.stage).toBe('technical');
 
     act(() => { result.current.deleteCompany(id); });
     expect(result.current.companies).toHaveLength(0);
@@ -102,15 +105,15 @@ describe('useInterviewTracker — end-to-end flows', () => {
   it('full interview lifecycle: add → update status', () => {
     const { result } = setup();
 
-    act(() => { result.current.addCompany({ name: 'Meta', position: 'SWE', stage: 'applied' }); });
-    const companyId = result.current.companies[0].id;
+    act(() => { result.current.addCompany({ name: 'Meta', position: 'SWE', stage: 'applied' as const, pipeline: ['tel-aviv' as const] }); });
+    const companyId = result.current.companies[0]!.id;
 
-    const interview = { type: 'Phone Interview', date: '2025-01-01', time: '10:00', status: 'scheduled' };
+    const interview = { type: 'Phone Interview' as const, date: '2025-01-01', time: '10:00', status: 'scheduled' as const };
     act(() => { result.current.addInterview(companyId, interview); });
-    const interviewId = result.current.companies[0].interviews[0].id;
+    const interviewId = result.current.companies[0]!.interviews[0]!.id;
 
     act(() => { result.current.updateInterviewStatus(companyId, interviewId, 'completed'); });
-    expect(result.current.companies[0].interviews[0].status).toBe('completed');
+    expect(result.current.companies[0]!.interviews[0]!.status).toBe('completed');
   });
 
   it('full question lifecycle: mark seen → getTotalSeen → reset', () => {

@@ -129,8 +129,39 @@ export interface DriveBackup {
 
 export interface SuggestionStream {
   onConnected(handler: (data: { status: string }) => void): SuggestionStream;
-  onSuggestions(handler: (suggestions: unknown[]) => void): SuggestionStream;
+  onSuggestions(handler: (suggestions: Suggestion[]) => void): SuggestionStream;
   onScanComplete(handler: (data: { scanned: number }) => void): SuggestionStream;
   onError(handler: (error: { message: string }) => void): SuggestionStream;
   close(): void;
+}
+
+/**
+ * API service interface — consumed by hooks via dependency injection.
+ */
+export interface ApiService {
+  fetchAuthStatus(fetchFn?: typeof fetch): Promise<{ authenticated: boolean }>;
+  fetchAuthUrl(fetchFn?: typeof fetch): Promise<{ url: string }>;
+  disconnectAuth(fetchFn?: typeof fetch): Promise<{ authenticated: false }>;
+  dismissSuggestion(suggestionId: string, emailMessageId?: string, calendarEventId?: string, fetchFn?: typeof fetch): Promise<{ dismissed: true }>;
+  triggerScan(fetchFn?: typeof fetch): Promise<{ suggestions: Suggestion[] }>;
+  resetSuggestions(fetchFn?: typeof fetch): Promise<{ reset: true }>;
+  saveToDrive(data: { companies: Company[]; seenQuestions: string[] }, fetchFn?: typeof fetch): Promise<{ saved: boolean; savedAt: string; backups: DriveBackup[] }>;
+  loadFromDrive(fileId: string, fetchFn?: typeof fetch): Promise<{ companies: Company[]; seenQuestions: string[]; exists?: boolean }>;
+  fetchBackupStatus(fetchFn?: typeof fetch): Promise<{ backups: DriveBackup[] }>;
+  createSuggestionStream(EventSourceCtor?: typeof EventSource): SuggestionStream;
+}
+
+// ---------------------------------------------------------------------------
+// Suggestions
+// ---------------------------------------------------------------------------
+
+export type AuthStatus = 'checking' | 'authenticated' | 'unauthenticated';
+export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
+export type SyncStatus = 'idle' | 'saving' | 'loading' | 'success' | 'error';
+
+export interface Suggestion {
+  id: string;
+  emailMessageId?: string;
+  calendarEventId?: string;
+  [key: string]: unknown;
 }

@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Vite Migration Stress Tests
  *

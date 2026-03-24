@@ -1,23 +1,23 @@
-import React from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CloudSyncMenu } from './CloudSyncMenu';
+import type { AuthStatus, SyncStatus } from '../../types';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
 const defaultProps = {
-  authStatus: 'authenticated',
-  syncStatus: 'idle',
-  lastSaved: null,
-  syncError: null,
-  backups: [],
+  authStatus: 'authenticated' as AuthStatus,
+  syncStatus: 'idle' as SyncStatus,
+  lastSaved: null as string | null,
+  syncError: null as string | null,
+  backups: [] as { fileId: string; savedAt: string }[],
   onSave: vi.fn(),
   onLoad: vi.fn(),
 };
 
-function renderMenu(overrides = {}) {
+function renderMenu(overrides: Partial<typeof defaultProps> = {}) {
   const props = { ...defaultProps, onSave: vi.fn(), onLoad: vi.fn(), ...overrides };
   render(<CloudSyncMenu {...props} />);
   return props;
@@ -144,7 +144,7 @@ describe('CloudSyncMenu — interactions', () => {
     const versionButtons = screen.getAllByRole('button').filter(
       (btn) => btn.textContent.includes('2026')
     );
-    await user.click(versionButtons[1]);
+    await user.click(versionButtons[1]!);
 
     expect(window.confirm).toHaveBeenCalled();
     expect(props.onLoad).toHaveBeenCalledWith('f2');
@@ -161,7 +161,7 @@ describe('CloudSyncMenu — interactions', () => {
     const versionButtons = screen.getAllByRole('button').filter(
       (btn) => btn.textContent.includes('2026')
     );
-    await user.click(versionButtons[0]);
+    await user.click(versionButtons[0]!);
 
     expect(window.confirm).toHaveBeenCalled();
     expect(props.onLoad).not.toHaveBeenCalled();

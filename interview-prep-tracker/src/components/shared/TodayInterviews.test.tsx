@@ -1,18 +1,20 @@
-import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TodayInterviews } from './TodayInterviews';
+import type { FlattenedInterview } from '../../types';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeInterview(overrides = {}) {
+function makeInterview(overrides: Partial<FlattenedInterview> = {}): FlattenedInterview {
   return {
     id: 'i1',
     companyId: 'c1',
     companyName: 'Acme Corp',
     position: 'Engineer',
+    companyDomain: null,
+    companyCustomLogoUrl: null,
     type: 'Phone Interview',
     date: '2026-03-11',
     time: '10:00',
@@ -157,13 +159,13 @@ describe('TodayInterviews — video call link', () => {
   const user = userEvent.setup();
 
   it('renders a clickable video icon for Video Interview with a valid URL', () => {
-    const interview = makeInterview({ type: 'Video Interview', videoCallLink: 'https://zoom.us/j/123' });
+    const interview = makeInterview({ type: 'Video Interview', videoCallUrl: 'https://zoom.us/j/123' });
     render(<TodayInterviews interviews={[interview]} />);
     expect(screen.getByRole('button', { name: /show.*video call link/i })).toBeInTheDocument();
   });
 
   it('does not render clickable video icon for Phone Interview even with a URL', () => {
-    const interview = makeInterview({ type: 'Phone Interview', videoCallLink: 'https://zoom.us/j/123' });
+    const interview = makeInterview({ type: 'Phone Interview', videoCallUrl: 'https://zoom.us/j/123' });
     render(<TodayInterviews interviews={[interview]} />);
     expect(screen.queryByRole('button', { name: /video call/i })).not.toBeInTheDocument();
   });
@@ -175,7 +177,7 @@ describe('TodayInterviews — video call link', () => {
   });
 
   it('shows "Join call" link when video icon is clicked', async () => {
-    const interview = makeInterview({ type: 'Video Interview', videoCallLink: 'https://zoom.us/j/123' });
+    const interview = makeInterview({ type: 'Video Interview', videoCallUrl: 'https://zoom.us/j/123' });
     render(<TodayInterviews interviews={[interview]} />);
     await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
     const link = screen.getByRole('link', { name: /join.*video call/i });
@@ -185,7 +187,7 @@ describe('TodayInterviews — video call link', () => {
   });
 
   it('hides "Join call" link when video icon is clicked again', async () => {
-    const interview = makeInterview({ type: 'Video Interview', videoCallLink: 'https://zoom.us/j/123' });
+    const interview = makeInterview({ type: 'Video Interview', videoCallUrl: 'https://zoom.us/j/123' });
     render(<TodayInterviews interviews={[interview]} />);
     await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
     expect(screen.getByRole('link', { name: /join.*video call/i })).toBeInTheDocument();
@@ -195,14 +197,14 @@ describe('TodayInterviews — video call link', () => {
 
   it('does not navigate to timeline when video icon is clicked', async () => {
     const onInterviewClick = vi.fn();
-    const interview = makeInterview({ type: 'Video Interview', videoCallLink: 'https://zoom.us/j/123' });
+    const interview = makeInterview({ type: 'Video Interview', videoCallUrl: 'https://zoom.us/j/123' });
     render(<TodayInterviews interviews={[interview]} onInterviewClick={onInterviewClick} />);
     await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
     expect(onInterviewClick).not.toHaveBeenCalled();
   });
 
   it('does not show an edit input (read-only join call)', async () => {
-    const interview = makeInterview({ type: 'Video Interview', videoCallLink: 'https://zoom.us/j/123' });
+    const interview = makeInterview({ type: 'Video Interview', videoCallUrl: 'https://zoom.us/j/123' });
     render(<TodayInterviews interviews={[interview]} />);
     await user.click(screen.getByRole('button', { name: /show.*video call link/i }));
     expect(screen.queryByRole('textbox')).not.toBeInTheDocument();
@@ -211,7 +213,7 @@ describe('TodayInterviews — video call link', () => {
   it('closes open join call panel when a chip is clicked to navigate', async () => {
     const onInterviewClick = vi.fn();
     const interviews = [
-      makeInterview({ id: 'i1', type: 'Video Interview', videoCallLink: 'https://zoom.us/j/123' }),
+      makeInterview({ id: 'i1', type: 'Video Interview', videoCallUrl: 'https://zoom.us/j/123' }),
       makeInterview({ id: 'i2', companyName: 'Beta Inc', type: 'Phone Interview', time: '14:00' }),
     ];
     render(<TodayInterviews interviews={interviews} onInterviewClick={onInterviewClick} />);
@@ -228,14 +230,14 @@ describe('TodayInterviews — video call link', () => {
 
   it('only one join call panel can be open at a time', async () => {
     const interviews = [
-      makeInterview({ id: 'i1', companyName: 'Acme Corp', type: 'Video Interview', videoCallLink: 'https://zoom.us/j/111' }),
-      makeInterview({ id: 'i2', companyName: 'Beta Inc', type: 'Video Interview', videoCallLink: 'https://zoom.us/j/222', time: '14:00' }),
+      makeInterview({ id: 'i1', companyName: 'Acme Corp', type: 'Video Interview', videoCallUrl: 'https://zoom.us/j/111' }),
+      makeInterview({ id: 'i2', companyName: 'Beta Inc', type: 'Video Interview', videoCallUrl: 'https://zoom.us/j/222', time: '14:00' }),
     ];
     render(<TodayInterviews interviews={interviews} />);
 
     // Open first chip's panel
     const toggles = screen.getAllByRole('button', { name: /show.*video call link/i });
-    await user.click(toggles[0]);
+    await user.click(toggles[0]!);
     expect(screen.getByRole('link', { name: /join acme corp video call/i })).toBeInTheDocument();
 
     // Open second chip's panel — first should auto-close
@@ -246,7 +248,7 @@ describe('TodayInterviews — video call link', () => {
 
   it('pressing Enter on video toggle does not trigger chip navigate (nested interactive guard)', async () => {
     const onInterviewClick = vi.fn();
-    const interview = makeInterview({ type: 'Video Interview', videoCallLink: 'https://zoom.us/j/123' });
+    const interview = makeInterview({ type: 'Video Interview', videoCallUrl: 'https://zoom.us/j/123' });
     render(<TodayInterviews interviews={[interview]} onInterviewClick={onInterviewClick} />);
 
     const videoToggle = screen.getByRole('button', { name: /show.*video call link/i });

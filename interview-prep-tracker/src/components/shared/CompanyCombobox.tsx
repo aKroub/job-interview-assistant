@@ -1,15 +1,22 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Search, Plus, Globe, Upload, Check, X } from 'lucide-react';
-import { COMPANY_POOL } from '../../constants/companies';
-import { getCompanyLogoUrl, guessDomain } from '../../utils/companyLogoUtils';
-import { normalizeImage } from '../../utils/imageUtils';
+import { COMPANY_POOL } from '../../constants/companies.js';
+import { getCompanyLogoUrl, guessDomain } from '../../utils/companyLogoUtils.js';
+import { normalizeImage } from '../../utils/imageUtils.js';
+import type { CompanyPoolEntry } from '../../types';
+
+interface CustomCompanyInfo {
+  name: string;
+  domain: string | null;
+  customLogoUrl: string | null;
+}
 
 /**
  * Renders a single company option in the dropdown list.
  *
  * @param {{ company: Object, isHighlighted: boolean, onSelect: Function, id: string }} props
  */
-function CompanyOption({ company, isHighlighted, onSelect, id }) {
+function CompanyOption({ company, isHighlighted, onSelect, id }: { company: CompanyPoolEntry; isHighlighted: boolean; onSelect: (c: CompanyPoolEntry) => void; id: string }) {
   const logoUrl = getCompanyLogoUrl(company.name);
   return (
     <li
@@ -39,13 +46,13 @@ function CompanyOption({ company, isHighlighted, onSelect, id }) {
  *
  * @param {{ companyName: string, onConfirm: Function, onCancel: Function }} props
  */
-function CustomCompanyPanel({ companyName, onConfirm, onCancel }) {
+function CustomCompanyPanel({ companyName, onConfirm, onCancel }: { companyName: string; onConfirm: (info: CustomCompanyInfo) => void; onCancel: () => void }) {
   const [domain, setDomain] = useState(() => guessDomain(companyName));
-  const [logoUrl, setLogoUrl] = useState(null);
-  const [customLogoUrl, setCustomLogoUrl] = useState(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [customLogoUrl, setCustomLogoUrl] = useState<string | null>(null);
   const [fetching, setFetching] = useState(false);
-  const [fetchError, setFetchError] = useState(null);
-  const fileInputRef = useRef(null);
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   function handleFetch() {
     if (!domain.trim()) return;
@@ -66,7 +73,7 @@ function CustomCompanyPanel({ companyName, onConfirm, onCancel }) {
     img.src = url;
   }
 
-  async function handleFileUpload(e) {
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -219,18 +226,26 @@ function CustomCompanyPanel({ companyName, onConfirm, onCancel }) {
  *   placeholder?:       string,
  * }} props
  */
+interface CompanyComboboxProps {
+  value: string;
+  onChange: (name: string) => void;
+  onCustomCompany: (info: CustomCompanyInfo) => void;
+  id?: string;
+  placeholder?: string;
+}
+
 export function CompanyCombobox({
   value,
   onChange,
   onCustomCompany,
   id = 'company-combobox',
   placeholder = 'Search companies...',
-}) {
+}: CompanyComboboxProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [highlightIndex, setHighlightIndex] = useState(0);
   const [showCustomPanel, setShowCustomPanel] = useState(false);
-  const inputRef = useRef(null);
-  const listRef = useRef(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const listRef = useRef<HTMLUListElement | null>(null);
 
   const query = value.toLowerCase();
   const filtered = query
@@ -254,7 +269,7 @@ export function CompanyCombobox({
     }
   }, [highlightIndex]);
 
-  function handleSelect(company) {
+  function handleSelect(company: CompanyPoolEntry) {
     onChange(company.name);
     setIsOpen(false);
     setShowCustomPanel(false);
@@ -265,12 +280,12 @@ export function CompanyCombobox({
     setShowCustomPanel(true);
   }
 
-  function handleCustomConfirm(info) {
+  function handleCustomConfirm(info: CustomCompanyInfo) {
     onCustomCompany(info);
     setShowCustomPanel(false);
   }
 
-  function handleKeyDown(e) {
+  function handleKeyDown(e: React.KeyboardEvent) {
     if (!isOpen) {
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
@@ -293,7 +308,7 @@ export function CompanyCombobox({
       case 'Enter':
         e.preventDefault();
         if (highlightIndex < filtered.length) {
-          handleSelect(filtered[highlightIndex]);
+          handleSelect(filtered[highlightIndex]!);
         } else if (showAddOption) {
           handleAddCustom();
         }

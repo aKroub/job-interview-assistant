@@ -53,7 +53,7 @@ describe('createMemoryStorage — setItem', () => {
     const storage = createMemoryStorage();
     const data = [{ id: '1', name: 'Acme' }];
     storage.setItem('companies', JSON.stringify(data));
-    expect(JSON.parse(storage.getItem('companies'))).toEqual(data);
+    expect(JSON.parse(storage.getItem('companies')!)).toEqual(data);
   });
 });
 

@@ -1,20 +1,21 @@
+import type { Company, DriveBackup, SuggestionStream } from '../types';
+
 /**
  * API service for communicating with the Express backend.
  *
  * All functions are pure (no React) and accept injectable dependencies
  * so tests can substitute `fetch` and `EventSource` without touching globals.
  *
- * The CRA dev server proxies `/api/*` to `http://localhost:3001` via the
- * `"proxy"` field in package.json, so all paths are relative.
+ * The Vite dev server proxies `/api/*` to `http://localhost:3001` via the
+ * proxy config in vite.config.ts, so all paths are relative.
  */
 
 /**
  * Fetches the current Google OAuth authentication status.
  *
- * @param {Function} [fetchFn=fetch] - injectable fetch for testing
- * @returns {Promise<{ authenticated: boolean }>}
+ * @param fetchFn - injectable fetch for testing
  */
-export async function fetchAuthStatus(fetchFn = fetch) {
+export async function fetchAuthStatus(fetchFn: typeof fetch = fetch): Promise<{ authenticated: boolean }> {
   const res = await fetchFn('/api/auth/status');
   if (!res.ok) throw new Error(`Auth status failed: ${res.status}`);
   return res.json();
@@ -23,10 +24,9 @@ export async function fetchAuthStatus(fetchFn = fetch) {
 /**
  * Fetches the Google OAuth consent URL.
  *
- * @param {Function} [fetchFn=fetch] - injectable fetch for testing
- * @returns {Promise<{ url: string }>}
+ * @param fetchFn - injectable fetch for testing
  */
-export async function fetchAuthUrl(fetchFn = fetch) {
+export async function fetchAuthUrl(fetchFn: typeof fetch = fetch): Promise<{ url: string }> {
   const res = await fetchFn('/api/auth/url');
   if (!res.ok) throw new Error(`Auth URL failed: ${res.status}`);
   return res.json();
@@ -35,10 +35,9 @@ export async function fetchAuthUrl(fetchFn = fetch) {
 /**
  * Disconnects the Google OAuth session (clears server-side tokens).
  *
- * @param {Function} [fetchFn=fetch] - injectable fetch for testing
- * @returns {Promise<{ authenticated: false }>}
+ * @param fetchFn - injectable fetch for testing
  */
-export async function disconnectAuth(fetchFn = fetch) {
+export async function disconnectAuth(fetchFn: typeof fetch = fetch): Promise<{ authenticated: false }> {
   const res = await fetchFn('/api/auth/disconnect', { method: 'POST' });
   if (!res.ok) throw new Error(`Disconnect failed: ${res.status}`);
   return res.json();
@@ -51,13 +50,17 @@ export async function disconnectAuth(fetchFn = fetch) {
  * suggestion ID so the backend can prevent the same interview from resurfacing
  * under a different composite ID when the suggestion source changes.
  *
- * @param {string} suggestionId - the composite suggestion ID to dismiss
- * @param {string} [emailMessageId=''] - the email message ID (if known)
- * @param {string} [calendarEventId=''] - the calendar event ID (if known)
- * @param {Function} [fetchFn=fetch] - injectable fetch for testing
- * @returns {Promise<{ dismissed: true }>}
+ * @param suggestionId - the composite suggestion ID to dismiss
+ * @param emailMessageId - the email message ID (if known)
+ * @param calendarEventId - the calendar event ID (if known)
+ * @param fetchFn - injectable fetch for testing
  */
-export async function dismissSuggestion(suggestionId, emailMessageId = '', calendarEventId = '', fetchFn = fetch) {
+export async function dismissSuggestion(
+  suggestionId: string,
+  emailMessageId = '',
+  calendarEventId = '',
+  fetchFn: typeof fetch = fetch,
+): Promise<{ dismissed: true }> {
   const res = await fetchFn('/api/interviews/dismiss', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -70,10 +73,9 @@ export async function dismissSuggestion(suggestionId, emailMessageId = '', calen
 /**
  * Triggers a manual scan and returns the detected suggestions immediately.
  *
- * @param {Function} [fetchFn=fetch] - injectable fetch for testing
- * @returns {Promise<{ suggestions: Object[] }>}
+ * @param fetchFn - injectable fetch for testing
  */
-export async function triggerScan(fetchFn = fetch) {
+export async function triggerScan(fetchFn: typeof fetch = fetch): Promise<{ suggestions: unknown[] }> {
   const res = await fetchFn('/api/interviews/scan', { method: 'POST' });
   if (!res.ok) throw new Error(`Scan failed: ${res.status}`);
   return res.json();
@@ -82,10 +84,9 @@ export async function triggerScan(fetchFn = fetch) {
 /**
  * Resets all dismissed suggestions on the server so they reappear.
  *
- * @param {Function} [fetchFn=fetch] - injectable fetch for testing
- * @returns {Promise<{ reset: true }>}
+ * @param fetchFn - injectable fetch for testing
  */
-export async function resetSuggestions(fetchFn = fetch) {
+export async function resetSuggestions(fetchFn: typeof fetch = fetch): Promise<{ reset: true }> {
   const res = await fetchFn('/api/interviews/reset', { method: 'POST' });
   if (!res.ok) throw new Error(`Reset failed: ${res.status}`);
   return res.json();
@@ -95,11 +96,13 @@ export async function resetSuggestions(fetchFn = fetch) {
  * Saves the current app state to Google Drive as a new backup version.
  * Returns the updated list of available backups.
  *
- * @param {{ companies: Object[], seenQuestions: string[] }} data
- * @param {Function} [fetchFn=fetch] - injectable fetch for testing
- * @returns {Promise<{ saved: boolean, savedAt: string, backups: Array<{ fileId: string, savedAt: string }> }>}
+ * @param data - app state to persist
+ * @param fetchFn - injectable fetch for testing
  */
-export async function saveToDrive(data, fetchFn = fetch) {
+export async function saveToDrive(
+  data: { companies: Company[]; seenQuestions: string[] },
+  fetchFn: typeof fetch = fetch,
+): Promise<{ saved: boolean; savedAt: string; backups: DriveBackup[] }> {
   const res = await fetchFn('/api/sync/save', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -112,11 +115,13 @@ export async function saveToDrive(data, fetchFn = fetch) {
 /**
  * Loads app state from a specific backup version on Google Drive.
  *
- * @param {string} fileId - the Google Drive file ID of the backup to load
- * @param {Function} [fetchFn=fetch] - injectable fetch for testing
- * @returns {Promise<Object>}
+ * @param fileId - the Google Drive file ID of the backup to load
+ * @param fetchFn - injectable fetch for testing
  */
-export async function loadFromDrive(fileId, fetchFn = fetch) {
+export async function loadFromDrive(
+  fileId: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<{ companies: Company[]; seenQuestions: string[] }> {
   const res = await fetchFn(`/api/sync/load?fileId=${encodeURIComponent(fileId)}`);
   if (!res.ok) throw new Error(`Load from Drive failed: ${res.status}`);
   return res.json();
@@ -125,10 +130,9 @@ export async function loadFromDrive(fileId, fetchFn = fetch) {
 /**
  * Fetches the list of available backup versions on Google Drive.
  *
- * @param {Function} [fetchFn=fetch] - injectable fetch for testing
- * @returns {Promise<{ backups: Array<{ fileId: string, savedAt: string }> }>}
+ * @param fetchFn - injectable fetch for testing
  */
-export async function fetchBackupStatus(fetchFn = fetch) {
+export async function fetchBackupStatus(fetchFn: typeof fetch = fetch): Promise<{ backups: DriveBackup[] }> {
   const res = await fetchFn('/api/sync/status');
   if (!res.ok) throw new Error(`Backup status failed: ${res.status}`);
   return res.json();
@@ -146,10 +150,9 @@ export async function fetchBackupStatus(fetchFn = fetch) {
  *   - `scan-complete` → `{ scanned: number }`
  *   - `error`         → `{ message: string }`
  *
- * @param {Function} [EventSourceCtor=EventSource] - injectable constructor for testing
- * @returns {{ onConnected: Function, onSuggestions: Function, onScanComplete: Function, onError: Function, close: Function }}
+ * @param EventSourceCtor - injectable constructor for testing
  */
-export function createSuggestionStream(EventSourceCtor = EventSource) {
+export function createSuggestionStream(EventSourceCtor: typeof EventSource = EventSource): SuggestionStream {
   const source = new EventSourceCtor('/api/interviews/suggestions');
 
   /**
@@ -169,13 +172,13 @@ export function createSuggestionStream(EventSourceCtor = EventSource) {
    * `source.readyState === 1` (OPEN) in case `onopen` was missed.
    */
   let opened = false;
-  let connectedHandler = null;
+  let connectedHandler: ((data: { status: string }) => void) | null = null;
 
   source.onopen = () => {
-    opened = true;
-    if (connectedHandler) {
+    if (!opened && connectedHandler) {
       connectedHandler({ status: 'connected' });
     }
+    opened = true;
   };
 
   /**
@@ -186,36 +189,20 @@ export function createSuggestionStream(EventSourceCtor = EventSource) {
     return opened || source.readyState === 1;
   }
 
-  const stream = {
-    /**
-     * Registers a handler for the SSE connection being established.
-     *
-     * Uses EventSource's native `onopen` to avoid a race condition
-     * where the server's `connected` event arrives before the listener
-     * is attached.  If the connection is already open when this is
-     * called, the handler fires immediately.
-     *
-     * @param {(data: { status: string }) => void} handler
-     * @returns {typeof stream} for chaining
-     */
+  const stream: SuggestionStream = {
     onConnected(handler) {
       connectedHandler = handler;
       if (isOpen()) {
+        opened = true;
         handler({ status: 'connected' });
       }
       return stream;
     },
 
-    /**
-     * Registers a handler for the `suggestions` SSE event.
-     *
-     * @param {(suggestions: Object[]) => void} handler
-     * @returns {typeof stream} for chaining
-     */
     onSuggestions(handler) {
       source.addEventListener('suggestions', (e) => {
         try {
-          handler(JSON.parse(e.data));
+          handler(JSON.parse((e as MessageEvent).data));
         } catch {
           // Malformed JSON from server — skip this event
         }
@@ -223,16 +210,10 @@ export function createSuggestionStream(EventSourceCtor = EventSource) {
       return stream;
     },
 
-    /**
-     * Registers a handler for the `scan-complete` SSE event.
-     *
-     * @param {(data: { scanned: number }) => void} handler
-     * @returns {typeof stream} for chaining
-     */
     onScanComplete(handler) {
       source.addEventListener('scan-complete', (e) => {
         try {
-          handler(JSON.parse(e.data));
+          handler(JSON.parse((e as MessageEvent).data));
         } catch {
           // Malformed JSON — skip
         }
@@ -240,18 +221,13 @@ export function createSuggestionStream(EventSourceCtor = EventSource) {
       return stream;
     },
 
-    /**
-     * Registers a handler for SSE errors (both stream-level and server-sent).
-     *
-     * @param {(error: { message: string } | Event) => void} handler
-     * @returns {typeof stream} for chaining
-     */
     onError(handler) {
       source.addEventListener('error', (e) => {
         // Server-sent error event has data; native EventSource errors don't
-        if (e.data) {
+        const event = e as MessageEvent;
+        if (event.data) {
           try {
-            handler(JSON.parse(e.data));
+            handler(JSON.parse(event.data));
           } catch {
             handler({ message: 'Received malformed error from server' });
           }
@@ -262,9 +238,6 @@ export function createSuggestionStream(EventSourceCtor = EventSource) {
       return stream;
     },
 
-    /**
-     * Closes the SSE connection. Must be called on unmount.
-     */
     close() {
       source.close();
     },

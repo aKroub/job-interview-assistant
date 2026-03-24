@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import type { Company, CompanyDraft, FlattenedInterview, Interview, InterviewTypeName, PipelineId, Suggestion } from './types';
 import { AddCompanyModal } from './components/AddCompanyModal/AddCompanyModal';
 import { KanbanBoard } from './components/KanbanBoard/KanbanBoard';
 import { PrepContentView } from './components/PrepContentView/PrepContentView';
@@ -17,7 +18,7 @@ import { ACTIVE_STAGES, CLOSED_STAGE, STAGES, STAGE_LABELS } from './constants/s
 import { useInterviewTracker } from './hooks/useInterviewTracker';
 import { findCompanyByFuzzyName, getTodaysUpcomingInterviews, isInPipeline, matchByNameOnly, matchSuggestionToInterview } from './utils/companyUtils';
 
-const EMPTY_DRAFT = { name: '', position: '', stage: STAGES[0], pipeline: [DEFAULT_PIPELINE] };
+const EMPTY_DRAFT: CompanyDraft = { name: '', position: '', stage: STAGES[0]!, pipeline: [DEFAULT_PIPELINE] };
 
 /**
  * Root application component — the thin orchestrating shell.
@@ -33,10 +34,10 @@ const InterviewPrepTracker = () => {
   const [activePipeline,  setActivePipeline]  = useState(DEFAULT_PIPELINE);
   const [showModal,       setShowModal]       = useState(false);
   const [showSuggestions, setShowSuggestions] = useState(true);
-  const [companyDraft,    setCompanyDraft]    = useState(EMPTY_DRAFT);
-  const [editingCompany,  setEditingCompany]  = useState(null);
-  const [suggestionDraft,       setSuggestionDraft]       = useState(null);
-  const [highlightedInterviewId, setHighlightedInterviewId] = useState(null);
+  const [companyDraft,    setCompanyDraft]    = useState<CompanyDraft>(EMPTY_DRAFT);
+  const [editingCompany,  setEditingCompany]  = useState<Company | null>(null);
+  const [suggestionDraft,       setSuggestionDraft]       = useState<{ suggestion: Suggestion; initialValues?: Record<string, unknown>; editInterview?: FlattenedInterview } | null>(null);
+  const [highlightedInterviewId, setHighlightedInterviewId] = useState<string | null>(null);
 
   const {
     companies,
@@ -80,7 +81,7 @@ const InterviewPrepTracker = () => {
     setShowModal(true);
   }
 
-  function handleOpenEditModal(company) {
+  function handleOpenEditModal(company: Company) {
     setEditingCompany(company);
     setCompanyDraft({
       name:     company.name,
@@ -109,7 +110,7 @@ const InterviewPrepTracker = () => {
 
   const todaysInterviews = getTodaysUpcomingInterviews(companies);
 
-  function handleTodayInterviewClick(interview) {
+  function handleTodayInterviewClick(interview: FlattenedInterview) {
     setActiveTab('timeline');
     // Clear first so re-clicking the same chip re-triggers the highlight.
     setHighlightedInterviewId(null);
@@ -124,7 +125,7 @@ const InterviewPrepTracker = () => {
     (c) => isInPipeline(c, activePipeline)
   );
 
-  const pipelineCounts = {};
+  const pipelineCounts: Record<PipelineId, number> = {} as Record<PipelineId, number>;
   for (const p of PIPELINES) {
     pipelineCounts[p] = companies.filter(
       (c) => isInPipeline(c, p)
@@ -140,26 +141,27 @@ const InterviewPrepTracker = () => {
    *    tracker still holds the old date, and previousDate carries it)
    * 3. Relaxed match by name only with closest date tiebreaker (last resort)
    */
-  function matchSuggestionToTracked(suggestion) {
+  function matchSuggestionToTracked(suggestion: Suggestion) {
     // 1. Try strict match with the suggestion's current date
-    const strict = matchSuggestionToInterview(companies, suggestion);
+    const strict = matchSuggestionToInterview(companies, suggestion as unknown as { companyName: string; date: string; time: string });
     if (strict) return strict;
 
     // 2. Try strict match with the previous (original) date — handles
     //    update/cancel emails where the date changed
     if (suggestion.previousDate && suggestion.previousDate !== suggestion.date) {
       const withPrevDate = matchSuggestionToInterview(companies, {
-        ...suggestion,
-        date: suggestion.previousDate,
+        companyName: suggestion.companyName ?? '',
+        date: suggestion.previousDate as string,
+        time: suggestion.time ?? '',
       });
       if (withPrevDate) return withPrevDate;
     }
 
     // 3. Relaxed match by company name only
-    return matchByNameOnly(companies, suggestion);
+    return matchByNameOnly(companies, suggestion as unknown as { companyName: string });
   }
 
-  function handleAcceptSuggestion(suggestion) {
+  function handleAcceptSuggestion(suggestion: Suggestion) {
     const action = suggestion.action || 'add';
 
     if (action === 'cancel') {
@@ -181,16 +183,18 @@ const InterviewPrepTracker = () => {
         if (company && interview) {
           // Build a full interview object with the suggestion's proposed changes
           // pre-applied, so the edit modal opens with the new values ready to save.
-          const editInterview = {
+          const editInterview: FlattenedInterview = {
             ...interview,
             companyId:   company.id,
             companyName: company.name,
             position:    company.position,
-            ...(suggestion.type          ? { type: suggestion.type }                 : {}),
+            companyDomain: company.domain ?? null,
+            companyCustomLogoUrl: company.customLogoUrl ?? null,
+            ...(suggestion.type          ? { type: suggestion.type as InterviewTypeName }                 : {}),
             ...(suggestion.date          ? { date: suggestion.date }                 : {}),
             ...(suggestion.time          ? { time: suggestion.time }                 : {}),
-            ...(suggestion.duration      ? { duration: suggestion.duration }         : {}),
-            ...(suggestion.videoCallLink ? { videoCallLink: suggestion.videoCallLink } : {}),
+            ...(suggestion.duration      ? { duration: suggestion.duration as number }         : {}),
+            ...(suggestion.videoCallUrl ? { videoCallUrl: suggestion.videoCallUrl as string } : {}),
           };
           setSuggestionDraft({ suggestion, editInterview });
           return;
@@ -201,8 +205,8 @@ const InterviewPrepTracker = () => {
     }
 
     // Default: action === 'add', or cancel/update with no tracked match.
-    const match = findCompanyByFuzzyName(companies, suggestion.companyName);
-    const values = {
+    const match = findCompanyByFuzzyName(companies, suggestion.companyName ?? '');
+    const values: Record<string, unknown> = {
       companyId: match?.id || '',
       type:      suggestion.type || '',
       date:      suggestion.date || '',
@@ -211,13 +215,13 @@ const InterviewPrepTracker = () => {
     if (suggestion.duration) {
       values.duration = suggestion.duration;
     }
-    if (suggestion.videoCallLink) {
-      values.videoCallLink = suggestion.videoCallLink;
+    if (suggestion.videoCallUrl) {
+      values.videoCallUrl = suggestion.videoCallUrl;
     }
     setSuggestionDraft({ suggestion, initialValues: values });
   }
 
-  function handleScheduleFromSuggestion(companyId, interview) {
+  function handleScheduleFromSuggestion(companyId: string, interview: Omit<Interview, 'id'>) {
     addInterview(companyId, interview);
     if (suggestionDraft?.suggestion) {
       dismissSuggestion(suggestionDraft.suggestion);
@@ -225,7 +229,7 @@ const InterviewPrepTracker = () => {
     setSuggestionDraft(null);
   }
 
-  function handleEditFromSuggestion(companyId, interviewId, updates) {
+  function handleEditFromSuggestion(companyId: string, interviewId: string, updates: Partial<Interview>) {
     updateInterview(companyId, interviewId, updates);
     if (suggestionDraft?.suggestion) {
       dismissSuggestion(suggestionDraft.suggestion);

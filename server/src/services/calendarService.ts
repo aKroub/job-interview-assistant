@@ -1,6 +1,8 @@
 import { google } from 'googleapis';
+import type { Auth } from 'googleapis';
 import { matchesInterviewKeywords, scoreCalendarEvent } from '../utils/matchingUtils.js';
 import { extractCompanyNameFromText } from '../utils/emailParser.js';
+import type { CalendarEvent, CalendarService } from '../types';
 
 /**
  * Creates a Google Calendar scanning service that searches for interview-related events.
@@ -20,19 +22,27 @@ import { extractCompanyNameFromText } from '../utils/emailParser.js';
  * Prefers `hangoutLink` (direct Google Meet URL) over `conferenceData`
  * entry points. Returns `''` if neither exists.
  *
- * @param {Object} event - Google Calendar event resource
- * @returns {string}
  */
-function extractVideoCallUrlFromEvent(event) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractVideoCallUrlFromEvent(event: any): string {
   if (event.hangoutLink) return event.hangoutLink;
 
   const videoEntry = event.conferenceData?.entryPoints?.find(
-    (ep) => ep.entryPointType === 'video',
+    (ep: { entryPointType?: string; uri?: string }) => ep.entryPointType === 'video',
   );
   return videoEntry?.uri || '';
 }
 
-export function createCalendarService(authClient, options = {}) {
+interface CalendarServiceOptions {
+  lookaheadDays?: number;
+  minScore?: number;
+  getUserEmail?: () => Promise<string>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  calendarApi?: any;
+  nowFn?: () => Date;
+}
+
+export function createCalendarService(authClient: Auth.OAuth2Client, options: CalendarServiceOptions = {}): CalendarService {
   const {
     lookaheadDays = 30,
     minScore = 0.3,
@@ -44,11 +54,9 @@ export function createCalendarService(authClient, options = {}) {
   /**
    * Fetches events from Google Calendar within the given time range.
    *
-   * @param {string} timeMin - ISO 8601 start time
-   * @param {string} timeMax - ISO 8601 end time
-   * @returns {Promise<Object[]>}
    */
-  async function fetchEvents(timeMin, timeMax) {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  async function fetchEvents(timeMin: string, timeMax: string): Promise<any[]> {
     try {
       const response = await calendarApi.events.list({
         calendarId: 'primary',
@@ -60,8 +68,8 @@ export function createCalendarService(authClient, options = {}) {
         maxResults: 50,
       });
       return response.data.items || [];
-    } catch (err) {
-      if (err.code === 401 || err.code === 403) {
+    } catch (err: unknown) {
+      if ((err as { code?: number }).code === 401 || (err as { code?: number }).code === 403) {
         throw new Error('Calendar access denied. Please re-authenticate.');
       }
       throw err;
@@ -77,25 +85,8 @@ export function createCalendarService(authClient, options = {}) {
    * `calendarStatus: 'cancelled'` so downstream consumers can detect
    * interview cancellations. Active events have `calendarStatus: 'confirmed'`.
    *
-   * @returns {Promise<Array<{
-   *   eventId: string,
-   *   summary: string,
-   *   description: string,
-   *   organizerEmail: string,
-   *   startDateTime: string,
-   *   endDateTime: string,
-   *   date: string,
-   *   time: string,
-   *   score: number,
-   *   matchedKeywords: string[],
-   *   reasons: string[],
-   *   hasVideoLink: boolean,
-   *   location: string,
-   *   companyName: string,
-   *   calendarStatus: 'confirmed' | 'cancelled',
-   * }>>}
    */
-  async function scanForInterviews() {
+  async function scanForInterviews(): Promise<CalendarEvent[]> {
     const now = nowFn();
     const timeMin = now.toISOString();
     const futureDate = new Date(now.getTime() + lookaheadDays * 24 * 60 * 60 * 1000);
@@ -106,7 +97,7 @@ export function createCalendarService(authClient, options = {}) {
       getUserEmail(),
     ]);
 
-    const results = [];
+    const results: CalendarEvent[] = [];
 
     for (const event of events) {
       const isCancelled = event.status === 'cancelled';

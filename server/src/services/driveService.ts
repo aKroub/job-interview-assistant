@@ -1,4 +1,6 @@
 import { google } from 'googleapis';
+import type { Auth } from 'googleapis';
+import type { DriveService, DriveBackup } from '../types';
 
 /**
  * Prefix used for all backup file names in Google Drive.
@@ -16,7 +18,7 @@ const MAX_BACKUPS = 5;
  * @param {string} isoString
  * @returns {string}
  */
-function toFilenameSuffix(isoString) {
+function toFilenameSuffix(isoString: string): string {
   return isoString.replace(/:/g, '-');
 }
 
@@ -27,21 +29,17 @@ function toFilenameSuffix(isoString) {
  * Each save creates a new timestamped JSON file in the user's Drive root.
  * Only the most recent MAX_BACKUPS files are kept; older ones are pruned.
  *
- * @param {import('googleapis').Auth.OAuth2Client} authClient - authenticated OAuth2 client
- * @param {Object} [options]
- * @param {Object} [options.driveApi] - injectable Drive API instance for testing
- * @returns {{ saveState: Function, loadState: Function, listBackups: Function }}
  */
-export function createDriveService(authClient, options = {}) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function createDriveService(authClient: Auth.OAuth2Client, options: { driveApi?: any } = {}): DriveService {
   const driveApi = options.driveApi || google.drive({ version: 'v3', auth: authClient });
 
   /**
    * Lists all backup files, sorted newest-first by createdTime.
    * Uses a safety buffer of 10 results to cover any race conditions during pruning.
    *
-   * @returns {Promise<Array<{ id: string, name: string, createdTime: string }>>}
    */
-  async function listBackupFiles() {
+  async function listBackupFiles(): Promise<Array<{ id: string; name: string; createdTime: string }>> {
     const res = await driveApi.files.list({
       q: `name contains '${BACKUP_PREFIX}' and trashed=false`,
       fields: 'files(id,name,createdTime)',
@@ -55,10 +53,8 @@ export function createDriveService(authClient, options = {}) {
   /**
    * Deletes backup files beyond the MAX_BACKUPS most recent.
    *
-   * @param {Array<{ id: string }>} sortedFiles - files sorted newest-first
-   * @returns {Promise<void>}
    */
-  async function pruneOldBackups(sortedFiles) {
+  async function pruneOldBackups(sortedFiles: Array<{ id: string }>): Promise<void> {
     const toDelete = sortedFiles.slice(MAX_BACKUPS);
     await Promise.all(toDelete.map((f) => driveApi.files.delete({ fileId: f.id })));
   }
@@ -67,11 +63,9 @@ export function createDriveService(authClient, options = {}) {
    * Saves app state to Google Drive as a new timestamped file.
    * After saving, prunes files beyond the MAX_BACKUPS most recent.
    *
-   * @param {Object} data - the state payload (version, savedAt, companies, seenQuestions)
-   * @returns {Promise<{ saved: boolean, fileId: string }>}
    */
-  async function saveState(data) {
-    const suffix = toFilenameSuffix(data.savedAt);
+  async function saveState(data: Record<string, unknown>): Promise<{ saved: boolean; fileId: string }> {
+    const suffix = toFilenameSuffix(data.savedAt as string);
     const fileName = `${BACKUP_PREFIX}${suffix}.json`;
 
     const created = await driveApi.files.create({
@@ -96,10 +90,8 @@ export function createDriveService(authClient, options = {}) {
    * Loads app state from a specific backup file on Google Drive.
    * Returns null if the file cannot be found or read.
    *
-   * @param {string} fileId - the Google Drive file ID to load
-   * @returns {Promise<Object | null>}
    */
-  async function loadState(fileId) {
+  async function loadState(fileId: string): Promise<Record<string, unknown> | null> {
     const res = await driveApi.files.get({
       fileId,
       alt: 'media',
@@ -112,9 +104,8 @@ export function createDriveService(authClient, options = {}) {
    * Each entry includes the fileId and savedAt timestamp.
    * savedAt is extracted from the file content's savedAt field (encoded in the filename).
    *
-   * @returns {Promise<{ backups: Array<{ fileId: string, savedAt: string }> }>}
    */
-  async function listBackups() {
+  async function listBackups(): Promise<{ backups: DriveBackup[] }> {
     const files = await listBackupFiles();
     const backups = files.slice(0, MAX_BACKUPS).map((f) => ({
       fileId: f.id,

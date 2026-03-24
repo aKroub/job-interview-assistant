@@ -2,6 +2,7 @@ import { writeFile, mkdir, access } from 'fs/promises';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
+import type { OAuthTokens, DismissedRecord, DismissedSets, SurfacedRecords, SurfacedSets, TokenStore } from '../types';
 
 /**
  * Default directory for storing OAuth tokens — outside the repo, in the user's home folder.
@@ -22,27 +23,21 @@ const DEFAULT_MAX_SURFACED = 500;
  * Dismissed records store component IDs (emailId, calendarId) alongside the composite
  * suggestion ID. This prevents the same interview from resurfacing under a different
  * composite ID when the suggestion source changes (e.g. email-only → cross-referenced).
- *
- * @param {string} [dir=DEFAULT_DIR] - directory to store token and dismissed files
- * @param {number} [maxDismissed=DEFAULT_MAX_DISMISSED] - max dismissed entries to keep (oldest pruned)
- * @returns {{ getTokens, saveTokens, clearTokens, getDismissed, addDismissed, clearDismissed, getSurfaced, addSurfaced, clearSurfaced }}
  */
-export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_DISMISSED) {
+export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_DISMISSED): TokenStore {
   const tokensPath    = join(dir, TOKENS_FILE);
   const dismissedPath = join(dir, DISMISSED_FILE);
   const surfacedPath  = join(dir, SURFACED_FILE);
 
   // In-memory caches — populated on first read (sync, one-time startup cost)
-  let tokensCache = null;
-  /** @type {Array<{ id: string, emailId?: string, calendarId?: string }> | null} */
-  let dismissedCache = null;
-  /** @type {{ emailIds: string[], calendarIds: string[] } | null} */
-  let surfacedCache = null;
+  let tokensCache: OAuthTokens | null = null;
+  let dismissedCache: DismissedRecord[] | null = null;
+  let surfacedCache: SurfacedRecords | null = null;
 
   /**
    * Ensures the storage directory exists (async).
    */
-  async function ensureDir() {
+  async function ensureDir(): Promise<void> {
     try {
       await access(dir);
     } catch {
@@ -54,9 +49,8 @@ export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_D
    * Reads persisted OAuth tokens from disk (synchronous, cached).
    * First call reads from disk, subsequent calls return from memory.
    *
-   * @returns {{ access_token: string, refresh_token: string, expiry_date: number } | null}
    */
-  function getTokens() {
+  function getTokens(): OAuthTokens | null {
     if (tokensCache !== null) return tokensCache;
 
     try {
@@ -78,10 +72,8 @@ export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_D
    * Persists OAuth tokens to disk (async, non-blocking).
    * Updates the in-memory cache immediately for subsequent getTokens() calls.
    *
-   * @param {{ access_token: string, refresh_token?: string, expiry_date?: number }} tokens
-   * @returns {Promise<void>}
    */
-  async function saveTokens(tokens) {
+  async function saveTokens(tokens: OAuthTokens): Promise<void> {
     tokensCache = tokens;
     await ensureDir();
     await writeFile(tokensPath, JSON.stringify(tokens, null, 2), { encoding: 'utf-8', mode: 0o600 });
@@ -91,9 +83,8 @@ export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_D
    * Removes persisted tokens (disconnect/logout) — async, non-blocking.
    * Clears the in-memory cache immediately.
    *
-   * @returns {Promise<void>}
    */
-  async function clearTokens() {
+  async function clearTokens(): Promise<void> {
     tokensCache = null;
     try {
       await ensureDir();
@@ -107,30 +98,30 @@ export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_D
    * Loads the raw dismissed records from disk, migrating old string-only
    * entries to the new object format. Called once per store instance.
    *
-   * @returns {Array<{ id: string, emailId: string, calendarId: string }>}
    */
-  function loadDismissedRecords() {
+  function loadDismissedRecords(): DismissedRecord[] {
     try {
       const raw = readFileSync(dismissedPath, 'utf-8');
       const parsed = JSON.parse(raw);
       if (!Array.isArray(parsed)) return [];
 
       return parsed
-        .map((entry) => {
+        .map((entry: unknown): DismissedRecord | null => {
           // Backward compat: old format stored plain strings
           if (typeof entry === 'string') {
             return { id: entry, emailId: '', calendarId: '' };
           }
-          if (entry && typeof entry === 'object' && typeof entry.id === 'string') {
+          if (entry && typeof entry === 'object' && typeof (entry as Record<string, unknown>).id === 'string') {
+            const e = entry as Record<string, unknown>;
             return {
-              id: entry.id,
-              emailId: typeof entry.emailId === 'string' ? entry.emailId : '',
-              calendarId: typeof entry.calendarId === 'string' ? entry.calendarId : '',
+              id: e.id as string,
+              emailId: typeof e.emailId === 'string' ? e.emailId : '',
+              calendarId: typeof e.calendarId === 'string' ? e.calendarId : '',
             };
           }
           return null;
         })
-        .filter(Boolean);
+        .filter((x): x is DismissedRecord => x !== null);
     } catch {
       return [];
     }
@@ -140,16 +131,15 @@ export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_D
    * Returns the dismissed suggestion records as three Sets for O(1) lookup.
    * First call reads from disk, subsequent calls return from the in-memory cache.
    *
-   * @returns {{ ids: Set<string>, emailIds: Set<string>, calendarIds: Set<string> }}
    */
-  function getDismissed() {
+  function getDismissed(): DismissedSets {
     if (dismissedCache === null) {
       dismissedCache = loadDismissedRecords();
     }
 
-    const ids = new Set();
-    const emailIds = new Set();
-    const calendarIds = new Set();
+    const ids = new Set<string>();
+    const emailIds = new Set<string>();
+    const calendarIds = new Set<string>();
 
     for (const entry of dismissedCache) {
       ids.add(entry.id);
@@ -168,10 +158,8 @@ export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_D
    * Accepts either an object with component IDs or a plain string
    * (backward compat for any old callers).
    *
-   * @param {string | { id: string, emailId?: string, calendarId?: string }} entry
-   * @returns {Promise<void>}
    */
-  async function addDismissed(entry) {
+  async function addDismissed(entry: string | { id: string; emailId?: string; calendarId?: string }): Promise<void> {
     // Normalise input — support plain string for backward compat
     const record = typeof entry === 'string'
       ? { id: entry, emailId: '', calendarId: '' }
@@ -204,9 +192,8 @@ export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_D
    * Clears all dismissed suggestion records (async, non-blocking).
    * Used by the reset endpoint so the user can re-evaluate all suggestions.
    *
-   * @returns {Promise<void>}
    */
-  async function clearDismissed() {
+  async function clearDismissed(): Promise<void> {
     dismissedCache = [];
     try {
       await ensureDir();
@@ -219,9 +206,8 @@ export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_D
   /**
    * Loads surfaced records from disk. Called once per store instance.
    *
-   * @returns {{ emailIds: string[], calendarIds: string[] }}
    */
-  function loadSurfacedRecords() {
+  function loadSurfacedRecords(): SurfacedRecords {
     try {
       const raw = readFileSync(surfacedPath, 'utf-8');
       const parsed = JSON.parse(raw);
@@ -230,10 +216,10 @@ export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_D
       }
       return {
         emailIds: Array.isArray(parsed.emailIds)
-          ? parsed.emailIds.filter((id) => typeof id === 'string')
+          ? parsed.emailIds.filter((id: unknown) => typeof id === 'string') as string[]
           : [],
         calendarIds: Array.isArray(parsed.calendarIds)
-          ? parsed.calendarIds.filter((id) => typeof id === 'string')
+          ? parsed.calendarIds.filter((id: unknown) => typeof id === 'string') as string[]
           : [],
       };
     } catch {
@@ -245,9 +231,8 @@ export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_D
    * Returns the surfaced email and calendar IDs as Sets for O(1) lookup.
    * First call reads from disk, subsequent calls return from the in-memory cache.
    *
-   * @returns {{ emailIds: Set<string>, calendarIds: Set<string> }}
    */
-  function getSurfaced() {
+  function getSurfaced(): SurfacedSets {
     if (surfacedCache === null) {
       surfacedCache = loadSurfacedRecords();
     }
@@ -262,11 +247,8 @@ export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_D
    * Updates the in-memory cache immediately. Deduplicates and prunes
    * to DEFAULT_MAX_SURFACED entries per type.
    *
-   * @param {string[]} [emailIds=[]] - email message IDs to mark as surfaced
-   * @param {string[]} [calendarIds=[]] - calendar event IDs to mark as surfaced
-   * @returns {Promise<void>}
    */
-  async function addSurfaced(emailIds = [], calendarIds = []) {
+  async function addSurfaced(emailIds: string[] = [], calendarIds: string[] = []): Promise<void> {
     if (surfacedCache === null) {
       surfacedCache = loadSurfacedRecords();
     }
@@ -293,9 +275,8 @@ export function createTokenStore(dir = DEFAULT_DIR, maxDismissed = DEFAULT_MAX_D
    * Clears all surfaced records (async, non-blocking).
    * Used for one-time state resets.
    *
-   * @returns {Promise<void>}
    */
-  async function clearSurfaced() {
+  async function clearSurfaced(): Promise<void> {
     surfacedCache = { emailIds: [], calendarIds: [] };
     try {
       await ensureDir();

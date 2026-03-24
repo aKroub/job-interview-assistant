@@ -1,4 +1,5 @@
 import { google } from 'googleapis';
+import type { Auth } from 'googleapis';
 import {
   parseGmailMessage,
   extractEmailFromHeader,
@@ -12,18 +13,19 @@ import {
   detectEmailIntent,
   extractVideoCallUrl,
 } from '../utils/emailParser.js';
+import type { EmailResult, GmailService } from '../types';
+
+interface GmailServiceOptions {
+  lookbackDays?: number;
+  minScore?: number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  gmailApi?: any;
+}
 
 /**
  * Creates a Gmail scanning service that searches for interview-related emails.
- *
- * @param {import('googleapis').Auth.OAuth2Client} authClient - authenticated OAuth2 client
- * @param {Object} [options]
- * @param {number} [options.lookbackDays=7] - how many days back to scan
- * @param {number} [options.minScore=0.3] - minimum confidence score to include a result
- * @param {Function} [options.gmailApi] - injectable Gmail API instance for testing
- * @returns {{ scanForInterviews: () => Promise<Object[]> }}
  */
-export function createGmailService(authClient, options = {}) {
+export function createGmailService(authClient: Auth.OAuth2Client, options: GmailServiceOptions = {}): GmailService {
   const {
     lookbackDays = 7,
     minScore = 0.3,
@@ -34,10 +36,8 @@ export function createGmailService(authClient, options = {}) {
    * Gmail search query targeting interview-related emails.
    * Uses Gmail's search syntax to narrow results before we score them.
    *
-   * @param {number} days - number of days to look back
-   * @returns {string} Gmail search query
    */
-  function buildSearchQuery(days) {
+  function buildSearchQuery(days: number): string {
     const keywords = [
       'interview',
       'technical assessment',
@@ -59,37 +59,20 @@ export function createGmailService(authClient, options = {}) {
   /**
    * Scans Gmail for recent interview-related emails.
    * Returns scored results above the minimum confidence threshold.
-   *
-   * @returns {Promise<Array<{
-   *   messageId: string,
-   *   subject: string,
-   *   snippet: string,
-   *   from: string,
-   *   senderEmail: string,
-   *   senderDomain: string,
-   *   companyName: string,
-   *   score: number,
-   *   matchedKeywords: string[],
-   *   extractedDate: string | null,
-   *   extractedTime: string | null,
-   *   extractedDuration: number | null,
-   *   intent: 'add' | 'cancel' | 'update',
-   *   bodyText: string,
-   * }>>}
    */
-  async function scanForInterviews() {
+  async function scanForInterviews(): Promise<EmailResult[]> {
     const query = buildSearchQuery(lookbackDays);
 
-    let messageIds;
+    let messageIds: string[];
     try {
       const listResponse = await gmailApi.users.messages.list({
         userId: 'me',
         q: query,
         maxResults: 20,
       });
-      messageIds = (listResponse.data.messages || []).map((m) => m.id);
-    } catch (err) {
-      if (err.code === 401 || err.code === 403) {
+      messageIds = (listResponse.data.messages || []).map((m: { id: string }) => m.id);
+    } catch (err: unknown) {
+      if ((err as { code?: number }).code === 401 || (err as { code?: number }).code === 403) {
         throw new Error('Gmail access denied. Please re-authenticate.');
       }
       throw err;
@@ -103,7 +86,7 @@ export function createGmailService(authClient, options = {}) {
     // Using format 'full' instead of 'metadata' gives us the email body,
     // which is needed for reliable date/time/duration extraction — the
     // snippet (~200 chars) often truncates this information.
-    const messagePromises = messageIds.map((id) =>
+    const messagePromises = messageIds.map((id: string) =>
       gmailApi.users.messages.get({
         userId: 'me',
         id,
@@ -113,7 +96,7 @@ export function createGmailService(authClient, options = {}) {
 
     const messageResponses = await Promise.allSettled(messagePromises);
 
-    const results = [];
+    const results: EmailResult[] = [];
 
     for (const response of messageResponses) {
       if (response.status !== 'fulfilled') continue;
